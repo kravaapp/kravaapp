@@ -23,6 +23,8 @@ export default function ProtectedLayout() {
                     paddingTop: 5,
                     height: 60 + insets.bottom,
                     paddingBottom: insets.bottom,
+                    borderTopWidth: 1,
+                    borderTopColor: '#9fa2a8ff',
                 },
             }}
         >

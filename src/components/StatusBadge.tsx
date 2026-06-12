@@ -1,22 +1,22 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
 import { Check, Lock } from 'lucide-react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { COLORS } from './ClientHeader';
 
 export type BadgeStatus = 'lotada' | 'encerrada' | 'confirmado' | 'bloqueada';
 
 type StatusBadgeProps = {
   status: BadgeStatus;
+  label?: string;
 };
 
-export const StatusBadge = ({ status }: StatusBadgeProps) => {
+export const StatusBadge = ({ status, label }: StatusBadgeProps) => {
   switch (status) {
     case 'lotada':
     case 'encerrada':
       return (
         <View style={styles.statusBadgeEnded}>
           <Text style={styles.statusTextEnded}>
-            {status === 'lotada' ? 'Lotada' : 'Encerrada'}
+            {label || (status === 'lotada' ? 'Lotada' : 'Encerrada')}
           </Text>
         </View>
       );
@@ -24,14 +24,14 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
       return (
         <View style={styles.statusBadgeConfirmed}>
           <Check size={14} color="#22c55e" style={{ marginRight: 4 }} />
-          <Text style={styles.statusTextConfirmed}>Confirmado</Text>
+          <Text style={styles.statusTextConfirmed}>{label || 'Confirmado'}</Text>
         </View>
       );
     case 'bloqueada':
       return (
         <View style={styles.statusBadgeLocked}>
           <Lock size={14} color="#f59e0b" style={{ marginRight: 4 }} />
-          <Text style={styles.statusTextLocked}>Nível insuficiente</Text>
+          <Text style={styles.statusTextLocked}>{label || 'Nível insuficiente'}</Text>
         </View>
       );
     default:
