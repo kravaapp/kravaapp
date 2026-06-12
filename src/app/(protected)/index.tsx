@@ -9,8 +9,9 @@ import {
 } from "react-native";
 
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
-import { Clock3, Dumbbell, Lock } from "lucide-react-native";
+import { Clock3, Dumbbell } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
 
 type WeekDay = {
     label: string;
@@ -339,20 +340,7 @@ const AvailableClassItem = ({ aula }: { aula: AulaDisponivel }) => (
             </View>
 
             <View>
-                {aula.estado === "lotada" && (
-                    <Text style={styles.red}>Lotada</Text>
-                )}
-                {aula.estado === "confirmado" && (
-                    <Text style={styles.green}>Confirmado ✓</Text>
-                )}
-                {aula.estado === "bloqueada" && (
-                    <View style={styles.row}>
-                        <Lock size={14} color="#f59e0b" />
-                        <Text style={{ color: "#f59e0b", fontSize: 12 }}>
-                            {" "}Nível insuficiente
-                        </Text>
-                    </View>
-                )}
+                <StatusBadge status={aula.estado as BadgeStatus} />
             </View>
         </View>
     </View>

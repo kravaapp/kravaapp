@@ -1,3 +1,4 @@
+import { COLORS } from "@/components/ClientHeader";
 import KravaLogo from "@/components/KravaLogo";
 import { AuthContext } from "@/contexts/authContext";
 import { useContext, useState } from "react";
@@ -130,7 +131,7 @@ const styles = StyleSheet.create({
 
   button: {
     marginTop: 8,
-    backgroundColor: "#2563eb",
+    backgroundColor: COLORS.mainOrange,
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: "center",
@@ -148,7 +149,7 @@ const styles = StyleSheet.create({
   },
 
   registerText: {
-    color: "#2563eb",
+    color: COLORS.mainOrange,
     fontSize: 14,
     fontWeight: "500",
   },
