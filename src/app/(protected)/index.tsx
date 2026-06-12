@@ -232,12 +232,19 @@ const NextClassCard = () => (
                 <Text style={styles.gray}>Prof. Ricardo Andrade</Text>
             </View>
         </View>
-        <View style={[styles.row, { marginTop: 15 }]}>
-            <Text style={styles.badge}>Confirmado ✓</Text>
+        <View style={styles.bottomRow}>
             <View style={styles.row}>
-                <Clock3 size={14} color="#ccc" />
-                <Text style={styles.graySmall}> Faltam 2h30</Text>
+                <Text style={styles.badge}>Confirmado ✓</Text>
+
+                <View style={[styles.row, { marginLeft: 12 }]}>
+                    <Clock3 size={14} color="#9CA3AF" />
+                    <Text style={styles.graySmall}> Faltam 2h30</Text>
+                </View>
             </View>
+
+            <TouchableOpacity style={styles.cancelButton}>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
         </View>
     </View>
 );
@@ -476,6 +483,26 @@ const styles = StyleSheet.create({
     row: {
         flexDirection: "row",
         alignItems: "center",
+    },
+    bottomRow: {
+        marginTop: 15,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+
+    cancelButton: {
+        borderWidth: 1,
+        borderColor: "#374151",
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+    },
+
+    cancelButtonText: {
+        color: "#6B7280",
+        fontSize: 14,
+        fontWeight: "600",
     },
     rowBetween: {
         flexDirection: "row",
