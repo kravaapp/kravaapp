@@ -332,6 +332,46 @@ const NextClassCard = () => {
 
     const { userNextClass, isLoading, error } = useUserNextClass();
 
+    if (isLoading) {
+        return (
+            <View style={styles.cardBlue}>
+                <View style={styles.skeletonLabel} />
+                <View style={styles.row}>
+                    <View style={styles.skeletonIcon} />
+                    <View style={{ marginLeft: 10 }}>
+                        <View style={styles.skeletonTitle} />
+                        <View style={styles.skeletonSubtitle} />
+                    </View>
+                </View>
+                <View style={styles.bottomRow}>
+                    <View style={styles.row}>
+                        <View style={styles.skeletonBadge} />
+                        <View style={[styles.row, { marginLeft: 12 }]}>
+                            <View style={styles.skeletonTime} />
+                        </View>
+                    </View>
+                    <View style={styles.skeletonButton} />
+                </View>
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <View style={styles.cardBlue}>
+                <Text style={styles.cardLabel}>PRÓXIMA AULA</Text>
+                <View style={{ paddingVertical: 10, alignItems: 'center' }}>
+                    <Text style={styles.white}>Erro ao carregar a próxima aula</Text>
+                    <Text style={styles.graySmall}>{typeof error === 'string' ? error : 'Tente novamente mais tarde.'}</Text>
+                </View>
+            </View>
+        );
+    }
+
+    if (!userNextClass) {
+        return null;
+    }
+
     return (
         <View style={styles.cardBlue}>
             <Text style={styles.cardLabel}>PRÓXIMA AULA</Text>
@@ -683,5 +723,49 @@ const styles = StyleSheet.create({
     },
     red: {
         color: "#ef4444",
+    },
+    skeletonLabel: {
+        height: 12,
+        width: 80,
+        backgroundColor: '#334155',
+        borderRadius: 4,
+        marginBottom: 10,
+    },
+    skeletonIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: '#334155',
+    },
+    skeletonTitle: {
+        height: 16,
+        width: 150,
+        backgroundColor: '#334155',
+        borderRadius: 4,
+        marginBottom: 4,
+    },
+    skeletonSubtitle: {
+        height: 14,
+        width: 100,
+        backgroundColor: '#334155',
+        borderRadius: 4,
+    },
+    skeletonBadge: {
+        height: 14,
+        width: 80,
+        backgroundColor: '#334155',
+        borderRadius: 4,
+    },
+    skeletonTime: {
+        height: 14,
+        width: 60,
+        backgroundColor: '#334155',
+        borderRadius: 4,
+    },
+    skeletonButton: {
+        height: 36,
+        width: 80,
+        backgroundColor: '#334155',
+        borderRadius: 12,
     },
 });
