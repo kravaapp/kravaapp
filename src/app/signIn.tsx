@@ -1,8 +1,9 @@
 import { COLORS } from "@/components/ClientHeader";
 import KravaLogo from "@/components/KravaLogo";
-import { AuthContext } from "@/contexts/authContext";
-import { useContext, useState } from "react";
+import { useLogin } from "@/hooks/useAuth";
+import { useState } from "react";
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TextInput,
@@ -15,7 +16,12 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
 
-  const { signIn } = useContext(AuthContext);
+  const { login, isLoading, error } = useLogin();
+
+  const handleLogin = async () => {
+    if (!email || !senha) return;
+    await login({ email, password: senha });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -53,11 +59,18 @@ export default function Login() {
             />
           </View>
 
+          {error && <Text style={styles.errorText}>{error}</Text>}
+
           <TouchableOpacity
-            style={styles.button}
-            onPress={() => signIn()}
+            style={[styles.button, isLoading && { opacity: 0.7 }]}
+            onPress={handleLogin}
+            disabled={isLoading}
           >
-            <Text style={styles.buttonText}>Entrar</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Entrar</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -152,5 +165,10 @@ const styles = StyleSheet.create({
     color: COLORS.mainOrange,
     fontSize: 14,
     fontWeight: "500",
+  },
+  errorText: {
+    color: "red",
+    fontSize: 14,
+    textAlign: "center",
   },
 });
