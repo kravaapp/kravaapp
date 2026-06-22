@@ -1,4 +1,5 @@
 import { AuthContext } from '@/contexts/authContext';
+import { Token } from '@/types/auth.types';
 import { LogOut } from 'lucide-react-native';
 import { useContext, useState } from 'react';
 import {
@@ -32,9 +33,10 @@ type DropdownProps = {
   visible: boolean;
   onClose: () => void;
   onLogout: () => void;
+  user: Token | null;
 };
 
-const ProfileDropdown = ({ visible, onClose, onLogout }: DropdownProps) => (
+const ProfileDropdown = ({ visible, onClose, onLogout, user }: DropdownProps) => (
   <Modal
     transparent
     visible={visible}
@@ -45,9 +47,9 @@ const ProfileDropdown = ({ visible, onClose, onLogout }: DropdownProps) => (
     <Pressable style={styles.dropdownBackdrop} onPress={onClose}>
       <Pressable style={styles.dropdownMenu} onPress={e => e.stopPropagation()}>
         <View style={styles.dropdownLabel}>
-          <Text style={styles.dropdownName}>Carlos Mendes</Text>
-          <Text style={styles.dropdownMuted}>FitPira Arena</Text>
-          <Text style={styles.dropdownMuted}>Plano Intermediário</Text>
+          <Text style={styles.dropdownName}>{user?.userName || 'Usuário'}</Text>
+          <Text style={styles.dropdownMuted}>{user?.tenantName || 'Arena'}</Text>
+          <Text style={styles.dropdownMuted}>{'Plano Intermediário'}</Text>
         </View>
 
         <View style={styles.dropdownSeparator} />
@@ -68,9 +70,13 @@ const ProfileDropdown = ({ visible, onClose, onLogout }: DropdownProps) => (
   </Modal>
 );
 
+export const getInitials = (name: string) => {
+  return name.split(' ').map(word => word[0]).join('');
+}
+
 const AlunoHeader = () => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
-  const { signOut } = useContext(AuthContext);
+  const { signOut, user } = useContext(AuthContext);
 
   const handleLogout = () => {
     signOut();
@@ -87,7 +93,7 @@ const AlunoHeader = () => {
           onPress={() => setDropdownVisible(true)}
           accessibilityLabel="Abrir menu do perfil"
         >
-          <Text style={styles.avatarText}>CM</Text>
+          <Text style={styles.avatarText}>{getInitials(user?.userName || '')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -95,6 +101,7 @@ const AlunoHeader = () => {
         visible={dropdownVisible}
         onClose={() => setDropdownVisible(false)}
         onLogout={handleLogout}
+        user={user}
       />
     </>
   );

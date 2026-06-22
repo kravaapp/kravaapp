@@ -10,7 +10,7 @@ export default function Layout() {
       <AuthProvider>
         <Stack>
           <Stack.Screen
-            name="(protected)"
+            name="(user)"
             options={{ headerShown: false, animation: "none" }}
           />
           <Stack.Screen

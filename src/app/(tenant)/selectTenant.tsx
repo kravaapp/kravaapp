@@ -18,7 +18,7 @@ export default function SelectTenant() {
     switch (tenant) {
       case "Admin":
         return <LayoutGrid color="#ffffff"  size={24} />;
-      case "student":
+      case "Aluno":
         return <GraduationCap color="#ffffff"  size={24} />;
       default:
         return <Users color="#ffffff"  size={24} />;
@@ -29,7 +29,7 @@ export default function SelectTenant() {
     switch (tenant) {
       case "Admin":
         return "Administrador";
-      case "student":
+      case "Aluno":
         return "Aluno";
       default:
         return "Professor";

@@ -2,7 +2,6 @@ import { AuthContext } from "@/contexts/authContext";
 import { AuthRoutes } from "@/routes/auth.routes";
 import { LoginRequest, SelectTenantRequest } from "@/schemas/auth.schemas";
 import { useMutation } from "@tanstack/react-query";
-import { HTTPError } from "ky";
 import { useContext } from "react";
 
 export function useAuth() {
@@ -28,9 +27,6 @@ export function useLogin() {
                 signIn(data.token);
             }
         },
-        onError: (error: HTTPError) => {
-            console.log(JSON.stringify(error));
-        }
     });
 
     return {

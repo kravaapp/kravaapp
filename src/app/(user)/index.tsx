@@ -8,10 +8,12 @@ import {
     View
 } from "react-native";
 
-import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
+import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
+import { useAuth } from "@/hooks/useAuth";
+import { Token } from "@/types/auth.types";
 import { Clock3, Dumbbell } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
 
 type WeekDay = {
     label: string;
@@ -205,20 +207,20 @@ const aulasDisponiveis: AulaDisponivel[] = [
     },
 ];
 
-const UserProfile = () => (
+const UserProfile = ({ user }: { user: Token | null }) => (
     <View style={styles.profile}>
         <View style={styles.avatar}>
-            <Text style={styles.avatarText}>CM</Text>
+            <Text style={styles.avatarText}>{getInitials(user?.userName || 'Usuario Name')}</Text>
         </View>
 
         <View>
             <View style={styles.userInfo}>
-                <Text style={styles.title}>Olá, Carlos</Text>
+                <Text style={styles.title}>Olá, {user?.userName || 'Usuario Name'}</Text>
                 <View style={styles.subtitleContainer}>
                     <Text style={styles.subtitle}>Intermediário</Text>
                 </View>
             </View>
-            <Text style={styles.location}>FitPira Arena · Piracicaba/SP</Text>
+            <Text style={styles.location}>{user?.tenantName || 'Local não informado'}</Text>
         </View>
     </View>
 );
@@ -349,6 +351,7 @@ const AvailableClassItem = ({ aula }: { aula: AulaDisponivel }) => (
 export default function Home() {
     const [loading, setLoading] = useState(true);
     const [selectedDay, setSelectedDay] = useState<number | null>(null);
+    const { user } = useAuth();
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -362,7 +365,7 @@ export default function Home() {
         <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
             <ClientHeader />
             <View style={{ padding: 20, paddingBottom: 0 }}>
-                <UserProfile />
+                <UserProfile user={user} />
                 <NextClassCard />
                 <Text style={styles.sectionTitle}>AULAS DA SEMANA</Text>
                 <WeekCalendar selectedDay={selectedDay} onSelectDay={setSelectedDay} />
