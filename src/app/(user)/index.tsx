@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -11,20 +11,12 @@ import {
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/hooks/auth.hooks";
-import { useUserNextClass } from "@/hooks/schedule.hooks";
+import { useUserNextClass, useUserWeekClasses } from "@/hooks/schedule.hooks";
 import { Token } from "@/types/auth.types";
 import { Clock3, Dumbbell } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type WeekDay = {
-    label: string;
-    day: number;
-    aula: {
-        modalidade: string;
-        horario: string;
-        status: string;
-    } | null;
-};
+
 
 type AulaDisponivel = {
     id: string;
@@ -36,39 +28,7 @@ type AulaDisponivel = {
     estado: string;
 };
 
-const weekDays: WeekDay[] = [
-    { label: "Seg", day: 17, aula: null },
-    {
-        label: "Ter",
-        day: 18,
-        aula: {
-            modalidade: "Futevôlei",
-            horario: "19h",
-            status: "confirmado",
-        },
-    },
-    { label: "Qua", day: 19, aula: null },
-    {
-        label: "Qui",
-        day: 20,
-        aula: {
-            modalidade: "Futevôlei",
-            horario: "19h",
-            status: "confirmado",
-        },
-    },
-    { label: "Sex", day: 21, aula: null },
-    {
-        label: "Sáb",
-        day: 22,
-        aula: {
-            modalidade: "Futevôlei",
-            horario: "09h",
-            status: "espera",
-        },
-    },
-    { label: "Dom", day: 23, aula: null },
-];
+
 
 const aulasDisponiveis: AulaDisponivel[] = [
     {
@@ -208,24 +168,6 @@ const aulasDisponiveis: AulaDisponivel[] = [
     },
 ];
 
-const UserProfile = ({ user }: { user: Token | null }) => (
-    <View style={styles.profile}>
-        <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(user?.userName || 'Usuario Name')}</Text>
-        </View>
-
-        <View>
-            <View style={styles.userInfo}>
-                <Text style={styles.title}>Olá, {user?.userName || 'Usuario Name'}</Text>
-                <View style={styles.subtitleContainer}>
-                    <Text style={styles.subtitle}>Intermediário</Text>
-                </View>
-            </View>
-            <Text style={styles.location}>{user?.tenantName || 'Local não informado'}</Text>
-        </View>
-    </View>
-);
-
 const WEEK_DAYS = [
     "domingo",
     "segunda-feira",
@@ -328,6 +270,24 @@ export function getTimeUntilClass(date: string, time: string) {
     return `Faltam ${minutesRemaining}min`;
 }
 
+const UserProfile = ({ user }: { user: Token | null }) => (
+    <View style={styles.profile}>
+        <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{getInitials(user?.userName || 'Usuario Name')}</Text>
+        </View>
+
+        <View>
+            <View style={styles.userInfo}>
+                <Text style={styles.title}>Olá, {user?.userName || 'Usuario Name'}</Text>
+                <View style={styles.subtitleContainer}>
+                    <Text style={styles.subtitle}>Intermediário</Text>
+                </View>
+            </View>
+            <Text style={styles.location}>{user?.tenantName || 'Local não informado'}</Text>
+        </View>
+    </View>
+);
+
 const NextClassCard = () => {
 
     const { userNextClass, isLoading, error } = useUserNextClass();
@@ -404,73 +364,124 @@ const NextClassCard = () => {
     )
 };
 
-const WeekCalendar = ({
-    selectedDay,
-    onSelectDay,
-}: {
-    selectedDay: number | null;
-    onSelectDay: (day: number | null) => void;
-}) => (
-    <View style={styles.weekRow}>
-        {weekDays.map((d) => {
-            const isToday = d.day === 18;
-            return (
-                <TouchableOpacity
-                    key={d.day}
-                    style={styles.dayItem}
-                    onPress={() => {
-                        if (!d.aula) return;
-                        onSelectDay(selectedDay === d.day ? null : d.day);
-                    }}
-                >
-                    <Text style={styles.dayLabel}>{d.label}</Text>
-                    <View
-                        style={[
-                            styles.circle,
-                            isToday
-                                ? styles.today
-                                : d.aula
-                                    ? styles.active
-                                    : styles.inactive,
-                        ]}
-                    >
-                        <Text style={d.aula ? styles.todayText : styles.dayText}>
-                            {d.day}
-                        </Text>
+const WeekCalendar = () => {
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    const { userWeekClasses, isLoading } = useUserWeekClasses();
+
+    const weekDays = useMemo(() => {
+        const today = new Date();
+        const currentDay = today.getDay();
+        const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
+        
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - distanceToMonday);
+        
+        const week = [];
+        const labels = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+        
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(monday);
+            date.setDate(monday.getDate() + i);
+            
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day}`;
+            
+            week.push({
+                label: labels[i],
+                day: date.getDate(),
+                date: formattedDate,
+                month: month
+            });
+        }
+        return week;
+    }, []);
+
+    const daysWithClasses = useMemo(() => {
+        return weekDays.map(day => {
+            const classesForDay = (userWeekClasses || []).filter(c => c.ocorrenciaDate === day.date);
+            const firstClass = classesForDay.length > 0 ? classesForDay[0] : null;
+            
+            return {
+                ...day,
+                aula: firstClass ? {
+                    modalidade: firstClass.modalityName || firstClass.aulaName,
+                    horario: firstClass.startTime.substring(0, 5),
+                    status: firstClass.bookingStatus === 'Confirmado' ? 'confirmado' : 'espera'
+                } : null
+            };
+        });
+    }, [weekDays, userWeekClasses]);
+
+    const selectedDayData = daysWithClasses.find(d => d.date === selectedDate);
+
+    if (isLoading) {
+        return (
+            <View style={styles.weekRow}>
+                {Array.from({ length: 7 }).map((_, index) => (
+                    <View key={index} style={styles.dayItem}>
+                        <View style={styles.skeletonDayLabel} />
+                        <View style={styles.skeletonCircle} />
                     </View>
-                    {d.aula && (
-                        <View
-                            style={[
-                                styles.dot,
-                                {
-                                    backgroundColor:
-                                        d.aula.status === "confirmado"
-                                            ? COLORS.mainOrange
-                                            : "#999",
-                                },
-                            ]}
-                        />
-                    )}
-                </TouchableOpacity>
-            );
-        })}
-    </View>
-);
-
-const SelectedDayCard = ({ selectedDay }: { selectedDay: number | null }) => {
-    if (!selectedDay) return null;
-
-    const day = weekDays.find((d) => d.day === selectedDay);
-    if (!day?.aula) return null;
+                ))}
+            </View>
+        );
+    }
 
     return (
-        <View style={styles.card}>
-            <Text style={styles.cardTitle}>
-                {day.aula.modalidade} • {day.aula.horario}
-            </Text>
-            <Text style={styles.location}>
-                {day.label}, {day.day}/03
-            </Text>
+        <View>
+            <View style={styles.weekRow}>
+                {daysWithClasses.map((d) => {
+                    return (
+                        <TouchableOpacity
+                            key={d.date}
+                            style={styles.dayItem}
+                            onPress={() => {
+                                if (!d.aula) return;
+                                setSelectedDate(selectedDate === d.date ? null : d.date);
+                            }}
+                        >
+                            <Text style={styles.dayLabel}>{d.label}</Text>
+                            <View
+                                style={[
+                                    styles.circle,
+                                    d.aula
+                                        ? styles.active
+                                        : styles.inactive,
+                                ]}
+                            >
+                                <Text style={d.aula ? styles.todayText : styles.dayText}>
+                                    {d.day}
+                                </Text>
+                            </View>
+                            {d.aula && (
+                                <View
+                                    style={[
+                                        styles.dot,
+                                        {
+                                            backgroundColor:
+                                                d.aula.status === "confirmado"
+                                                    ? COLORS.mainOrange
+                                                    : "#999",
+                                        },
+                                    ]}
+                                />
+                            )}
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
+            {selectedDayData && selectedDayData.aula && (
+                <View style={styles.card}>
+                    <Text style={styles.cardTitle}>
+                        {selectedDayData.aula.modalidade} • {selectedDayData.aula.horario}
+                    </Text>
+                    <Text style={styles.location}>
+                        {selectedDayData.label}, {String(selectedDayData.day).padStart(2, '0')}/{selectedDayData.month}
+                    </Text>
+                </View>
+            )}
         </View>
     );
 };
@@ -502,7 +513,6 @@ const AvailableClassItem = ({ aula }: { aula: AulaDisponivel }) => (
 
 export default function Home() {
     const [loading, setLoading] = useState(true);
-    const [selectedDay, setSelectedDay] = useState<number | null>(null);
     const { user } = useAuth();
 
     useEffect(() => {
@@ -520,8 +530,7 @@ export default function Home() {
                 <UserProfile user={user} />
                 <NextClassCard />
                 <Text style={styles.sectionTitle}>AULAS DA SEMANA</Text>
-                <WeekCalendar selectedDay={selectedDay} onSelectDay={setSelectedDay} />
-                <SelectedDayCard selectedDay={selectedDay} />
+                <WeekCalendar />
                 <Text style={styles.sectionTitle}>AULAS DISPONÍVEIS AGORA</Text>
                 <Text style={styles.sectionSubtitle}>Abertas para agendamento</Text>
                 {loading && <ActivityIndicator size="large" />}
@@ -767,5 +776,19 @@ const styles = StyleSheet.create({
         width: 80,
         backgroundColor: '#334155',
         borderRadius: 12,
+    },
+    skeletonDayLabel: {
+        width: 20,
+        height: 10,
+        backgroundColor: '#e2e8f0',
+        borderRadius: 4,
+        marginBottom: 2,
+    },
+    skeletonCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#e2e8f0',
+        marginVertical: 5,
     },
 });
