@@ -1,13 +1,42 @@
+import { AUTH_STORAGE_KEY } from "@/contexts/authContext";
+import { Token } from "@/types/auth.types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import ky from "ky";
 
+const baseUrl =
+  process.env.EXPO_PUBLIC_API_URL?.trim() ||
+  "https://krava-api-latest.onrender.com/api";
+
 const api = ky.create({
-  prefix: process.env.EXPO_PUBLIC_API_URL || 'https://krava-api-latest.onrender.com/api',
+  prefix: baseUrl,
   timeout: false,
+
   hooks: {
+    beforeRequest: [
+      async ({ request }) => {
+        try {
+          const authState = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+
+          if (!authState) return;
+
+          const user: Token = JSON.parse(authState);
+
+          if (user?.accessToken) {
+            request.headers.set(
+              "Authorization",
+              `Bearer ${user.accessToken}`
+            );
+          }
+        } catch (err) {
+          console.error("Erro ao carregar token:", err);
+        }
+      },
+    ],
+
     afterResponse: [
-      async ({ response }) => {
+      async ({ request, response }) => {
         if (response.status === 401) {
-          console.error('erro');
+          AsyncStorage.removeItem(AUTH_STORAGE_KEY);
         }
 
         return response;

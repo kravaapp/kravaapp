@@ -1,14 +1,14 @@
 import { COLORS } from "@/components/ClientHeader";
 import KravaLogo from "@/components/KravaLogo";
-import { useLogin } from "@/hooks/useAuth";
+import { useLogin } from "@/hooks/auth.hooks";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 

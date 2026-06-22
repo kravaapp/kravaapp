@@ -1,5 +1,5 @@
 import { COLORS } from "@/components/ClientHeader";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/auth.hooks";
 import { Redirect, Tabs } from "expo-router";
 import { CalendarIcon, Clock, CreditCardIcon, HomeIcon } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

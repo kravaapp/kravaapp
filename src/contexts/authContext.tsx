@@ -17,7 +17,7 @@ type AuthState = {
     signOut: () => void;
 }
 
-const AUTH_STORAGE_KEY = "@krava:auth-state";
+export const AUTH_STORAGE_KEY = "@krava:auth-state";
 
 export const AuthContext = createContext<AuthState>({} as AuthState);
 

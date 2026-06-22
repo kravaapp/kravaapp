@@ -1,4 +1,4 @@
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/auth.hooks";
 import { Redirect, Stack } from "expo-router";
 
 export default function Layout() {

@@ -1,5 +1,5 @@
 import { COLORS } from "@/components/ClientHeader";
-import { useAuth, useSelectTenant } from "@/hooks/useAuth";
+import { useAuth, useSelectTenant } from "@/hooks/auth.hooks";
 import { Redirect } from "expo-router";
 import { GraduationCap, LayoutGrid, Users } from "lucide-react-native";
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";

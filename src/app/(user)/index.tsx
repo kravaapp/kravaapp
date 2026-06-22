@@ -10,7 +10,8 @@ import {
 
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/auth.hooks";
+import { useUserNextClass } from "@/hooks/schedule.hooks";
 import { Token } from "@/types/auth.types";
 import { Clock3, Dumbbell } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -225,32 +226,143 @@ const UserProfile = ({ user }: { user: Token | null }) => (
     </View>
 );
 
-const NextClassCard = () => (
-    <View style={styles.cardBlue}>
-        <Text style={styles.cardLabel}>PRÓXIMA AULA</Text>
-        <View style={styles.row}>
-            <Dumbbell size={24} color="#fff" />
-            <View style={{ marginLeft: 10 }}>
-                <Text style={styles.white}>Futevôlei — hoje 19h</Text>
-                <Text style={styles.gray}>Prof. Ricardo Andrade</Text>
-            </View>
-        </View>
-        <View style={styles.bottomRow}>
-            <View style={styles.row}>
-                <Text style={styles.badge}>Confirmado ✓</Text>
+const WEEK_DAYS = [
+    "domingo",
+    "segunda-feira",
+    "terça-feira",
+    "quarta-feira",
+    "quinta-feira",
+    "sexta-feira",
+    "sábado",
+];
 
-                <View style={[styles.row, { marginLeft: 12 }]}>
-                    <Clock3 size={14} color="#9CA3AF" />
-                    <Text style={styles.graySmall}> Faltam 2h30</Text>
+export function getClassTime(date: string, time: string) {
+    const [year, month, day] = date.split("-").map(Number);
+
+    const classDate = new Date(year, month - 1, day);
+
+    const now = new Date();
+
+    const today = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+    );
+
+    const diffDays = Math.floor(
+        (classDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    const formattedTime = time.substring(0, 5); // HH:MM
+
+    if (diffDays === 0) {
+        return `hoje ${formattedTime}`;
+    }
+
+    if (diffDays === 1) {
+        return `amanhã ${formattedTime}`;
+    }
+
+    if (diffDays > 1 && diffDays <= 7) {
+        return `${WEEK_DAYS[classDate.getDay()]} ${formattedTime}`;
+    }
+
+    const formattedDate = date
+        .split("-")
+        .reverse()
+        .join("/");
+
+    return `${formattedDate} ${formattedTime}`;
+}
+
+export function getClassStatus(status: string) {
+    switch (status) {
+        case "Confirmado":
+            return "Confirmado ✓";
+        case "FilaEspera":
+            return "Na Fila";
+        default:
+            return status;
+    }
+}
+
+export function getTimeUntilClass(date: string, time: string) {
+    const [year, month, day] = date.split("-").map(Number);
+    const [hours, minutes, seconds] = time.split(":").map(Number);
+
+    const classDate = new Date(
+        year,
+        month - 1,
+        day,
+        hours,
+        minutes,
+        seconds || 0
+    );
+
+    const now = new Date();
+
+    const diffMs = classDate.getTime() - now.getTime();
+
+    if (diffMs <= 0) {
+        return "Aula iniciada";
+    }
+
+    const totalMinutes = Math.floor(diffMs / (1000 * 60));
+
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hoursRemaining = Math.floor((totalMinutes % (60 * 24)) / 60);
+    const minutesRemaining = totalMinutes % 60;
+
+    if (days > 0) {
+        if (hoursRemaining > 0 || minutesRemaining > 0) {
+            return `Faltam ${days}d ${hoursRemaining}h${minutesRemaining}min`;
+        }
+
+        return `Faltam ${days}d`;
+    }
+
+    if (hoursRemaining > 0) {
+        return `Faltam ${hoursRemaining}h${minutesRemaining}min`;
+    }
+
+    return `Faltam ${minutesRemaining}min`;
+}
+
+const NextClassCard = () => {
+
+    const { userNextClass, isLoading, error } = useUserNextClass();
+
+    return (
+        <View style={styles.cardBlue}>
+            <Text style={styles.cardLabel}>PRÓXIMA AULA</Text>
+            <View style={styles.row}>
+                <Dumbbell size={24} color="#fff" />
+                <View style={{ marginLeft: 10 }}>
+                    <Text style={styles.white}>{userNextClass?.aulaName || 'Aula'} — {getClassTime(userNextClass?.ocorrenciaDate || '', userNextClass?.startTime || '')}</Text>
+                    <Text style={styles.gray}>Prof. {userNextClass?.professorName || 'Professor'} </Text>
                 </View>
             </View>
+            <View style={styles.bottomRow}>
+                <View style={styles.row}>
+                    <Text
+                        style={userNextClass?.bookingStatus === 'FilaEspera' ? styles.badgeQueue : styles.badge}
+                    >
+                        {getClassStatus(userNextClass?.bookingStatus || '')}
+                    </Text>
 
-            <TouchableOpacity style={styles.cancelButton}>
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
+                    <View style={[styles.row, { marginLeft: 12 }]}>
+                        <Clock3 size={14} color="#9CA3AF" />
+                        <Text style={styles.graySmall}>{getTimeUntilClass(userNextClass?.ocorrenciaDate || '', userNextClass?.startTime || '')}</Text>
+                    </View>
+                </View>
+
+                <TouchableOpacity style={styles.cancelButton}>
+                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+            </View>
         </View>
-    </View>
-);
+    )
+};
 
 const WeekCalendar = ({
     selectedDay,
@@ -502,6 +614,11 @@ const styles = StyleSheet.create({
     },
     badge: {
         color: "#22c55e",
+        fontWeight: "bold",
+        marginRight: 10,
+    },
+    badgeQueue: {
+        color: "#f59e0b",
         fontWeight: "bold",
         marginRight: 10,
     },
