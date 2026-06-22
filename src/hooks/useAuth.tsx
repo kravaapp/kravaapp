@@ -3,7 +3,7 @@ import { AuthRoutes } from "@/routes/auth.routes";
 import { LoginRequest, SelectTenantRequest } from "@/schemas/auth.schemas";
 import { useMutation } from "@tanstack/react-query";
 import { HTTPError } from "ky";
-import { useContext, useEffect } from "react";
+import { useContext } from "react";
 
 export function useAuth() {
     const context = useContext(AuthContext);
@@ -11,7 +11,7 @@ export function useAuth() {
 }
 
 export function useLogin() {
-    const { signIn } = useAuth();
+    const { signIn, setSelectTenant } = useAuth();
 
     const loginMutation = useMutation({
         mutationFn: async (request: LoginRequest) => {
@@ -19,16 +19,19 @@ export function useLogin() {
             return await authRoutes.login(request);
         },
         onSuccess: (data) => {
-            signIn(data.token);
+            if (data.preAuthToken && data.availableTenants) {
+                setSelectTenant({
+                    preAuthToken: data.preAuthToken,
+                    availableTenants: data.availableTenants,
+                });
+            } else {
+                signIn(data.token);
+            }
         },
         onError: (error: HTTPError) => {
             console.log(JSON.stringify(error));
         }
     });
-
-    useEffect(() => {
-        console.log(loginMutation.error);
-    }, [loginMutation.error])
 
     return {
         login: loginMutation.mutateAsync,
@@ -51,9 +54,6 @@ export function useSelectTenant() {
         onSuccess: (data) => {
             signIn(data);
         },
-        onError: (error: HTTPError) => {
-            console.log(JSON.stringify(error));
-        }
     });
 
     return {

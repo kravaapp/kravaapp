@@ -1,11 +1,18 @@
-import { Token } from "@/types/auth.types";
+import { AvailableTenant, Token } from "@/types/auth.types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { createContext, PropsWithChildren, useEffect, useState } from "react";
 
+type SelectTenantState = {
+    preAuthToken: string;
+    availableTenants: AvailableTenant[];
+}
+
 type AuthState = {
     isAuthenticated: boolean;
     user: Token | null;
+    selectTenantState: SelectTenantState | null;
+    setSelectTenant: (data: SelectTenantState) => void;
     signIn: (data: Token) => void;
     signOut: () => void;
 }
@@ -17,6 +24,7 @@ export const AuthContext = createContext<AuthState>({} as AuthState);
 export function AuthProvider({ children }: PropsWithChildren) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [user, setUser] = useState<Token | null>(null);
+    const [selectTenantState, setSelectTenantState] = useState<SelectTenantState | null>(null);
 
     const storageState = async (data: Token | null) => {
         try {
@@ -33,13 +41,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const signIn = (data: Token) => {
         setUser(data);
         setIsAuthenticated(true);
+        setSelectTenantState(null);
         storageState(data);
         router.replace("/");
+    }
+
+    const setSelectTenant = (data: SelectTenantState) => {
+        setSelectTenantState(data);
+        router.replace("/selectTenant");
     }
 
     const signOut = () => {
         setUser(null);
         setIsAuthenticated(false);
+        setSelectTenantState(null);
         storageState(null);
         router.replace("/signIn");
     }
@@ -61,7 +76,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }, []);
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, signIn, signOut }}>
+        <AuthContext.Provider value={{ isAuthenticated, user, signIn, signOut, selectTenantState, setSelectTenant }}>
             {children}
         </AuthContext.Provider>
     );

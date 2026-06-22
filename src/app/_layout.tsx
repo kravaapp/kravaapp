@@ -17,6 +17,10 @@ export default function Layout() {
             name="signIn"
             options={{ headerShown: false, animation: "none" }}
           />
+          <Stack.Screen
+            name="(tenant)"
+            options={{ headerShown: false, animation: "none" }}
+          />
         </Stack>
       </AuthProvider>
     </QueryClientProvider>
