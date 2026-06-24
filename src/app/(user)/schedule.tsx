@@ -1,10 +1,15 @@
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import ClientHeader, { COLORS } from '@/components/ClientHeader';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useCategories } from '@/hooks/categories.hooks';
+import { useSchedule } from '@/hooks/schedule.hooks';
 import { Category } from '@/types/categories.types';
-import { useEffect, useState } from 'react';
-import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScheduleType } from '@/types/schedules.types';
+import { Clock } from 'lucide-react-native';
+import { getTimeUntilClass } from '.';
 
 // Types
 type DayType = {
@@ -14,76 +19,7 @@ type DayType = {
   month: string;
 };
 
-type ClassType = {
-  id: string;
-  time: string;
-  title: string;
-  level: string;
-  gender: string;
-  professor: string;
-  enrolled: number;
-  capacity: number;
-  status: 'encerrada' | 'confirmado' | 'bloqueada';
-};
 
-// Mock Data
-const CATEGORIES = ['Futevôlei', 'Funcional', 'Todas'];
-
-const DAYS: DayType[] = [
-  { id: '1', label: 'Ter', day: '18', month: '03' },
-  { id: '2', label: 'Qua', day: '19', month: '03' },
-  { id: '3', label: 'Qui', day: '20', month: '03' },
-  { id: '4', label: 'Sex', day: '21', month: '03' },
-  { id: '5', label: 'Sáb', day: '22', month: '03' },
-  { id: '6', label: 'Dom', day: '23', month: '03' },
-];
-
-const CLASSES: ClassType[] = [
-  {
-    id: '1',
-    time: '08h00',
-    title: 'Futevôlei',
-    level: 'Iniciante',
-    gender: 'Mista',
-    professor: 'Prof. Ricardo',
-    enrolled: 14,
-    capacity: 14,
-    status: 'encerrada',
-  },
-  {
-    id: '2',
-    time: '09h00',
-    title: 'Futevôlei',
-    level: 'Iniciante',
-    gender: 'Masculina',
-    professor: 'Prof. Ricardo',
-    enrolled: 12,
-    capacity: 14,
-    status: 'encerrada',
-  },
-  {
-    id: '3',
-    time: '19h00',
-    title: 'Futevôlei',
-    level: 'Intermediário',
-    gender: 'Mista',
-    professor: 'Prof. Ricardo',
-    enrolled: 11,
-    capacity: 14,
-    status: 'confirmado',
-  },
-  {
-    id: '4',
-    time: '20h00',
-    title: 'Futevôlei',
-    level: 'Avançado',
-    gender: 'Masculina',
-    professor: 'Prof. Ricardo',
-    enrolled: 8,
-    capacity: 14,
-    status: 'bloqueada',
-  },
-];
 
 type CategoryFilterProps = {
   categories: Category[];
@@ -159,47 +95,72 @@ const DayCalendar = ({ days, selectedId, onSelect }: DayCalendarProps) => (
 );
 
 const getLevelStyle = (level: string) => {
-  switch (level) {
-    case 'Avançado': return { color: '#f59e0b', backgroundColor: '#fef3c7' };
-    case 'Intermediário': return { color: '#ea580c', backgroundColor: '#ffedd5' };
+  switch (level?.toLowerCase()) {
+    case 'avançado': return { color: '#f59e0b', backgroundColor: '#fef3c7' };
+    case 'intermediário': return { color: '#ea580c', backgroundColor: '#ffedd5' };
     default: return { color: '#9ca3af', backgroundColor: '#f3f4f6' };
   }
 };
 
 const getGenderStyle = (gender: string) => {
-  switch (gender) {
-    case 'Masculina': return { color: '#3b82f6', backgroundColor: '#dbeafe' };
+  switch (gender?.toUpperCase()) {
+    case 'M': return { color: '#3b82f6', backgroundColor: '#dbeafe' };
+    case 'F': return { color: '#ec4899', backgroundColor: '#fce7f3' };
     default: return { color: '#9ca3af', backgroundColor: '#f3f4f6' };
   }
 };
 
+const capitalizeText = (text: string) => {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+const getGenderLabel = (gender: string) => {
+  switch (gender?.toUpperCase()) {
+    case 'M': return '♂ Masculina';
+    case 'F': return '♀ Feminina';
+    default: return '⚥ Mista';
+  }
+};
+
 type ClassCardProps = {
-  item: ClassType;
+  item: ScheduleType;
 };
 
 const ClassCard = ({ item }: ClassCardProps) => {
-  const isLocked = item.status === 'bloqueada';
-  const isConfirmed = item.status === 'confirmado';
-  const isEnded = item.status === 'encerrada';
+  const isLocked = item.bookingStatus === 'Bloqueada';
+  const isConfirmed = item.bookingStatus === 'Confirmado';
+  const isEnded = item.bookingStatus === 'Encerrada';
 
-  const progress = (item.enrolled / item.capacity) * 100;
+  const progress = item.capacity && item.enrolled ? (item.enrolled / item.capacity) * 100 : 50; 
+  const level = item.minLevel || "Iniciante"; 
+  const gender = item.publicGender || "Mixed";
+  
+  const startTime = item.startTime.substring(0, 5);
+  const endTime = item.endTime ? item.endTime.substring(0, 5) : '';
+
+  const nowUtc = new Date().toISOString();
+  const isReleased = !item.releaseAt || nowUtc >= item.releaseAt;
+  const timeUntilRelease = !isReleased && item.releaseAt ? getTimeUntilClass(item.releaseAt.split('T')[0], item.releaseAt.split('T')[1]) : null;
 
   return (
     <View style={styles.classCard}>
       <View style={styles.classHeaderRow}>
-        <Text style={styles.classTime}>{item.time}</Text>
+        <View style={styles.timeContainer}>
+          <Text style={styles.classTime}>{startTime}</Text>
+          {endTime ? <Text style={styles.classEndTime}>{endTime}</Text> : null}
+        </View>
         <View style={styles.classDetails}>
-          <Text style={styles.classTitle}>{item.title}</Text>
+          <Text style={styles.classTitle}>{item.aulaName || item.modalityName}</Text>
           <View style={styles.tagsRow}>
-            <View style={[styles.tag, { backgroundColor: getLevelStyle(item.level).backgroundColor }]}>
-              <Text style={[styles.tagText, { color: getLevelStyle(item.level).color }]}>{item.level}</Text>
+            <View style={[styles.tag, { backgroundColor: getLevelStyle(level).backgroundColor }]}>
+              <Text style={[styles.tagText, { color: getLevelStyle(level).color }]}>{capitalizeText(level)}</Text>
             </View>
-            <View style={[styles.tag, { backgroundColor: getGenderStyle(item.gender).backgroundColor }]}>
-              <Text style={[styles.tagText, { color: getGenderStyle(item.gender).color }]}>
-                {item.gender === 'Masculina' ? '♂ Masculina' : '⚥ Mista'}
+            <View style={[styles.tag, { backgroundColor: getGenderStyle(gender).backgroundColor }]}>
+              <Text style={[styles.tagText, { color: getGenderStyle(gender).color }]}>
+                {getGenderLabel(gender)}
               </Text>
             </View>
-            <Text style={styles.professorText}>{item.professor}</Text>
+            <Text style={styles.professorText}>Prof. {item.professorName}</Text>
           </View>
         </View>
       </View>
@@ -212,11 +173,27 @@ const ClassCard = ({ item }: ClassCardProps) => {
             isEnded ? { backgroundColor: '#fdba74' } : { backgroundColor: COLORS.mainOrange }
           ]} />
         </View>
-        <Text style={styles.progressText}>{item.enrolled}/{item.capacity}</Text>
+        <Text style={styles.progressText}>
+          {item.enrolled !== undefined && item.capacity !== undefined 
+            ? `${item.enrolled}/${item.capacity}` 
+            : "- / -"}
+        </Text>
       </View>
 
       <View style={styles.statusRow}>
-        <StatusBadge status={item.status} />
+        <StatusBadge status={item.bookingStatus?.toLowerCase() as any} />
+        <View>
+          {isReleased ? (
+            <TouchableOpacity style={styles.bookButton}>
+              <Text style={styles.bookButtonText}>Agendar</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.releaseBadge}>
+              <Clock size={12} color="#9ca3af" />
+              <Text style={styles.releaseBadgeText}>Libera em {timeUntilRelease}</Text>
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -225,8 +202,37 @@ const ClassCard = ({ item }: ClassCardProps) => {
 export default function Schedule() {
   const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
 
+  const next10Days = useMemo(() => {
+    const days: DayType[] = [];
+    const labels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const today = new Date();
+
+    for (let i = 0; i < 10; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+
+      days.push({
+        id: `${year}-${month}-${day}`,
+        label: labels[date.getDay()],
+        day: day,
+        month: month,
+      });
+    }
+    return days;
+  }, []);
+
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedDay, setSelectedDay] = useState(DAYS[0].id);
+  const [selectedDay, setSelectedDay] = useState(next10Days[0].id);
+
+  const { schedule, isLoading: scheduleLoading, error: scheduleError } = useSchedule({
+    startDate: selectedDay,
+    endDate: selectedDay,
+    modalityId: selectedCategory
+  });
 
   useEffect(() => {
     if (categories?.length) {
@@ -247,19 +253,35 @@ export default function Schedule() {
           onSelect={setSelectedCategory}
         />
         <DayCalendar
-          days={DAYS}
+          days={next10Days}
           selectedId={selectedDay}
           onSelect={setSelectedDay}
         />
       </View>
 
-      <FlatList
-        data={CLASSES}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ClassCard item={item} />}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {scheduleLoading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 40 }}>
+          <ActivityIndicator size="large" color={COLORS.mainOrange} />
+        </View>
+      ) : scheduleError ? (
+        <View style={{ padding: 20, alignItems: 'center' }}>
+          <Text style={{ color: '#ef4444' }}>Erro ao carregar agenda</Text>
+          <Text style={{ color: '#6b7280', fontSize: 12, marginTop: 4 }}>{scheduleError}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={schedule?.items || []}
+          keyExtractor={(item) => item.bookingId}
+          renderItem={({ item }) => <ClassCard item={item} key={item.bookingId} />}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', marginTop: 40 }}>
+              <Text style={{ color: '#9ca3af' }}>Nenhuma aula encontrada para este dia</Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -358,11 +380,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 16,
   },
+  timeContainer: {
+    width: 80,
+    alignItems: 'center',
+    marginRight: 10,
+  },
   classTime: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#fb923c',
-    width: 80,
+    color: COLORS.mainOrange,
+  },
+  classEndTime: {
+    fontSize: 12,
+    color: '#9ca3af',
   },
   classDetails: {
     flex: 1,
@@ -417,6 +447,33 @@ const styles = StyleSheet.create({
   },
   statusRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  bookButton: {
+    backgroundColor: COLORS.mainOrange,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  bookButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  releaseBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  releaseBadgeText: {
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

@@ -257,17 +257,17 @@ export function getTimeUntilClass(date: string, time: string) {
 
     if (days > 0) {
         if (hoursRemaining > 0 || minutesRemaining > 0) {
-            return `Faltam ${days}d ${hoursRemaining}h${minutesRemaining}min`;
+            return `${days}d ${hoursRemaining}h${minutesRemaining}min`;
         }
 
-        return `Faltam ${days}d`;
+        return `${days}d`;
     }
 
     if (hoursRemaining > 0) {
-        return `Faltam ${hoursRemaining}h${minutesRemaining}min`;
+        return `${hoursRemaining}h${minutesRemaining}min`;
     }
 
-    return `Faltam ${minutesRemaining}min`;
+    return `${minutesRemaining}min`;
 }
 
 const UserProfile = ({ user }: { user: Token | null }) => (
@@ -352,7 +352,7 @@ const NextClassCard = () => {
 
                     <View style={[styles.row, { marginLeft: 12 }]}>
                         <Clock3 size={14} color="#9CA3AF" />
-                        <Text style={styles.graySmall}>{getTimeUntilClass(userNextClass?.ocorrenciaDate || '', userNextClass?.startTime || '')}</Text>
+                        <Text style={styles.graySmall}>Faltam {getTimeUntilClass(userNextClass?.ocorrenciaDate || '', userNextClass?.startTime || '')}</Text>
                     </View>
                 </View>
 

@@ -1,6 +1,7 @@
-export type UserNextClass = {
+export type ScheduleType = {
   bookingId: string;
-  bookingStatus: string;
+  bookingStatus?: string;
+  status?: string;
   ocorrenciaId: string;
   ocorrenciaDate: string;
   aulaId: string;
@@ -14,4 +15,21 @@ export type UserNextClass = {
   ctId: string;
   ctName: string;
   waitlistPosition: number | null;
+  minLevel?: string;
+  publicGender?: string;
+  capacity?: number;
+  enrolled?: number;
+  releaseAt?: string;
+}
+
+export type PaginatedType = {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export type PaginatedSchedule = PaginatedType & {
+  items: ScheduleType[];
 }

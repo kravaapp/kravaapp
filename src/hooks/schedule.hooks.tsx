@@ -1,4 +1,5 @@
 import { ScheduleRoutes } from "@/routes/schedule.routes";
+import { ScheduleRequestSchema } from "@/schemas/schedule.schemas";
 import { useQuery } from "@tanstack/react-query";
 
 export function useUserNextClass() {
@@ -38,6 +39,27 @@ export function useUserWeekClasses() {
             ? (query.error as any).data?.detail ||
             query.error.message ||
             "Erro ao buscar aulas da semana"
+            : null,
+        refetch: query.refetch,
+    };
+}
+
+export function useSchedule(params: ScheduleRequestSchema) {
+    const query = useQuery({
+        queryKey: ["schedule", params],
+        queryFn: async () => {
+            const scheduleRoutes = new ScheduleRoutes();
+            return await scheduleRoutes.getSchedule(params);
+        },
+    });
+
+    return {
+        schedule: query.data,
+        isLoading: query.isLoading,
+        error: query.error
+            ? (query.error as any).data?.detail ||
+            query.error.message ||
+            "Erro ao buscar agendamento"
             : null,
         refetch: query.refetch,
     };
