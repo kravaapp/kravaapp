@@ -5,11 +5,11 @@ import { CalendarIcon, Clock, CreditCardIcon, HomeIcon } from "lucide-react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ProtectedLayout() {
-    const { isAuthenticated } = useAuth();
+    const { user } = useAuth();
 
     const insets = useSafeAreaInsets();
 
-    if (!isAuthenticated) {
+    if (!user) {
         return <Redirect href="/signIn" />;
     }
 

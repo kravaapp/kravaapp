@@ -328,7 +328,7 @@ const NextClassCard = () => {
         );
     }
 
-    if (!userNextClass) {
+    if (!userNextClass?.aulaId) {
         return null;
     }
 

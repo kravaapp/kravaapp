@@ -1,6 +1,8 @@
 import ClientHeader, { COLORS } from '@/components/ClientHeader';
 import { StatusBadge } from '@/components/StatusBadge';
-import { useState } from 'react';
+import { useCategories } from '@/hooks/categories.hooks';
+import { Category } from '@/types/categories.types';
+import { useEffect, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -84,26 +86,50 @@ const CLASSES: ClassType[] = [
 ];
 
 type CategoryFilterProps = {
-  categories: string[];
+  categories: Category[];
   selected: string;
   onSelect: (category: string) => void;
+  isLoading: boolean;
+  error: string | null;
 };
 
-const CategoryFilter = ({ categories, selected, onSelect }: CategoryFilterProps) => (
-  <View style={styles.filterContainer}>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
-      {categories.map((cat: string) => (
-        <TouchableOpacity
-          key={cat}
-          style={[styles.filterPill, selected === cat && styles.filterPillSelected]}
-          onPress={() => onSelect(cat)}
-        >
-          <Text style={[styles.filterText, selected === cat && styles.filterTextSelected]}>{cat}</Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  </View>
-);
+const CategoryFilter = ({ categories, selected, onSelect, isLoading, error }: CategoryFilterProps) => {
+  if (isLoading) {
+    return (
+      <View style={styles.filterContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+          {Array.from({ length: 4 }).map((_, index) => (
+            <View key={`skeleton-${index}`} style={[styles.filterPill, { width: 80, backgroundColor: '#f1f5f9', borderColor: '#f1f5f9' }]} />
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.filterContainer, { paddingHorizontal: 20 }]}>
+        <Text style={{ fontSize: 12 }}>Erro ao carregar categorias</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.filterContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+        {categories.map((cat: Category) => (
+          <TouchableOpacity
+            key={cat.id}
+            style={[styles.filterPill, selected === cat.id && styles.filterPillSelected]}
+            onPress={() => onSelect(cat.id)}
+          >
+            <Text style={[styles.filterText, selected === cat.id && styles.filterTextSelected]}>{cat.name}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
 
 type DayCalendarProps = {
   days: DayType[];
@@ -133,18 +159,18 @@ const DayCalendar = ({ days, selectedId, onSelect }: DayCalendarProps) => (
 );
 
 const getLevelStyle = (level: string) => {
-    switch (level) {
-        case 'Avançado': return { color: '#f59e0b', backgroundColor: '#fef3c7' };
-        case 'Intermediário': return { color: '#ea580c', backgroundColor: '#ffedd5' };
-        default: return { color: '#9ca3af', backgroundColor: '#f3f4f6' };
-    }
+  switch (level) {
+    case 'Avançado': return { color: '#f59e0b', backgroundColor: '#fef3c7' };
+    case 'Intermediário': return { color: '#ea580c', backgroundColor: '#ffedd5' };
+    default: return { color: '#9ca3af', backgroundColor: '#f3f4f6' };
+  }
 };
 
 const getGenderStyle = (gender: string) => {
-    switch (gender) {
-        case 'Masculina': return { color: '#3b82f6', backgroundColor: '#dbeafe' };
-        default: return { color: '#9ca3af', backgroundColor: '#f3f4f6' };
-    }
+  switch (gender) {
+    case 'Masculina': return { color: '#3b82f6', backgroundColor: '#dbeafe' };
+    default: return { color: '#9ca3af', backgroundColor: '#f3f4f6' };
+  }
 };
 
 type ClassCardProps = {
@@ -181,10 +207,10 @@ const ClassCard = ({ item }: ClassCardProps) => {
       <View style={styles.progressContainer}>
         <View style={styles.progressBarBackground}>
           <View style={[
-              styles.progressBarFill, 
-              { width: `${progress}%` }, 
-              isEnded ? { backgroundColor: '#fdba74' } : { backgroundColor: COLORS.mainOrange }
-            ]} />
+            styles.progressBarFill,
+            { width: `${progress}%` },
+            isEnded ? { backgroundColor: '#fdba74' } : { backgroundColor: COLORS.mainOrange }
+          ]} />
         </View>
         <Text style={styles.progressText}>{item.enrolled}/{item.capacity}</Text>
       </View>
@@ -197,16 +223,26 @@ const ClassCard = ({ item }: ClassCardProps) => {
 };
 
 export default function Schedule() {
-  const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0]);
+  const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
+
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedDay, setSelectedDay] = useState(DAYS[0].id);
+
+  useEffect(() => {
+    if (categories?.length) {
+      setSelectedCategory(categories[0].id);
+    }
+  }, [categories]);
 
   return (
     <SafeAreaView style={styles.container}>
       <ClientHeader />
-      
+
       <View style={styles.fixedHeader}>
         <CategoryFilter
-          categories={CATEGORIES}
+          categories={categories || []}
+          isLoading={categoriesLoading}
+          error={categoriesError}
           selected={selectedCategory}
           onSelect={setSelectedCategory}
         />
