@@ -270,23 +270,39 @@ export function getTimeUntilClass(date: string, time: string) {
     return `${minutesRemaining}min`;
 }
 
-const UserProfile = ({ user }: { user: Token | null }) => (
-    <View style={styles.profile}>
-        <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(user?.userName || 'Usuario Name')}</Text>
-        </View>
+const getStudentLevelProps = (level?: string) => {
+    switch (level?.toLowerCase()) {
+        case 'avancado':
+            return { label: 'Avançado', color: '#f59e0b', backgroundColor: '#fef3c7' };
+        case 'intermediario':
+            return { label: 'Intermediário', color: '#ea580c', backgroundColor: '#ffedd5' };
+        case 'iniciante':
+        default:
+            return { label: 'Iniciante', color: '#16a34a', backgroundColor: '#dcfce7' };
+    }
+};
 
-        <View>
-            <View style={styles.userInfo}>
-                <Text style={styles.title}>Olá, {user?.userName || 'Usuario Name'}</Text>
-                <View style={styles.subtitleContainer}>
-                    <Text style={styles.subtitle}>Intermediário</Text>
-                </View>
+const UserProfile = ({ user }: { user: Token | null }) => {
+    const levelProps = getStudentLevelProps(user?.studentLevel);
+
+    return (
+        <View style={styles.profile}>
+            <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{getInitials(user?.userName || 'Usuario Name')}</Text>
             </View>
-            <Text style={styles.location}>{user?.tenantName || 'Local não informado'}</Text>
+
+            <View>
+                <View style={styles.userInfo}>
+                    <Text style={styles.title}>Olá, {user?.userName || 'Usuario Name'}</Text>
+                    <View style={[styles.subtitleContainer, { backgroundColor: levelProps.backgroundColor }]}>
+                        <Text style={[styles.subtitle, { color: levelProps.color }]}>{levelProps.label}</Text>
+                    </View>
+                </View>
+                <Text style={styles.location}>{user?.tenantName || 'Local não informado'}</Text>
+            </View>
         </View>
-    </View>
-);
+    );
+};
 
 const NextClassCard = () => {
 
