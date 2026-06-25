@@ -3,13 +3,13 @@ import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpa
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ClientHeader, { COLORS } from '@/components/ClientHeader';
-import { StatusBadge } from '@/components/StatusBadge';
 import { useCategories } from '@/hooks/categories.hooks';
 import { useSchedule } from '@/hooks/schedule.hooks';
 import { Category } from '@/types/categories.types';
 import { ScheduleType } from '@/types/schedules.types';
 import { Clock } from 'lucide-react-native';
 import { getTimeUntilClass } from '.';
+import { useAuth } from '@/hooks/auth.hooks';
 
 // Types
 type DayType = {
@@ -124,17 +124,30 @@ const getGenderLabel = (gender: string) => {
 
 type ClassCardProps = {
   item: ScheduleType;
+  userGender?: string;
+  userLevel?: string;
 };
 
-const ClassCard = ({ item }: ClassCardProps) => {
+const getLevelWeight = (level: string) => {
+  switch (level?.toLowerCase()) {
+    case 'iniciante': return 1;
+    case 'intermediario': return 2;
+    case 'avancado': return 3;
+    default: return 0;
+  }
+};
+
+const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante' }: ClassCardProps) => {
   const isLocked = item.bookingStatus === 'Bloqueada';
   const isConfirmed = item.bookingStatus === 'Confirmado';
   const isEnded = item.bookingStatus === 'Encerrada';
 
-  const progress = item.capacity && item.enrolled ? (item.enrolled / item.capacity) * 100 : 50; 
-  const level = item.minLevel || "Iniciante"; 
+  const progress = typeof item.maxCapacity === 'number' && typeof item.confirmedCount === 'number'
+    ? (item.confirmedCount / item.maxCapacity) * 100
+    : 50;
+  const level = item.minLevel || "Iniciante";
   const gender = item.publicGender || "Mixed";
-  
+
   const startTime = item.startTime.substring(0, 5);
   const endTime = item.endTime ? item.endTime.substring(0, 5) : '';
 
@@ -142,8 +155,13 @@ const ClassCard = ({ item }: ClassCardProps) => {
   const isReleased = !item.releaseAt || nowUtc >= item.releaseAt;
   const timeUntilRelease = !isReleased && item.releaseAt ? getTimeUntilClass(item.releaseAt.split('T')[0], item.releaseAt.split('T')[1]) : null;
 
+  const isGenderAllowed = gender === 'Mixed' || gender === userGender;
+  const isLevelAllowed = getLevelWeight(userLevel) >= getLevelWeight(level);
+
+  const isCardDisabled = !isGenderAllowed || !isLevelAllowed;
+
   return (
-    <View style={styles.classCard}>
+    <View style={[styles.classCard, isCardDisabled && styles.classCardDisabled]}>
       <View style={styles.classHeaderRow}>
         <View style={styles.timeContainer}>
           <Text style={styles.classTime}>{startTime}</Text>
@@ -174,16 +192,19 @@ const ClassCard = ({ item }: ClassCardProps) => {
           ]} />
         </View>
         <Text style={styles.progressText}>
-          {item.enrolled !== undefined && item.capacity !== undefined 
-            ? `${item.enrolled}/${item.capacity}` 
+          {item.confirmedCount !== undefined && item.maxCapacity !== undefined
+            ? `${item.confirmedCount}/${item.maxCapacity}`
             : "- / -"}
         </Text>
       </View>
 
       <View style={styles.statusRow}>
-        <StatusBadge status={item.bookingStatus?.toLowerCase() as any} />
         <View>
-          {isReleased ? (
+          {!isGenderAllowed ? (
+            <Text style={styles.disabledReasonText}>Apenas para o gênero {getGenderLabel(gender).substring(2)}</Text>
+          ) : !isLevelAllowed ? (
+            <Text style={styles.disabledReasonText}>Requer nível {capitalizeText(level)}</Text>
+          ) : isReleased ? (
             <TouchableOpacity style={styles.bookButton}>
               <Text style={styles.bookButtonText}>Agendar</Text>
             </TouchableOpacity>
@@ -200,6 +221,7 @@ const ClassCard = ({ item }: ClassCardProps) => {
 };
 
 export default function Schedule() {
+  const { user } = useAuth();
   const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
 
   const next10Days = useMemo(() => {
@@ -272,7 +294,7 @@ export default function Schedule() {
         <FlatList
           data={schedule?.items || []}
           keyExtractor={(item) => item.bookingId}
-          renderItem={({ item }) => <ClassCard item={item} key={item.bookingId} />}
+          renderItem={({ item }) => <ClassCard item={item} userGender="M" userLevel="iniciante" />}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -376,6 +398,16 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  classCardDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#f9fafb',
+  },
+  disabledReasonText: {
+    color: '#ef4444',
+    fontSize: 12,
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
   classHeaderRow: {
     flexDirection: 'row',
     marginBottom: 16,
@@ -447,7 +479,7 @@ const styles = StyleSheet.create({
   },
   statusRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginTop: 10,
   },

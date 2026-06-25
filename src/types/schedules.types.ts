@@ -17,9 +17,9 @@ export type ScheduleType = {
   waitlistPosition: number | null;
   minLevel?: string;
   publicGender?: string;
-  capacity?: number;
-  enrolled?: number;
+  maxCapacity?: number;
   releaseAt?: string;
+  confirmedCount?: number;
 }
 
 export type PaginatedType = {
