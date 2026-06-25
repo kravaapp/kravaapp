@@ -3,13 +3,14 @@ import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpa
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ClientHeader, { COLORS } from '@/components/ClientHeader';
+import { ConfirmBookingModal } from '@/components/ConfirmBookingModal';
+import { useAuth } from '@/hooks/auth.hooks';
 import { useCategories } from '@/hooks/categories.hooks';
-import { useSchedule } from '@/hooks/schedule.hooks';
+import { useCreateSchedule, useSchedule } from '@/hooks/schedule.hooks';
 import { Category } from '@/types/categories.types';
-import { ScheduleType } from '@/types/schedules.types';
+import { ScheduleOccurrenceType } from '@/types/schedules.types';
 import { Clock } from 'lucide-react-native';
 import { getTimeUntilClass } from '.';
-import { useAuth } from '@/hooks/auth.hooks';
 
 // Types
 type DayType = {
@@ -123,9 +124,10 @@ const getGenderLabel = (gender: string) => {
 };
 
 type ClassCardProps = {
-  item: ScheduleType;
+  item: ScheduleOccurrenceType;
   userGender?: string;
   userLevel?: string;
+  onBookPress: (item: ScheduleOccurrenceType) => void;
 };
 
 const getLevelWeight = (level: string) => {
@@ -137,15 +139,13 @@ const getLevelWeight = (level: string) => {
   }
 };
 
-const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante' }: ClassCardProps) => {
-  const isLocked = item.bookingStatus === 'Bloqueada';
-  const isConfirmed = item.bookingStatus === 'Confirmado';
-  const isEnded = item.bookingStatus === 'Encerrada';
+const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPress }: ClassCardProps) => {
+  const isEnded = false;
 
   const progress = typeof item.maxCapacity === 'number' && typeof item.confirmedCount === 'number'
     ? (item.confirmedCount / item.maxCapacity) * 100
     : 50;
-  const level = item.minLevel || "Iniciante";
+  const level = item.minLevel || "iniciante";
   const gender = item.publicGender || "Mixed";
 
   const startTime = item.startTime.substring(0, 5);
@@ -205,7 +205,7 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante' }: ClassCar
           ) : !isLevelAllowed ? (
             <Text style={styles.disabledReasonText}>Requer nível {capitalizeText(level)}</Text>
           ) : isReleased ? (
-            <TouchableOpacity style={styles.bookButton}>
+            <TouchableOpacity style={styles.bookButton} onPress={() => onBookPress(item)}>
               <Text style={styles.bookButtonText}>Agendar</Text>
             </TouchableOpacity>
           ) : (
@@ -223,6 +223,24 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante' }: ClassCar
 export default function Schedule() {
   const { user } = useAuth();
   const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
+  const { createSchedule, isLoading: isCreatingSchedule } = useCreateSchedule();
+
+  const [selectedClass, setSelectedClass] = useState<ScheduleOccurrenceType | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
+  const handleBookPress = (item: ScheduleOccurrenceType) => {
+    setSelectedClass(item);
+    setIsModalVisible(true);
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!selectedClass) return;
+
+    await createSchedule({ ocorrenciaId: selectedClass.id });
+
+    setIsModalVisible(false);
+    setSelectedClass(null);
+  };
 
   const next10Days = useMemo(() => {
     const days: DayType[] = [];
@@ -293,8 +311,8 @@ export default function Schedule() {
       ) : (
         <FlatList
           data={schedule?.items || []}
-          keyExtractor={(item) => item.bookingId}
-          renderItem={({ item }) => <ClassCard item={item} userGender="M" userLevel="iniciante" />}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <ClassCard item={item} userGender={user?.gender} userLevel={user?.studentLevel} onBookPress={handleBookPress} key={item.id} />}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -304,6 +322,13 @@ export default function Schedule() {
           }
         />
       )}
+      <ConfirmBookingModal
+        visible={isModalVisible}
+        selectedClass={selectedClass}
+        isCreatingSchedule={isCreatingSchedule}
+        onClose={() => setIsModalVisible(false)}
+        onConfirm={handleConfirmBooking}
+      />
     </SafeAreaView>
   );
 }

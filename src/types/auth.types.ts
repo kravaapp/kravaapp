@@ -8,6 +8,8 @@ export type Token = {
   tenantId: string;
   tenantName: string;
   role: string;
+  gender: string;
+  studentLevel: string;
 }
 
 export type AvailableTenant = {

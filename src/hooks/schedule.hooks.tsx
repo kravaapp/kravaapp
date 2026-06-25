@@ -1,6 +1,7 @@
 import { ScheduleRoutes } from "@/routes/schedule.routes";
-import { ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { useQuery } from "@tanstack/react-query";
+import { CreateScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 export function useUserNextClass() {
     const query = useQuery({
@@ -62,5 +63,31 @@ export function useSchedule(params: ScheduleRequestSchema) {
             "Erro ao buscar agendamento"
             : null,
         refetch: query.refetch,
+    };
+}
+
+export function useCreateSchedule() {
+    const mutation = useMutation({
+        mutationFn: async (params: CreateScheduleRequestSchema) => {
+            const scheduleRoutes = new ScheduleRoutes();
+            return await scheduleRoutes.createSchedule(params);
+        },
+        onSuccess: (data) => {
+            console.log('Agendamento criado com sucesso: ', data);
+        },
+    });
+
+    useEffect(() => {
+        if (mutation.error) {
+            console.error('Erro ao criar agendamento: ', (mutation.error as any).data?.detail || mutation.error.message || "Erro ao criar agendamento");
+        }
+    }, [mutation.error]);
+
+    return {
+        createSchedule: mutation.mutateAsync,
+        isLoading: mutation.isPending,
+        error: mutation.error
+            ? (mutation.error as any).data?.detail || mutation.error.message || "Erro ao criar agendamento"
+            : null
     };
 }

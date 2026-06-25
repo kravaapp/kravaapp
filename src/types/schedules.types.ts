@@ -30,6 +30,26 @@ export type PaginatedType = {
   hasPreviousPage: boolean;
 }
 
+export type ScheduleOccurrenceType = {
+  id: string;
+  aulaId: string;
+  aulaName: string;
+  modalityName: string;
+  professorName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: "Agendada";
+  maxCapacity: number,
+  confirmedCount: number,
+  waitlistCount: number,
+  allowTrial: boolean,
+  releaseAt: string;
+  minLevel: string;
+  publicGender: string;
+  waitlistTimeoutMinutes: number;
+}
+
 export type PaginatedSchedule = PaginatedType & {
-  items: ScheduleType[];
+  items: ScheduleOccurrenceType[];
 }
