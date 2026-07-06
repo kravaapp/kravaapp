@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -11,162 +11,14 @@ import {
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/hooks/auth.hooks";
-import { useUserNextClass, useUserWeekClasses } from "@/hooks/schedule.hooks";
+import { useCreateSchedule, useSchedule, useUserNextClass, useUserWeekClasses } from "@/hooks/schedule.hooks";
 import { Token } from "@/types/auth.types";
+import { ScheduleOccurrenceType } from "@/types/schedules.types";
 import { Clock3, Dumbbell } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ConfirmBookingModal } from "@/components/ConfirmBookingModal";
 
 
-
-type AulaDisponivel = {
-    id: string;
-    horario: string;
-    modalidade: string;
-    professor: string;
-    confirmados: number;
-    capacidade: number;
-    estado: string;
-};
-
-
-
-const aulasDisponiveis: AulaDisponivel[] = [
-    {
-        id: "1",
-        horario: "18h00",
-        modalidade: "Funcional",
-        professor: "Marina",
-        confirmados: 14,
-        capacidade: 14,
-        estado: "lotada",
-    },
-    {
-        id: "2",
-        horario: "19h00",
-        modalidade: "Futevôlei",
-        professor: "Ricardo",
-        confirmados: 11,
-        capacidade: 14,
-        estado: "confirmado",
-    },
-    {
-        id: "3",
-        horario: "20h00",
-        modalidade: "Futevôlei",
-        professor: "Ricardo",
-        confirmados: 8,
-        capacidade: 14,
-        estado: "bloqueada",
-    },
-    {
-        id: "4",
-        horario: "18h00",
-        modalidade: "Funcional",
-        professor: "Marina",
-        confirmados: 14,
-        capacidade: 14,
-        estado: "lotada",
-    },
-    {
-        id: "5",
-        horario: "19h00",
-        modalidade: "Futevôlei",
-        professor: "Ricardo",
-        confirmados: 11,
-        capacidade: 14,
-        estado: "confirmado",
-    },
-    {
-        id: "6",
-        horario: "20h00",
-        modalidade: "Futevôlei",
-        professor: "Ricardo",
-        confirmados: 8,
-        capacidade: 14,
-        estado: "bloqueada",
-    },
-    {
-        id: "7",
-        horario: "18h00",
-        modalidade: "Funcional",
-        professor: "Marina",
-        confirmados: 14,
-        capacidade: 14,
-        estado: "lotada",
-    },
-    {
-        id: "8",
-        horario: "19h00",
-        modalidade: "Futevôlei",
-        professor: "Ricardo",
-        confirmados: 11,
-        capacidade: 14,
-        estado: "confirmado",
-    },
-    {
-        id: "9",
-        horario: "20h00",
-        modalidade: "Futevôlei",
-        professor: "Ricardo",
-        confirmados: 8,
-        capacidade: 14,
-        estado: "bloqueada",
-    },
-    {
-        id: "10",
-        horario: "18h00",
-        modalidade: "Funcional",
-        professor: "Marina",
-        confirmados: 14,
-        capacidade: 14,
-        estado: "lotada",
-    },
-    {
-        id: "11",
-        horario: "19h00",
-        modalidade: "Futevôlei",
-        professor: "Ricardo",
-        confirmados: 11,
-        capacidade: 14,
-        estado: "confirmado",
-    },
-    {
-        id: "12",
-        horario: "20h00",
-        modalidade: "Futevôlei",
-        professor: "Ricardo",
-        confirmados: 8,
-        capacidade: 14,
-        estado: "bloqueada",
-    },
-    {
-        id: "13",
-        horario: "18h00",
-        modalidade: "Funcional",
-        professor: "Marina",
-        confirmados: 14,
-        capacidade: 14,
-        estado: "lotada",
-    },
-    {
-        id: "14",
-        horario: "19h00",
-        modalidade: "Futevôlei",
-        professor: "Ricardo",
-        confirmados: 11,
-        capacidade: 14,
-        estado: "confirmado",
-    },
-    {
-        id: "15",
-        horario: "20h00",
-        modalidade: "Futevôlei",
-        professor: "Ricardo",
-        confirmados: 8,
-        capacidade: 14,
-        estado: "bloqueada",
-    },
-];
 
 const WEEK_DAYS = [
     "domingo",
@@ -502,42 +354,128 @@ const WeekCalendar = () => {
     );
 };
 
-const AvailableClassItem = ({ aula }: { aula: AulaDisponivel }) => (
-    <View style={[styles.card, aula.estado === "bloqueada" ? { opacity: 0.6 } : {}]}>
-        <View style={styles.rowBetween}>
-            <View style={styles.row}>
-                <View style={{ marginRight: 16, width: 55 }}>
-                    <Text style={styles.time}>{aula.horario}</Text>
-                    <Text style={styles.location}>{aula.modalidade}</Text>
-                </View>
-                <View>
-                    <Text style={{ fontSize: 12, fontWeight: "600" }}>
-                        Prof. {aula.professor}
-                    </Text>
-                    <Text style={styles.location}>
-                        {aula.confirmados}/{aula.capacidade} vagas
-                    </Text>
-                </View>
-            </View>
+const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', onBookPress }: { aula: ScheduleOccurrenceType; userGender?: string; userLevel?: string; onBookPress: (item: ScheduleOccurrenceType) => void }) => {
+    const level = aula.minLevel || "iniciante";
+    const gender = aula.publicGender || "Mixed";
 
-            <View>
-                <StatusBadge status={aula.estado as BadgeStatus} />
+    const getLevelWeight = (lvl: string) => {
+        switch (lvl?.toLowerCase()) {
+            case 'iniciante': return 1;
+            case 'intermediario': return 2;
+            case 'avancado': return 3;
+            default: return 0;
+        }
+    };
+
+    const getGenderLabel = (g: string) => {
+        switch (g?.toUpperCase()) {
+            case 'M': return '♂ Masculina';
+            case 'F': return '♀ Feminina';
+            default: return '⚥ Mista';
+        }
+    };
+
+    const capitalizeText = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+    const isGenderAllowed = gender === 'Mixed' || gender === userGender;
+    const isLevelAllowed = getLevelWeight(userLevel) >= getLevelWeight(level);
+
+    return (
+        <View style={[styles.card, aula.status === "Bloqueada" ? { opacity: 0.6 } : {}]}>
+            <View style={styles.rowBetween}>
+                <View style={styles.row}>
+                    <View style={{ marginRight: 16, width: 55 }}>
+                        <Text style={styles.time}>{aula.startTime.substring(0, 5)}</Text>
+                        <Text style={styles.location}>{aula.modalityName || aula.aulaName}</Text>
+                    </View>
+                    <View>
+                        <Text style={{ fontSize: 12, fontWeight: "600" }}>
+                            Prof. {aula.professorName}
+                        </Text>
+                        <Text style={styles.location}>
+                            {aula.confirmedCount !== undefined && aula.maxCapacity !== undefined ? `${aula.confirmedCount}/${aula.maxCapacity}` : "-/-"} vagas
+                        </Text>
+                    </View>
+                </View>
+
+                <View style={{ alignItems: 'flex-end' }}>
+                    <StatusBadge status={aula.status?.toLowerCase() as BadgeStatus} />
+                    <View style={{ marginTop: 6 }}>
+                        {aula.subscriptionStatus ? (
+                            <Text style={{ color: COLORS.mainOrange, fontSize: 10, fontWeight: 'bold' }}>
+                                {aula.subscriptionStatus === 'Confirmado' ? 'Agendamento Confirmado ✓' :
+                                aula.subscriptionStatus === 'ListaEspera' ? 'Na Fila de Espera' :
+                                aula.subscriptionStatus === 'WaitlistPending' ? 'Aguardando Confirmação' :
+                                aula.subscriptionStatus === 'CheckedIn' ? 'Check-in Realizado' :
+                                aula.subscriptionStatus === 'Faltou' ? 'Faltou' : ''}
+                            </Text>
+                        ) : !isGenderAllowed ? (
+                            <Text style={{ color: '#ef4444', fontSize: 10, fontWeight: '600', fontStyle: 'italic' }}>
+                                Apenas {getGenderLabel(gender).substring(2)}
+                            </Text>
+                        ) : !isLevelAllowed ? (
+                            <Text style={{ color: '#ef4444', fontSize: 10, fontWeight: '600', fontStyle: 'italic' }}>
+                                Requer nível {capitalizeText(level)}
+                            </Text>
+                        ) : (
+                            <TouchableOpacity
+                                style={{ backgroundColor: COLORS.mainOrange, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
+                                onPress={() => onBookPress(aula)}
+                            >
+                                <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>Agendar</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
             </View>
         </View>
-    </View>
-);
+    );
+};
 
 export default function Home() {
-    const [loading, setLoading] = useState(true);
     const { user } = useAuth();
+    const { createSchedule, isLoading: isCreatingSchedule } = useCreateSchedule();
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setLoading(false);
-        }, 400);
+    const [selectedClass, setSelectedClass] = useState<ScheduleOccurrenceType | null>(null);
+    const [isModalVisible, setIsModalVisible] = useState(false);
 
-        return () => clearTimeout(timer);
+    const handleBookPress = (item: ScheduleOccurrenceType) => {
+        setSelectedClass(item);
+        setIsModalVisible(true);
+    };
+
+    const handleConfirmBooking = async () => {
+        if (!selectedClass) return;
+
+        await createSchedule({ ocorrenciaId: selectedClass.id });
+
+        setIsModalVisible(false);
+        setSelectedClass(null);
+    };
+
+    const dateParams = useMemo(() => {
+        const today = new Date();
+        const next15Days = new Date(today);
+        next15Days.setDate(today.getDate() + 15);
+
+        const formatDate = (date: Date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        return {
+            startDate: formatDate(today),
+            endDate: formatDate(next15Days)
+        };
     }, []);
+
+    const { schedule, isLoading: scheduleLoading } = useSchedule({
+        startDate: dateParams.startDate,
+        endDate: dateParams.endDate,
+        openForEnrollment: true
+    });
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -549,14 +487,29 @@ export default function Home() {
                 <WeekCalendar />
                 <Text style={styles.sectionTitle}>AULAS DISPONÍVEIS AGORA</Text>
                 <Text style={styles.sectionSubtitle}>Abertas para agendamento</Text>
-                {loading && <ActivityIndicator size="large" />}
+                {scheduleLoading && <ActivityIndicator size="large" color={COLORS.mainOrange} />}
             </View>
             <FlatList
                 style={{ flex: 1, backgroundColor: "#fff" }}
                 contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, gap: 5 }}
-                data={loading ? [] : aulasDisponiveis}
+                data={scheduleLoading ? [] : (schedule?.items || [])}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => <AvailableClassItem aula={item} />}
+                renderItem={({ item }) => <AvailableClassItem aula={item} userGender={user?.gender} userLevel={user?.studentLevel} onBookPress={handleBookPress} />}
+                showsVerticalScrollIndicator={false}
+                ListEmptyComponent={
+                    !scheduleLoading ? (
+                        <View style={{ alignItems: 'center', marginTop: 20 }}>
+                            <Text style={{ color: '#9ca3af' }}>Nenhuma aula disponível no momento</Text>
+                        </View>
+                    ) : null
+                }
+            />
+            <ConfirmBookingModal
+                visible={isModalVisible}
+                selectedClass={selectedClass}
+                isCreatingSchedule={isCreatingSchedule}
+                onClose={() => setIsModalVisible(false)}
+                onConfirm={handleConfirmBooking}
             />
         </SafeAreaView>
     );

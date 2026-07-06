@@ -74,8 +74,7 @@ export function useCreateSchedule() {
             const scheduleRoutes = new ScheduleRoutes();
             return await scheduleRoutes.createSchedule(params);
         },
-        onSuccess: (data) => {
-            console.log('Agendamento criado com sucesso: ', data);
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["schedule"] });
         },
     });

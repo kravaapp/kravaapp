@@ -39,7 +39,7 @@ export type ScheduleOccurrenceType = {
   date: string;
   startTime: string;
   endTime: string;
-  status: "Agendada";
+  status: string;
   maxCapacity: number,
   confirmedCount: number,
   waitlistCount: number,
