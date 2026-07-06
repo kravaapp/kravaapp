@@ -48,6 +48,7 @@ export type ScheduleOccurrenceType = {
   minLevel: string;
   publicGender: string;
   waitlistTimeoutMinutes: number;
+  subscriptionStatus: 'Confirmado' | 'ListaEspera' | 'WaitlistPending' | 'CheckedIn' | 'Faltou' | null
 }
 
 export type PaginatedSchedule = PaginatedType & {

@@ -200,7 +200,15 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
 
       <View style={styles.statusRow}>
         <View>
-          {!isGenderAllowed ? (
+          {item.subscriptionStatus ? (
+            <Text style={styles.subscriptionStatusText}>
+              {item.subscriptionStatus === 'Confirmado' ? 'Agendamento Confirmado ✓' :
+               item.subscriptionStatus === 'ListaEspera' ? 'Na Fila de Espera' :
+               item.subscriptionStatus === 'WaitlistPending' ? 'Aguardando Confirmação' :
+               item.subscriptionStatus === 'CheckedIn' ? 'Check-in Realizado' :
+               item.subscriptionStatus === 'Faltou' ? 'Faltou' : ''}
+            </Text>
+          ) : !isGenderAllowed ? (
             <Text style={styles.disabledReasonText}>Apenas para o gênero {getGenderLabel(gender).substring(2)}</Text>
           ) : !isLevelAllowed ? (
             <Text style={styles.disabledReasonText}>Requer nível {capitalizeText(level)}</Text>
@@ -432,6 +440,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     fontStyle: 'italic',
+  },
+  subscriptionStatusText: {
+    color: COLORS.mainOrange,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   classHeaderRow: {
     flexDirection: 'row',

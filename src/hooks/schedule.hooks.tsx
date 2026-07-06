@@ -1,6 +1,6 @@
 import { ScheduleRoutes } from "@/routes/schedule.routes";
 import { CreateScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 export function useUserNextClass() {
@@ -67,6 +67,8 @@ export function useSchedule(params: ScheduleRequestSchema) {
 }
 
 export function useCreateSchedule() {
+    const queryClient = useQueryClient();
+
     const mutation = useMutation({
         mutationFn: async (params: CreateScheduleRequestSchema) => {
             const scheduleRoutes = new ScheduleRoutes();
@@ -74,6 +76,7 @@ export function useCreateSchedule() {
         },
         onSuccess: (data) => {
             console.log('Agendamento criado com sucesso: ', data);
+            queryClient.invalidateQueries({ queryKey: ["schedule"] });
         },
     });
 

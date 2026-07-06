@@ -18,7 +18,6 @@ export class ScheduleRoutes {
     }
 
     async createSchedule(params: CreateScheduleRequestSchema) {
-        console.log('params: ', params)
         return await api.post("/scheduling/bookings", {
             json: {
                 ocorrenciaId: params.ocorrenciaId,
