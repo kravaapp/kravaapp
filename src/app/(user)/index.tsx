@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
+import { ConfirmBookingModal } from "@/components/ConfirmBookingModal";
 import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/hooks/auth.hooks";
 import { useCreateSchedule, useSchedule, useUserNextClass, useUserWeekClasses } from "@/hooks/schedule.hooks";
@@ -16,7 +17,6 @@ import { Token } from "@/types/auth.types";
 import { ScheduleOccurrenceType } from "@/types/schedules.types";
 import { Clock3, Dumbbell } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ConfirmBookingModal } from "@/components/ConfirmBookingModal";
 
 
 
@@ -314,12 +314,12 @@ const WeekCalendar = () => {
                             <View
                                 style={[
                                     styles.circle,
-                                    d.aula
+                                    selectedDayData?.date === d.date
                                         ? styles.active
                                         : styles.inactive,
                                 ]}
                             >
-                                <Text style={d.aula ? styles.todayText : styles.dayText}>
+                                <Text style={selectedDayData?.date === d.date ? styles.todayText : styles.dayText}>
                                     {d.day}
                                 </Text>
                             </View>
@@ -386,7 +386,11 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', o
                 <View style={styles.row}>
                     <View style={{ marginRight: 16, width: 55 }}>
                         <Text style={styles.time}>{aula.startTime.substring(0, 5)}</Text>
-                        <Text style={styles.location}>{aula.modalityName || aula.aulaName}</Text>
+                        <Text style={styles.location}>
+                            {(aula.modalityName || aula.aulaName).length > 12
+                                ? `${(aula.modalityName || aula.aulaName).substring(0, 12)}...`
+                                : (aula.modalityName || aula.aulaName)}
+                        </Text>
                     </View>
                     <View>
                         <Text style={{ fontSize: 12, fontWeight: "600" }}>
