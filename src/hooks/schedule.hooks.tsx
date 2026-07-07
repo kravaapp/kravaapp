@@ -1,5 +1,5 @@
 import { ScheduleRoutes } from "@/routes/schedule.routes";
-import { CreateScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
+import { CreateScheduleRequestSchema, GetBookingUserHistoryRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
@@ -91,5 +91,26 @@ export function useCreateSchedule() {
         error: mutation.error
             ? (mutation.error as any).data?.detail || mutation.error.message || "Erro ao criar agendamento"
             : null
+    };
+}
+
+export function useBookingUserHistory(params: GetBookingUserHistoryRequestSchema) {
+    const query = useQuery({
+        queryKey: ["booking-user-history", params],
+        queryFn: async () => {
+            const scheduleRoutes = new ScheduleRoutes();
+            return await scheduleRoutes.getBookingUserHistory(params);
+        },
+    });
+
+    return {
+        bookingUserHistory: query.data,
+        isLoading: query.isLoading,
+        error: query.error
+            ? (query.error as any).data?.detail ||
+            query.error.message ||
+            "Erro ao buscar histórico de agendamentos"
+            : null,
+        refetch: query.refetch,
     };
 }

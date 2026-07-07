@@ -1,5 +1,5 @@
-import { CreateScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { PaginatedSchedule, ScheduleType } from "@/types/schedules.types";
+import { CreateScheduleRequestSchema, GetBookingUserHistoryRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
+import { PaginatedBookingUserHistory, PaginatedSchedule, ScheduleType } from "@/types/schedules.types";
 import api from "./client";
 
 export class ScheduleRoutes {
@@ -25,5 +25,9 @@ export class ScheduleRoutes {
                 isTrial: false
             }
         }).json<ScheduleType>();
+    }
+
+    async getBookingUserHistory(params: GetBookingUserHistoryRequestSchema) {
+        return await api.get("/scheduling/my-history", { searchParams: params }).json<PaginatedBookingUserHistory>();
     }
 }

@@ -30,5 +30,12 @@ export const createScheduleRequestSchema = z.object({
     ocorrenciaId: z.uuid(),
 });
 
+export const getBookingUserHistoryRequestSchema = z.object({
+    page: z.number().optional(),
+    pageSize: z.number().optional(),
+    modalityId: z.uuid().optional(),
+});
+
+export type GetBookingUserHistoryRequestSchema = z.infer<typeof getBookingUserHistoryRequestSchema>;
 export type ScheduleRequestSchema = z.infer<typeof scheduleRequestSchema>;
 export type CreateScheduleRequestSchema = z.infer<typeof createScheduleRequestSchema>;

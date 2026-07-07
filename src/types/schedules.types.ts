@@ -54,3 +54,20 @@ export type ScheduleOccurrenceType = {
 export type PaginatedSchedule = PaginatedType & {
   items: ScheduleOccurrenceType[];
 }
+
+export type BookingUserHistoryType = {
+  bookingId: string;
+  bookingStatus: string;
+  ocorrenciaId: string;
+  ocorrenciaDate: string;
+  startTime: string;
+  endTime: string;
+  aulaName: string;
+  modalityName: string;
+  professorName: string;
+  checkedInAtUtc: string | null;
+}
+
+export type PaginatedBookingUserHistory = PaginatedType & {
+  items: BookingUserHistoryType[];
+}

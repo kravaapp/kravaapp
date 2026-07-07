@@ -1,36 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ClientHeader, { COLORS } from '@/components/ClientHeader';
 import { useCategories } from '@/hooks/categories.hooks';
+import { useBookingUserHistory } from '@/hooks/schedule.hooks';
 import { Category } from '@/types/categories.types';
+import { BookingUserHistoryType } from '@/types/schedules.types';
 import { AlertTriangle, Check, X } from 'lucide-react-native';
 
 type Filtro = 'Todas' | string;
 
-interface PresencaItem {
-    id: string;
-    data: string;
-    dia: string;
-    modalidadeId: string;
-    modalidade: string;
-    horario: string;
-    professor: string;
-    status: 'confirmado' | 'presente' | 'falta';
-    detalhe?: string;
-}
-
-const presencas: PresencaItem[] = [
-    { id: '1', data: '18/03', dia: 'Ter', modalidadeId: '1', modalidade: 'Futevôlei', horario: '19h', professor: 'Ricardo', status: 'confirmado' },
-    { id: '2', data: '15/03', dia: 'Sáb', modalidadeId: '1', modalidade: 'Futevôlei', horario: '09h', professor: 'Ricardo', status: 'presente' },
-    { id: '3', data: '13/03', dia: 'Qui', modalidadeId: '1', modalidade: 'Futevôlei', horario: '19h', professor: 'Ricardo', status: 'presente' },
-    { id: '4', data: '11/03', dia: 'Ter', modalidadeId: '1', modalidade: 'Futevôlei', horario: '19h', professor: 'Ricardo', status: 'presente' },
-    { id: '5', data: '08/03', dia: 'Sáb', modalidadeId: '1', modalidade: 'Futevôlei', horario: '09h', professor: 'Ricardo', status: 'presente' },
-    { id: '6', data: '06/03', dia: 'Qui', modalidadeId: '1', modalidade: 'Futevôlei', horario: '20h', professor: 'Ricardo', status: 'falta',},
-    { id: '7', data: '04/03', dia: 'Ter', modalidadeId: '1', modalidade: 'Futevôlei', horario: '19h', professor: 'Ricardo', status: 'presente' },
-    { id: '8', data: '01/03', dia: 'Sáb', modalidadeId: '1', modalidade: 'Futevôlei', horario: '09h', professor: 'Ricardo', status: 'presente' },
-];
+// Removido PresencaItem e os mocks de 'presencas'
 
 // -- COMPONENTES INTERNOS --
 
@@ -88,10 +69,10 @@ const CategoryFilter = ({
                 {categories?.map((cat: Category) => (
                     <TouchableOpacity
                         key={cat.id}
-                        style={[styles.filterPill, selected === cat.id && styles.filterPillSelected]}
+                        style={[styles.filterPill, selected === cat.name && styles.filterPillSelected]}
                         onPress={() => onSelect(cat.id)}
                     >
-                        <Text style={[styles.filterText, selected === cat.id && styles.filterTextSelected]}>{cat.name}</Text>
+                        <Text style={[styles.filterText, selected === cat.name && styles.filterTextSelected]}>{cat.name}</Text>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -100,52 +81,58 @@ const CategoryFilter = ({
 );
 
 const statusConfig = {
-    confirmado: { label: 'Confirmado — aguardando aula', variant: 'warning', icon: AlertTriangle, color: '#f59e0b', bg: '#fef3c7' },
-    presente: { label: 'Presente ✓', variant: 'success', icon: Check, color: '#16a34a', bg: '#dcfce7' },
-    falta: { label: 'Falta não cancelada ⚠', variant: 'destructive', icon: X, color: '#ef4444', bg: '#fee2e2' },
+    Confirmado: { label: 'Confirmado — aguardando aula', variant: 'warning', icon: AlertTriangle, color: '#f59e0b', bg: '#fef3c7' },
+    CheckedIn: { label: 'Presente ✓', variant: 'success', icon: Check, color: '#16a34a', bg: '#dcfce7' },
+    Faltou: { label: 'Falta não cancelada ⚠', variant: 'destructive', icon: X, color: '#ef4444', bg: '#fee2e2' },
+    default: { label: 'Status Desconhecido', variant: 'warning', icon: AlertTriangle, color: '#6b7280', bg: '#f3f4f6' }
 };
 
 const HistoryCard = ({
     item
 }: {
-    item: PresencaItem
+    item: BookingUserHistoryType
 }) => {
-    const config = statusConfig[item.status];
+    const config = statusConfig[item.bookingStatus as keyof typeof statusConfig] || statusConfig.default;
     const Icon = config.icon;
+
+    // Formatando data
+    const dateObj = new Date(item.ocorrenciaDate);
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const formattedDate = `${day}/${month}`;
+
+    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const diaSemana = diasSemana[dateObj.getDay()];
+
+    const formattedTime = item.startTime.substring(0, 5);
 
     return (
         <View
             style={[
                 styles.card,
-                item.status === 'falta' && { borderLeftWidth: 3, borderLeftColor: '#ef4444' }
+                item.bookingStatus === 'Faltou' && { borderLeftWidth: 3, borderLeftColor: '#ef4444' }
             ]}
         >
             <View style={styles.cardHeader}>
                 <View style={styles.cardLeft}>
                     <View style={styles.dateBox}>
-                        <Text style={styles.dayText}>{item.dia}</Text>
-                        <Text style={styles.dateText}>{item.data}</Text>
+                        <Text style={styles.dayText}>{diaSemana}</Text>
+                        <Text style={styles.dateText}>{formattedDate}</Text>
                     </View>
                     <View style={styles.infoBox}>
-                        <Text style={styles.modalityText}>{item.modalidade} {item.horario}</Text>
-                        <Text style={styles.profText}>Prof. {item.professor}</Text>
+                        <Text style={styles.modalityText}>{item.modalityName || item.aulaName} {formattedTime}</Text>
+                        <Text style={styles.profText}>Prof. {item.professorName}</Text>
                     </View>
                 </View>
                 <View style={styles.cardRight}>
                     <View style={[styles.badge, { backgroundColor: config.bg }]}>
                         <Icon size={10} color={config.color} />
                         <Text style={[styles.badgeText, { color: config.color }]}>
-                            {item.status === 'confirmado' ? 'Aguardando' : item.status === 'presente' ? 'Presente' : 'Falta'}
+                            {config.label.split(' ')[0]}
                         </Text>
                     </View>
                 </View>
             </View>
-
-            {item.detalhe && (
-                <View style={styles.detailBox}>
-                    <Text style={styles.detailText}>{item.detalhe}</Text>
-                </View>
-            )}
         </View>
     );
 };
@@ -155,21 +142,15 @@ const HistoryCard = ({
 export default function History() {
     const { categories, isLoading: categoriesLoading } = useCategories();
     const [filtro, setFiltro] = useState<Filtro>('Todas');
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const t = setTimeout(() => setLoading(false), 400);
-        return () => clearTimeout(t);
-    }, []);
+    const { bookingUserHistory, isLoading } = useBookingUserHistory({
+        page: 1,
+        pageSize: 50
+    });
 
-    const filtered = presencas.filter(p => filtro === 'Todas' || p.modalidadeId === filtro);
+    const filtered = bookingUserHistory?.items?.filter(p => filtro === 'Todas' || p.modalityName === filtro) || [];
 
-    const statusConfig = {
-        confirmado: { label: 'Confirmado — aguardando aula', variant: 'warning', icon: AlertTriangle, color: '#f59e0b', bg: '#fef3c7' },
-        presente: { label: 'Presente ✓', variant: 'success', icon: Check, color: '#16a34a', bg: '#dcfce7' },
-        falta: { label: 'Falta não cancelada ⚠', variant: 'destructive', icon: X, color: '#ef4444', bg: '#fee2e2' },
-    };
-
+    // O statusConfig local pode ser removido, pois o statusConfig já está no escopo global
     return (
         <SafeAreaView style={styles.container}>
             <ClientHeader />
@@ -180,19 +161,26 @@ export default function History() {
                     categories={categories} 
                     loading={categoriesLoading} 
                     selected={filtro} 
-                    onSelect={setFiltro} 
+                    onSelect={(id) => {
+                        const cat = categories?.find(c => c.id === id);
+                        setFiltro(cat ? cat.name : 'Todas');
+                    }} 
                 />
 
                 <View style={styles.listContainer}>
-                    {loading ? (
+                    {isLoading ? (
                         Array.from({ length: 5 }).map((_, i) => <View key={i} style={styles.skeletonCard} />)
-                    ) : (
+                    ) : filtered.length > 0 ? (
                         filtered.map(p => (
                             <HistoryCard 
-                                key={p.id}
+                                key={p.bookingId}
                                 item={p}
                             />
                         ))
+                    ) : (
+                        <View style={{ alignItems: 'center', marginTop: 20 }}>
+                            <Text style={{ color: '#9ca3af' }}>Nenhum histórico encontrado</Text>
+                        </View>
                     )}
                 </View>
             </ScrollView>
