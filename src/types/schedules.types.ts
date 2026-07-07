@@ -71,3 +71,12 @@ export type BookingUserHistoryType = {
 export type PaginatedBookingUserHistory = PaginatedType & {
   items: BookingUserHistoryType[];
 }
+
+export type MyMonthlyScheduleType = {
+  totalPresencas: number;
+  totalFaltas: number;
+  checkInsRemainingThisMonth: number | null;
+  totalUsedThisMonth: number;
+  availableForSchedulingThisMonth: number | null;
+  modalityId: string | null;
+}

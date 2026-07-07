@@ -4,45 +4,64 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ClientHeader, { COLORS } from '@/components/ClientHeader';
 import { useCategories } from '@/hooks/categories.hooks';
-import { useBookingUserHistory } from '@/hooks/schedule.hooks';
+import { useBookingUserHistory, useMyMonthlySchedule } from '@/hooks/schedule.hooks';
 import { Category } from '@/types/categories.types';
-import { BookingUserHistoryType } from '@/types/schedules.types';
-import { AlertTriangle, Check, X } from 'lucide-react-native';
+import { BookingUserHistoryType, MyMonthlyScheduleType } from '@/types/schedules.types';
+import { AlertTriangle, Check, InfinityIcon, X } from 'lucide-react-native';
 
 type Filtro = 'Todas' | string;
 
-// Removido PresencaItem e os mocks de 'presencas'
+const HistorySummary = ({ data, loading }: { data: MyMonthlyScheduleType | undefined, loading: boolean }) => {
+    const totalPresencas = data?.totalPresencas || 0;
+    const totalFaltas = data?.totalFaltas || 0;
+    const available = data?.availableForSchedulingThisMonth !== undefined ? data.availableForSchedulingThisMonth : 0;
+    const totalUsed = data?.totalUsedThisMonth || 0;
 
-// -- COMPONENTES INTERNOS --
+    const isUnlimited = available === null;
+    const totalPlan = isUnlimited ? null : totalUsed + (available || 0);
+    const percentage = isUnlimited ? 100 : (totalPlan && totalPlan > 0 ? Math.round((totalUsed / totalPlan) * 100) : 0);
 
-const HistorySummary = () => (
-    <View style={styles.summaryContainer}>
-        <Text style={styles.monthTitle}>Março 2025</Text>
-        <View style={styles.statsRow}>
-            <View style={[styles.statBox, { backgroundColor: '#dcfce7' }]}>
-                <Text style={[styles.statNumber, { color: '#16a34a' }]}>7</Text>
-                <Text style={styles.statLabel}>Presenças</Text>
-            </View>
-            <View style={[styles.statBox, { backgroundColor: '#fee2e2' }]}>
-                <Text style={[styles.statNumber, { color: '#ef4444' }]}>1</Text>
-                <Text style={styles.statLabel}>Falta</Text>
-            </View>
-            <View style={[styles.statBox, { backgroundColor: '#f3f4f6' }]}>
-                <Text style={[styles.statNumber, { color: '#6b7280' }]}>4</Text>
-                <Text style={styles.statLabel}>Restantes</Text>
-            </View>
+    return (
+        <View style={styles.summaryContainer}>
+            <Text style={styles.monthTitle}>Mês Atual</Text>
+            {loading ? (
+                <ActivityIndicator size="small" color={COLORS.mainOrange} style={{ marginVertical: 20 }} />
+            ) : (
+                <>
+                    <View style={styles.statsRow}>
+                        <View style={[styles.statBox, { backgroundColor: '#dcfce7' }]}>
+                            <Text style={[styles.statNumber, { color: '#16a34a' }]}>{totalPresencas}</Text>
+                            <Text style={styles.statLabel}>Presenças</Text>
+                        </View>
+                        <View style={[styles.statBox, { backgroundColor: '#fee2e2' }]}>
+                            <Text style={[styles.statNumber, { color: '#ef4444' }]}>{totalFaltas}</Text>
+                            <Text style={styles.statLabel}>Faltas</Text>
+                        </View>
+                        <View style={[styles.statBox, { backgroundColor: '#f3f4f6' }]}>
+                            {isUnlimited ? (
+                                <InfinityIcon size={24} color="#6b7280" />
+                            ) : (
+                                <Text style={[styles.statNumber, { color: '#6b7280' }]}>{available}</Text>
+                            )}
+                            <Text style={styles.statLabel}>Restantes</Text>
+                        </View>
+                    </View>
+                    <View>
+                        <View style={styles.progressTextRow}>
+                            <Text style={styles.progressLabel}>
+                                {isUnlimited ? `${totalUsed} check-ins no plano ilimitado` : `${totalUsed}/${totalPlan} check-ins do plano`}
+                            </Text>
+                            {!isUnlimited && <Text style={styles.progressLabel}>{percentage}%</Text>}
+                        </View>
+                        <View style={styles.progressBarBg}>
+                            <View style={[styles.progressBarFill, { width: `${percentage}%` }]} />
+                        </View>
+                    </View>
+                </>
+            )}
         </View>
-        <View>
-            <View style={styles.progressTextRow}>
-                <Text style={styles.progressLabel}>7/12 check-ins do plano</Text>
-                <Text style={styles.progressLabel}>58%</Text>
-            </View>
-            <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: '58%' }]} />
-            </View>
-        </View>
-    </View>
-);
+    );
+};
 
 const CategoryFilter = ({
     categories,
@@ -95,7 +114,6 @@ const HistoryCard = ({
     const config = statusConfig[item.bookingStatus as keyof typeof statusConfig] || statusConfig.default;
     const Icon = config.icon;
 
-    // Formatando data
     const dateObj = new Date(item.ocorrenciaDate);
     const day = String(dateObj.getDate()).padStart(2, '0');
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -137,33 +155,43 @@ const HistoryCard = ({
     );
 };
 
-// -- TELA PRINCIPAL --
-
 export default function History() {
     const { categories, isLoading: categoriesLoading } = useCategories();
-    const [filtro, setFiltro] = useState<Filtro>('Todas');
+    const [filtroId, setFiltroId] = useState<string>('Todas');
+    const [filtroName, setFiltroName] = useState<string>('Todas');
 
     const { bookingUserHistory, isLoading } = useBookingUserHistory({
         page: 1,
-        pageSize: 50
+        pageSize: 50,
+        modalityId: filtroId === 'Todas' ? undefined : filtroId
     });
 
-    const filtered = bookingUserHistory?.items?.filter(p => filtro === 'Todas' || p.modalityName === filtro) || [];
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    const { myMonthlySchedule, isLoading: isMonthlyLoading } = useMyMonthlySchedule({
+        modalityId: filtroId === 'Todas' ? undefined : filtroId
+    });
 
-    // O statusConfig local pode ser removido, pois o statusConfig já está no escopo global
+    const filtered = bookingUserHistory?.items?.filter(p => filtroName === 'Todas' || p.modalityName === filtroName) || [];
+
     return (
         <SafeAreaView style={styles.container}>
             <ClientHeader />
             <ScrollView showsVerticalScrollIndicator={false}>
-                <HistorySummary />
+                <HistorySummary data={myMonthlySchedule} loading={isMonthlyLoading} />
 
                 <CategoryFilter 
                     categories={categories} 
                     loading={categoriesLoading} 
-                    selected={filtro} 
+                    selected={filtroName} 
                     onSelect={(id) => {
-                        const cat = categories?.find(c => c.id === id);
-                        setFiltro(cat ? cat.name : 'Todas');
+                        if (id === 'Todas') {
+                            setFiltroId('Todas');
+                            setFiltroName('Todas');
+                        } else {
+                            const cat = categories?.find(c => c.id === id);
+                            setFiltroId(id);
+                            setFiltroName(cat ? cat.name : 'Todas');
+                        }
                     }} 
                 />
 
