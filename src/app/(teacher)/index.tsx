@@ -9,9 +9,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
+import { Progress } from "@/components/Progress";
 import { StatusBadge } from "@/components/StatusBadge";
 import { aulasHoje, AulaHoje, PROFESSOR_ATUAL } from "@/data/mockData";
 import { useAuth } from "@/hooks/auth.hooks";
+import { router } from "expo-router";
 import { AlertTriangle, Calendar, Clock, Users } from "lucide-react-native";
 
 const aulasProfessor = aulasHoje.filter((a) => a.professor === PROFESSOR_ATUAL);
@@ -19,12 +21,6 @@ const proximaAula = aulasProfessor.find((a) => a.status === "agendada");
 
 const getModalidadeSigla = (modalidade: AulaHoje["modalidade"]) =>
     modalidade === "Futevôlei" ? "FV" : "FC";
-
-const Progress = ({ value }: { value: number }) => (
-    <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${value}%` }]} />
-    </View>
-);
 
 const SummaryCard = ({
     icon,
@@ -124,8 +120,7 @@ export default function TeacherHome() {
     const totalAlunosHoje = aulasProfessor.reduce((sum, a) => sum + a.confirmados, 0);
     const totalEspera = aulasProfessor.reduce((sum, a) => sum + a.espera, 0);
 
-    // TODO: apontar para a tela de aula ao vivo quando ela existir.
-    const handleOpenAttendance = () => {};
+    const handleOpenAttendance = () => router.push("/(teacher)/classes");
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -181,6 +176,7 @@ export default function TeacherHome() {
                                     </View>
                                     <Progress
                                         value={(proximaAula.confirmados / proximaAula.capacidade) * 100}
+                                        trackColor="rgba(255,255,255,0.1)"
                                     />
                                 </View>
 
@@ -331,17 +327,6 @@ const styles = StyleSheet.create({
     progressLabel: {
         fontSize: 12,
         color: "rgba(255,255,255,0.6)",
-    },
-    progressTrack: {
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "rgba(255,255,255,0.1)",
-        overflow: "hidden",
-    },
-    progressFill: {
-        height: "100%",
-        borderRadius: 4,
-        backgroundColor: COLORS.mainOrange,
     },
     primaryButton: {
         marginTop: 16,

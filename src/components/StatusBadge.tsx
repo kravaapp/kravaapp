@@ -1,6 +1,6 @@
 import { Check, Lock } from 'lucide-react-native';
-import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { PulseDot } from './Badge';
 import { COLORS } from './ClientHeader';
 
 export type BadgeStatus =
@@ -14,23 +14,6 @@ export type BadgeStatus =
 type StatusBadgeProps = {
   status: BadgeStatus;
   label?: string;
-};
-
-const PulseDot = ({ color }: { color: string }) => {
-  const opacity = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.25, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [opacity]);
-
-  return <Animated.View style={[styles.pulseDot, { backgroundColor: color, opacity }]} />;
 };
 
 export const StatusBadge = ({ status, label }: StatusBadgeProps) => {
@@ -120,12 +103,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     backgroundColor: COLORS.successSurface,
-  },
-  pulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
   },
   statusBadgeLocked: {
     flexDirection: 'row',

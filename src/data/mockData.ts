@@ -11,8 +11,28 @@ export type AulaHoje = {
   status: Extract<BadgeStatus, "agendada" | "em andamento" | "encerrada">;
 };
 
+export type Nivel = "Iniciante" | "Intermediário" | "Avançado" | "Elite";
+
+export type Aluno = {
+  id: string;
+  nome: string;
+  modalidades: string[];
+  nivel: Nivel;
+};
+
 // Mock enquanto a API do professor não existe: identifica quais aulas são do professor logado.
 export const PROFESSOR_ATUAL = "Ricardo";
+
+export const alunos: Aluno[] = [
+  { id: "a1", nome: "Carlos Mendes", modalidades: ["Futevôlei"], nivel: "Intermediário" },
+  { id: "a2", nome: "Ana Beatriz Lima", modalidades: ["Futevôlei"], nivel: "Iniciante" },
+  { id: "a3", nome: "Rafael Santos", modalidades: ["Futevôlei"], nivel: "Avançado" },
+  { id: "a4", nome: "Gabriel Rocha", modalidades: ["Futevôlei", "Funcional"], nivel: "Iniciante" },
+  { id: "a5", nome: "Isabela Dias", modalidades: ["Futevôlei"], nivel: "Intermediário" },
+  { id: "a6", nome: "Rodrigo Nunes", modalidades: ["Funcional"], nivel: "Avançado" },
+  { id: "a7", nome: "Mariana Castro", modalidades: ["Futevôlei"], nivel: "Elite" },
+  { id: "a8", nome: "Vinicius Barros", modalidades: ["Futevôlei"], nivel: "Iniciante" },
+];
 
 export const aulasHoje: AulaHoje[] = [
   {
