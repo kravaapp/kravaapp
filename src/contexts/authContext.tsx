@@ -1,6 +1,6 @@
-import { AvailableTenant, Token } from "@/types/auth.types";
+import { AvailableTenant, Token, USER_ROLES } from "@/types/auth.types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
+import { Href, router } from "expo-router";
 import { createContext, PropsWithChildren, useEffect, useState } from "react";
 
 type SelectTenantState = {
@@ -18,6 +18,10 @@ type AuthState = {
 }
 
 export const AUTH_STORAGE_KEY = "@krava:auth-state";
+
+export function getHomeRoute(role: string): Href {
+    return role === USER_ROLES.professor ? "/(teacher)" : "/(user)";
+}
 
 export const AuthContext = createContext<AuthState>({} as AuthState);
 
@@ -43,7 +47,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setIsAuthenticated(true);
         setSelectTenantState(null);
         storageState(data);
-        router.replace("/");
+        router.replace(getHomeRoute(data.role));
     }
 
     const setSelectTenant = (data: SelectTenantState) => {

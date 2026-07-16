@@ -1,3 +1,9 @@
+export const USER_ROLES = {
+  admin: "Admin",
+  student: "Aluno",
+  professor: "Professor",
+} as const;
+
 export type Token = {
   accessToken: string;
   refreshToken: string;

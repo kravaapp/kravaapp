@@ -1,5 +1,7 @@
 import { COLORS } from "@/components/ClientHeader";
+import { getHomeRoute } from "@/contexts/authContext";
 import { useAuth } from "@/hooks/auth.hooks";
+import { USER_ROLES } from "@/types/auth.types";
 import { Redirect, Tabs } from "expo-router";
 import { CalendarIcon, Clock, CreditCardIcon, HomeIcon } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +13,10 @@ export default function ProtectedLayout() {
 
     if (!user) {
         return <Redirect href="/signIn" />;
+    }
+
+    if (user.role === USER_ROLES.professor) {
+        return <Redirect href={getHomeRoute(user.role)} />;
     }
 
     return (

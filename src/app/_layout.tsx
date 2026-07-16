@@ -14,6 +14,10 @@ export default function Layout() {
             options={{ headerShown: false, animation: "none" }}
           />
           <Stack.Screen
+            name="(teacher)"
+            options={{ headerShown: false, animation: "none" }}
+          />
+          <Stack.Screen
             name="signIn"
             options={{ headerShown: false, animation: "none" }}
           />
