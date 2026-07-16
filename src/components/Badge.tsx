@@ -8,6 +8,7 @@ export type BadgeVariant =
   | 'warning'
   | 'destructive'
   | 'manager'
+  | 'info'
   | 'muted';
 
 const VARIANTS: Record<BadgeVariant, { background: string; foreground: string }> = {
@@ -16,6 +17,7 @@ const VARIANTS: Record<BadgeVariant, { background: string; foreground: string }>
   warning: { background: '#fef3c7', foreground: COLORS.warning },
   destructive: { background: '#fee2e2', foreground: COLORS.destructive },
   manager: { background: '#ede9fe', foreground: '#7c3aed' },
+  info: { background: COLORS.infoSurface, foreground: COLORS.info },
   muted: { background: '#f3f4f6', foreground: COLORS.mutedForeground },
 };
 
