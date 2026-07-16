@@ -27,6 +27,14 @@ export const COLORS = {
   mainOrange: '#e95a07',
   subOrange: '#fbdecd',
   grayLabels: '#6b7280',
+  navy: '#0f172a',
+  navyForeground: '#ffffff',
+  warning: '#f59e0b',
+  warningSurface: '#fffbeb',
+  info: '#3b82f6',
+  infoSurface: '#dbeafe',
+  success: '#22c55e',
+  successSurface: '#dcfce7',
 };
 
 type DropdownProps = {
