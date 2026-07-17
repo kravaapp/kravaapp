@@ -3,6 +3,8 @@ import { CreateScheduleRequestSchema, GetBookingUserHistoryRequestSchema, GetMyM
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
+type ApiError = Error & { data?: { detail?: string } };
+
 export function useUserNextClass() {
     const query = useQuery({
         queryKey: ["user-next-class"],
@@ -40,6 +42,27 @@ export function useUserWeekClasses() {
             ? (query.error as any).data?.detail ||
             query.error.message ||
             "Erro ao buscar aulas da semana"
+            : null,
+        refetch: query.refetch,
+    };
+}
+
+export function useTodayOccurrences() {
+    const query = useQuery({
+        queryKey: ["today-occurrences"],
+        queryFn: async () => {
+            const scheduleRoutes = new ScheduleRoutes();
+            return await scheduleRoutes.getTodayOccurrences();
+        },
+    });
+
+    return {
+        todayOccurrences: query.data,
+        isLoading: query.isLoading,
+        error: query.error
+            ? (query.error as ApiError).data?.detail ||
+            query.error.message ||
+            "Erro ao buscar aulas de hoje"
             : null,
         refetch: query.refetch,
     };

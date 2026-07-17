@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
     ScrollView,
     StyleSheet,
@@ -10,17 +9,34 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { Progress } from "@/components/Progress";
-import { StatusBadge } from "@/components/StatusBadge";
-import { aulasHoje, AulaHoje, PROFESSOR_ATUAL } from "@/data/mockData";
+import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/hooks/auth.hooks";
+import { useTodayOccurrences } from "@/hooks/schedule.hooks";
+import { OccurrenceStatusType, TodayOccurrenceType } from "@/types/schedules.types";
 import { router } from "expo-router";
 import { AlertTriangle, Calendar, Clock, Users } from "lucide-react-native";
+import { getTimeUntilClass } from "../(user)";
 
-const aulasProfessor = aulasHoje.filter((a) => a.professor === PROFESSOR_ATUAL);
-const proximaAula = aulasProfessor.find((a) => a.status === "agendada");
+const STATUS_BADGE: Record<OccurrenceStatusType, BadgeStatus> = {
+    "Agendada": "agendada",
+    "Em andamento": "em andamento",
+    "Encerrada": "encerrada",
+};
 
-const getModalidadeSigla = (modalidade: AulaHoje["modalidade"]) =>
-    modalidade === "Futevôlei" ? "FV" : "FC";
+const SIGLAS: Record<string, string> = {
+    futevolei: "FV",
+    funcional: "FC",
+};
+
+const getModalidadeSigla = (modalidadeName: string) => {
+    const key = modalidadeName.trim().toLowerCase();
+    return SIGLAS[key] || key.slice(0, 2).toUpperCase();
+};
+
+const formatHora = (startTime: string) => {
+    const [hora, minuto] = startTime.split(":");
+    return minuto === "00" ? `${hora}h` : `${hora}:${minuto}`;
+};
 
 const SummaryCard = ({
     icon,
@@ -40,60 +56,58 @@ const SummaryCard = ({
 
 const AulaItem = ({
     aula,
+    isMinhaAula,
     onOpenAttendance,
 }: {
-    aula: AulaHoje;
+    aula: TodayOccurrenceType;
+    isMinhaAula: boolean;
     onOpenAttendance: () => void;
-}) => {
-    const isMinhaAula = aula.professor === PROFESSOR_ATUAL;
-
-    return (
-        <View style={[styles.card, styles.aulaCard, !isMinhaAula && styles.aulaCardMuted]}>
-            <View style={styles.aulaInfo}>
-                <View style={styles.aulaTimeColumn}>
-                    <Text style={[styles.aulaTime, !isMinhaAula && styles.mutedText]}>
-                        {aula.horario}
-                    </Text>
-                    <Text style={styles.aulaSigla}>{getModalidadeSigla(aula.modalidade)}</Text>
-                </View>
-                <View>
-                    <Text style={styles.aulaModalidade}>{aula.modalidade}</Text>
-                    <Text style={styles.aulaSubtitle}>
-                        {isMinhaAula
-                            ? `${aula.confirmados}/${aula.capacidade} confirmados`
-                            : `Prof. ${aula.professor}`}
-                    </Text>
-                </View>
+}) => (
+    <View style={[styles.card, styles.aulaCard, !isMinhaAula && styles.aulaCardMuted]}>
+        <View style={styles.aulaInfo}>
+            <View style={styles.aulaTimeColumn}>
+                <Text style={[styles.aulaTime, !isMinhaAula && styles.mutedText]}>
+                    {aula.startTime.substring(0, 5)}
+                </Text>
+                <Text style={styles.aulaSigla}>{getModalidadeSigla(aula.modalidadeName)}</Text>
             </View>
-
-            <View style={styles.aulaActions}>
-                <StatusBadge status={aula.status} />
-                {isMinhaAula && aula.status !== "encerrada" && (
-                    <TouchableOpacity
-                        style={[
-                            styles.smallButton,
-                            aula.status === "agendada"
-                                ? styles.smallButtonSolid
-                                : styles.smallButtonOutline,
-                        ]}
-                        onPress={onOpenAttendance}
-                        activeOpacity={0.8}
-                    >
-                        <Text
-                            style={
-                                aula.status === "agendada"
-                                    ? styles.smallButtonSolidText
-                                    : styles.smallButtonOutlineText
-                            }
-                        >
-                            Abrir chamada
-                        </Text>
-                    </TouchableOpacity>
-                )}
+            <View>
+                <Text style={styles.aulaModalidade}>{aula.aulaName || aula.modalidadeName}</Text>
+                <Text style={styles.aulaSubtitle}>
+                    {isMinhaAula
+                        ? `${aula.confirmedCount}/${aula.maxCapacity} confirmados`
+                        : `Prof. ${aula.professorName}`}
+                </Text>
             </View>
         </View>
-    );
-};
+
+        <View style={styles.aulaActions}>
+            <StatusBadge status={STATUS_BADGE[aula.status]} />
+            {isMinhaAula && aula.status !== "Encerrada" && (
+                <TouchableOpacity
+                    style={[
+                        styles.smallButton,
+                        aula.status === "Agendada"
+                            ? styles.smallButtonSolid
+                            : styles.smallButtonOutline,
+                    ]}
+                    onPress={onOpenAttendance}
+                    activeOpacity={0.8}
+                >
+                    <Text
+                        style={
+                            aula.status === "Agendada"
+                                ? styles.smallButtonSolidText
+                                : styles.smallButtonOutlineText
+                        }
+                    >
+                        Abrir chamada
+                    </Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    </View>
+);
 
 const HomeSkeleton = () => (
     <View style={styles.skeletonContainer}>
@@ -110,15 +124,15 @@ const HomeSkeleton = () => (
 
 export default function TeacherHome() {
     const { user } = useAuth();
-    const [loading, setLoading] = useState(true);
+    const { todayOccurrences, isLoading, error } = useTodayOccurrences();
 
-    useEffect(() => {
-        const timeout = setTimeout(() => setLoading(false), 400);
-        return () => clearTimeout(timeout);
-    }, []);
+    const ocorrencias = todayOccurrences || [];
+    const isMinhaAula = (aula: TodayOccurrenceType) => aula.professorName === user?.userName;
+    const minhasAulas = ocorrencias.filter(isMinhaAula);
 
-    const totalAlunosHoje = aulasProfessor.reduce((sum, a) => sum + a.confirmados, 0);
-    const totalEspera = aulasProfessor.reduce((sum, a) => sum + a.espera, 0);
+    const totalAlunosHoje = minhasAulas.reduce((sum, a) => sum + a.confirmedCount, 0);
+    const totalEspera = minhasAulas.reduce((sum, a) => sum + a.waitlistCount, 0);
+    const proximaAula = minhasAulas.find((a) => a.status === "Agendada");
 
     const handleOpenAttendance = () => router.push("/(teacher)/classes");
 
@@ -126,7 +140,7 @@ export default function TeacherHome() {
         <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
             <ClientHeader />
 
-            {loading ? (
+            {isLoading ? (
                 <HomeSkeleton />
             ) : (
                 <ScrollView
@@ -155,27 +169,35 @@ export default function TeacherHome() {
                             <View style={styles.nextClassSection}>
                                 <Text style={styles.nextClassLabel}>PRÓXIMA AULA</Text>
                                 <Text style={styles.nextClassTitle}>
-                                    {proximaAula.modalidade} — hoje{" "}
-                                    {proximaAula.horario.replace(":00", "h")}
+                                    {proximaAula.aulaName || proximaAula.modalidadeName} — hoje{" "}
+                                    {formatHora(proximaAula.startTime)}
                                 </Text>
                                 <View style={styles.nextClassRow}>
                                     <Clock size={16} color="rgba(255,255,255,0.7)" />
-                                    <Text style={styles.nextClassMuted}>Faltam 2h30</Text>
+                                    <Text style={styles.nextClassMuted}>
+                                        Faltam{" "}
+                                        {getTimeUntilClass(proximaAula.date, proximaAula.startTime)}
+                                    </Text>
                                 </View>
                                 <Text style={styles.nextClassMuted}>
-                                    {proximaAula.confirmados} confirmados · {proximaAula.espera} na
-                                    lista de espera
+                                    {proximaAula.confirmedCount} confirmados ·{" "}
+                                    {proximaAula.waitlistCount} na lista de espera
                                 </Text>
 
                                 <View style={styles.progressSection}>
                                     <View style={styles.progressHeader}>
                                         <Text style={styles.progressLabel}>Capacidade</Text>
                                         <Text style={styles.progressLabel}>
-                                            {proximaAula.confirmados}/{proximaAula.capacidade}
+                                            {proximaAula.confirmedCount}/{proximaAula.maxCapacity}
                                         </Text>
                                     </View>
                                     <Progress
-                                        value={(proximaAula.confirmados / proximaAula.capacidade) * 100}
+                                        value={
+                                            proximaAula.maxCapacity > 0
+                                                ? (proximaAula.confirmedCount /
+                                                    proximaAula.maxCapacity) * 100
+                                                : 0
+                                        }
                                         trackColor="rgba(255,255,255,0.1)"
                                     />
                                 </View>
@@ -195,7 +217,7 @@ export default function TeacherHome() {
                         <View style={styles.summaryRow}>
                             <SummaryCard
                                 icon={<Calendar size={20} color={COLORS.mainOrange} />}
-                                value={aulasProfessor.length}
+                                value={minhasAulas.length}
                                 label="aulas hoje"
                             />
                             <SummaryCard
@@ -212,30 +234,46 @@ export default function TeacherHome() {
 
                         <View>
                             <Text style={styles.sectionTitle}>SUAS AULAS HOJE</Text>
-                            <View style={{ gap: 8 }}>
-                                {aulasHoje.map((aula) => (
-                                    <AulaItem
-                                        key={aula.id}
-                                        aula={aula}
-                                        onOpenAttendance={handleOpenAttendance}
-                                    />
-                                ))}
-                            </View>
+                            {error ? (
+                                <View style={{ alignItems: "center", marginVertical: 20 }}>
+                                    <Text style={{ color: "#ef4444" }}>Erro ao carregar aulas</Text>
+                                    <Text style={{ color: "#6b7280", fontSize: 12 }}>{error}</Text>
+                                </View>
+                            ) : ocorrencias.length === 0 ? (
+                                <View style={{ alignItems: "center", marginTop: 20 }}>
+                                    <Text style={{ color: "#9ca3af" }}>
+                                        Nenhuma aula agendada para hoje
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View style={{ gap: 8 }}>
+                                    {ocorrencias.map((aula) => (
+                                        <AulaItem
+                                            key={aula.id}
+                                            aula={aula}
+                                            isMinhaAula={isMinhaAula(aula)}
+                                            onOpenAttendance={handleOpenAttendance}
+                                        />
+                                    ))}
+                                </View>
+                            )}
                         </View>
 
-                        <View style={[styles.card, styles.warningCard]}>
-                            <AlertTriangle size={20} color={COLORS.warning} />
-                            <Text style={styles.warningText}>
-                                <Text style={styles.warningTextStrong}>
-                                    {totalEspera} alunos na lista de espera para as{" "}
-                                    {proximaAula?.horario.replace(":00", "h")}
+                        {totalEspera > 0 && proximaAula && (
+                            <View style={[styles.card, styles.warningCard]}>
+                                <AlertTriangle size={20} color={COLORS.warning} />
+                                <Text style={styles.warningText}>
+                                    <Text style={styles.warningTextStrong}>
+                                        {totalEspera} alunos na lista de espera para as{" "}
+                                        {formatHora(proximaAula.startTime)}
+                                    </Text>
+                                    <Text style={styles.mutedText}>
+                                        {" "}
+                                        — confirme presença para liberar vagas
+                                    </Text>
                                 </Text>
-                                <Text style={styles.mutedText}>
-                                    {" "}
-                                    — confirme presença para liberar vagas
-                                </Text>
-                            </Text>
-                        </View>
+                            </View>
+                        )}
                     </View>
                 </ScrollView>
             )}

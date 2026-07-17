@@ -30,6 +30,10 @@ export type PaginatedType = {
   hasPreviousPage: boolean;
 }
 
+export type SubscriptionStatusType = 'Confirmado' | 'ListaEspera' | 'WaitlistPending' | 'CheckedIn' | 'Faltou';
+
+export type OccurrenceStatusType = 'Agendada' | 'Em andamento' | 'Encerrada';
+
 export type ScheduleOccurrenceType = {
   id: string;
   aulaId: string;
@@ -48,7 +52,25 @@ export type ScheduleOccurrenceType = {
   minLevel: string;
   publicGender: string;
   waitlistTimeoutMinutes: number;
-  subscriptionStatus: 'Confirmado' | 'ListaEspera' | 'WaitlistPending' | 'CheckedIn' | 'Faltou' | null
+  subscriptionStatus: SubscriptionStatusType | null
+}
+
+export type TodayOccurrenceType = {
+  id: string;
+  aulaId: string;
+  aulaName: string;
+  modalidadeName: string;
+  professorName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: OccurrenceStatusType;
+  maxCapacity: number;
+  confirmedCount: number;
+  waitlistCount: number;
+  pendingPayments: number;
+  isSubscribed: boolean;
+  subscriptionStatus: SubscriptionStatusType | null;
 }
 
 export type PaginatedSchedule = PaginatedType & {

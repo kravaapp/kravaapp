@@ -1,5 +1,5 @@
 import { CreateScheduleRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { MyMonthlyScheduleType, PaginatedBookingUserHistory, PaginatedSchedule, ScheduleType } from "@/types/schedules.types";
+import { MyMonthlyScheduleType, PaginatedBookingUserHistory, PaginatedSchedule, ScheduleType, TodayOccurrenceType } from "@/types/schedules.types";
 import api from "./client";
 
 export class ScheduleRoutes {
@@ -11,6 +11,10 @@ export class ScheduleRoutes {
 
     async getUserWeekClasses() {
         return await api.get("/scheduling/my-week-classes").json<ScheduleType[]>();
+    }
+
+    async getTodayOccurrences() {
+        return await api.get("/scheduling/ocorrencias/today").json<TodayOccurrenceType[]>();
     }
 
     async getSchedule(params: ScheduleRequestSchema) {
