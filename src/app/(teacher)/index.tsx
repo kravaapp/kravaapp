@@ -71,9 +71,11 @@ const AulaItem = ({
                 </Text>
                 <Text style={styles.aulaSigla}>{getModalidadeSigla(aula.modalidadeName)}</Text>
             </View>
-            <View>
-                <Text style={styles.aulaModalidade}>{aula.aulaName || aula.modalidadeName}</Text>
-                <Text style={styles.aulaSubtitle}>
+            <View style={styles.aulaTextColumn}>
+                <Text style={styles.aulaModalidade} numberOfLines={1}>
+                    {aula.aulaName || aula.modalidadeName}
+                </Text>
+                <Text style={styles.aulaSubtitle} numberOfLines={1}>
                     {isMinhaAula
                         ? `${aula.confirmedCount}/${aula.maxCapacity} confirmados`
                         : `Prof. ${aula.professorName}`}
@@ -422,10 +424,17 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
+        flex: 1,
+        minWidth: 0,
     },
     aulaTimeColumn: {
         alignItems: "center",
         width: 48,
+        flexShrink: 0,
+    },
+    aulaTextColumn: {
+        flex: 1,
+        minWidth: 0,
     },
     aulaTime: {
         fontSize: 14,
@@ -449,6 +458,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
+        flexShrink: 0,
     },
     mutedText: {
         color: COLORS.mutedForeground,
