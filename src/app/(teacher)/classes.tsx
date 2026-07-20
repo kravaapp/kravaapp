@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+    Image,
     Modal,
     ScrollView,
     StyleSheet,
@@ -14,75 +15,48 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Badge, BadgeVariant } from "@/components/Badge";
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { Progress } from "@/components/Progress";
+import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
-import { alunos, Nivel } from "@/data/mockData";
-import { Clock, Search, UserPlus } from "lucide-react-native";
+import { alunos } from "@/data/mockData";
+import { useAttendance, useTodayOccurrences } from "@/hooks/schedule.hooks";
+import {
+    AttendanceFilterStatusType,
+    AttendanceStudentType,
+} from "@/types/schedules.types";
+import { Search, UserPlus } from "lucide-react-native";
+import { formatHora, STATUS_BADGE } from "./index";
 
-const CAPACIDADE = 14;
 const TEMPO_CONFIRMACAO = 900;
-
-type ChamadaAluno = {
-    id: string;
-    nome: string;
-    modalidade: string;
-    nivel: Nivel;
-    presente: boolean;
-    experimental?: boolean;
-    avulsoPendente?: boolean;
-    avulsoValor?: number;
-};
-
-type EsperaAluno = {
-    id: string;
-    nome: string;
-    posicao: number;
-    horaEntrada: string;
-    status: "aguardando" | "chamado" | "nao_confirmou";
-    countdown?: number;
-};
 
 type TabKey = "chamada" | "espera" | "adicionar";
 
-const initialChamada: ChamadaAluno[] = [
-    { id: "1", nome: "Carlos Mendes", modalidade: "Futevôlei", nivel: "Intermediário", presente: true },
-    { id: "2", nome: "Ana Beatriz Lima", modalidade: "Futevôlei", nivel: "Iniciante", presente: true },
-    { id: "3", nome: "Rafael Santos", modalidade: "Futevôlei", nivel: "Avançado", presente: false },
-    { id: "4", nome: "Julia Pereira", modalidade: "Futevôlei", nivel: "Iniciante", presente: true },
-    { id: "5", nome: "Marcos Tavares", modalidade: "Futevôlei", nivel: "Intermediário", presente: true },
-    { id: "6", nome: "Fernanda Costa", modalidade: "Futevôlei", nivel: "Elite", presente: true },
-    { id: "7", nome: "Pedro Alves", modalidade: "Futevôlei", nivel: "Iniciante", presente: true },
-    { id: "8", nome: "Beatriz Rocha", modalidade: "Futevôlei", nivel: "Intermediário", presente: true },
-    { id: "9", nome: "Lucas Ferreira", modalidade: "Futevôlei", nivel: "Avançado", presente: true },
-    { id: "10", nome: "Camila Souza", modalidade: "Futevôlei", nivel: "Iniciante", presente: true },
-    {
-        id: "11",
-        nome: "Diego Martins",
-        modalidade: "Futevôlei",
-        nivel: "Iniciante",
-        presente: true,
-        avulsoPendente: true,
-        avulsoValor: 35,
-    },
-];
-
-const initialEspera: EsperaAluno[] = [
-    { id: "e1", nome: "Larissa Nunes", posicao: 1, horaEntrada: "14h22", status: "aguardando" },
-    { id: "e2", nome: "Thiago Lima", posicao: 2, horaEntrada: "15h10", status: "aguardando" },
-    { id: "e3", nome: "Paula Mendes", posicao: 3, horaEntrada: "15h45", status: "aguardando" },
-];
-
-const nivelVariant = (nivel: Nivel): BadgeVariant => {
-    switch (nivel) {
-        case "Iniciante":
-            return "success";
-        case "Intermediário":
-            return "warning";
-        case "Avançado":
-            return "destructive";
-        case "Elite":
-            return "manager";
-    }
+/** Cada aba consome o mesmo hook, alterando apenas o parâmetro `status`. */
+const TAB_STATUS: Record<TabKey, AttendanceFilterStatusType> = {
+    chamada: "Confirmado",
+    espera: "FilaEspera",
+    adicionar: "Confirmado",
 };
+
+/** Estado local da chamada da fila de espera (não há endpoint para isso ainda). */
+type ChamadaFila = {
+    status: "chamado" | "nao_confirmou";
+    countdown: number;
+};
+
+const LEVEL_VARIANT: Record<string, BadgeVariant> = {
+    iniciante: "success",
+    intermediario: "warning",
+    "intermediário": "warning",
+    avancado: "destructive",
+    "avançado": "destructive",
+    elite: "manager",
+};
+
+const levelVariant = (level: string): BadgeVariant =>
+    LEVEL_VARIANT[level.trim().toLowerCase()] || "muted";
+
+const levelLabel = (level: string) =>
+    level ? level.charAt(0).toUpperCase() + level.slice(1) : "";
 
 const formatCountdown = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -90,11 +64,27 @@ const formatCountdown = (seconds: number) => {
     return `${minutes.toString().padStart(2, "0")}:${rest.toString().padStart(2, "0")}`;
 };
 
-const Avatar = ({ nome, size = 36 }: { nome: string; size?: number }) => (
-    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
-        <Text style={styles.avatarText}>{getInitials(nome).slice(0, 2)}</Text>
-    </View>
-);
+const Avatar = ({
+    nome,
+    photoUrl,
+    size = 36,
+}: {
+    nome: string;
+    photoUrl?: string | null;
+    size?: number;
+}) => {
+    const shape = { width: size, height: size, borderRadius: size / 2 };
+
+    if (photoUrl) {
+        return <Image source={{ uri: photoUrl }} style={[styles.avatar, shape]} />;
+    }
+
+    return (
+        <View style={[styles.avatar, shape]}>
+            <Text style={styles.avatarText}>{getInitials(nome).slice(0, 2)}</Text>
+        </View>
+    );
+};
 
 const SegmentedTabs = ({
     value,
@@ -140,78 +130,135 @@ const ChamadaSkeleton = () => (
     </View>
 );
 
+const EmptyState = ({ message }: { message: string }) => (
+    <View style={{ alignItems: "center", marginTop: 20 }}>
+        <Text style={{ color: "#9ca3af" }}>{message}</Text>
+    </View>
+);
+
+const ErrorState = ({ title, detail }: { title: string; detail: string }) => (
+    <View style={{ alignItems: "center", marginVertical: 20 }}>
+        <Text style={{ color: "#ef4444" }}>{title}</Text>
+        <Text style={{ color: "#6b7280", fontSize: 12 }}>{detail}</Text>
+    </View>
+);
+
 export default function AulaAoVivo() {
     const { toast } = useToast();
-    const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<TabKey>("chamada");
-    const [chamada, setChamada] = useState(initialChamada);
-    const [espera, setEspera] = useState(initialEspera);
+
+    // Reaproveita o cache do React Query alimentado pela tela inicial ("SUAS AULAS HOJE").
+    const { todayOccurrences, isLoading: isLoadingOcorrencias } = useTodayOccurrences();
+    const ocorrencia = todayOccurrences?.[0];
+    const ocorrenciaId = ocorrencia?.id ?? "";
+
+    const { attendance, isLoading, error } = useAttendance({
+        ocorrenciaId,
+        status: TAB_STATUS[tab],
+    });
+
+    const [presencaOverrides, setPresencaOverrides] = useState<Record<string, boolean>>({});
+    const [chamadosFila, setChamadosFila] = useState<Record<string, ChamadaFila>>({});
+    const [extras, setExtras] = useState<AttendanceStudentType[]>([]);
     const [encerrarModal, setEncerrarModal] = useState(false);
-    const [chamarModal, setChamarModal] = useState<EsperaAluno | null>(null);
-    const [pagamentoModal, setPagamentoModal] = useState<ChamadaAluno | null>(null);
+    const [chamarModal, setChamarModal] = useState<AttendanceStudentType | null>(null);
+    const [pagamentoModal, setPagamentoModal] = useState<AttendanceStudentType | null>(null);
     const [searchAdd, setSearchAdd] = useState("");
     const [expNome, setExpNome] = useState("");
     const [expTel, setExpTel] = useState("");
     const [expToggle, setExpToggle] = useState(true);
 
+    const lista = attendance?.lista ?? [];
+    const presentes = attendance?.presentCount ?? 0;
+    const ausentes = attendance?.absentCount ?? 0;
+    const pendentes = attendance?.pendingCount ?? 0;
+
+    const capacidade = ocorrencia?.maxCapacity ?? 0;
+    const confirmados = ocorrencia?.confirmedCount ?? 0;
+    const totalEspera = ocorrencia?.waitlistCount ?? 0;
+    const vagasDisponiveis = ausentes;
+
+    const chamadaLista = useMemo(
+        () => (tab === "chamada" ? [...lista, ...extras] : extras),
+        [tab, lista, extras]
+    );
+
     const toastRef = useRef(toast);
     toastRef.current = toast;
 
+    // O countdown roda fora do render, então precisa dos nomes por ref.
+    const nomesFilaRef = useRef<Record<string, string>>({});
+    nomesFilaRef.current = Object.fromEntries(
+        lista.map((item) => [item.bookingId, item.studentName])
+    );
+
+    // Estado local é específico da ocorrência aberta.
     useEffect(() => {
-        const timeout = setTimeout(() => setLoading(false), 400);
-        return () => clearTimeout(timeout);
-    }, []);
+        setPresencaOverrides({});
+        setChamadosFila({});
+        setExtras([]);
+    }, [ocorrenciaId]);
 
     useEffect(() => {
         const interval = setInterval(() => {
-            setEspera((prev) =>
-                prev.map((item) => {
-                    if (item.status !== "chamado" || item.countdown === undefined) {
-                        return item;
+            setChamadosFila((prev) => {
+                const entries = Object.entries(prev);
+                if (entries.length === 0) return prev;
+
+                let changed = false;
+                const next: Record<string, ChamadaFila> = {};
+
+                for (const [bookingId, chamado] of entries) {
+                    if (chamado.status !== "chamado") {
+                        next[bookingId] = chamado;
+                        continue;
                     }
-                    if (item.countdown <= 1) {
+
+                    changed = true;
+
+                    if (chamado.countdown <= 1) {
+                        next[bookingId] = { status: "nao_confirmou", countdown: 0 };
                         toastRef.current({
-                            title: `${item.nome} não confirmou`,
+                            title: `${nomesFilaRef.current[bookingId] ?? "O aluno"} não confirmou`,
                             description: "Deseja chamar o próximo da fila?",
                             variant: "destructive",
                         });
-                        return { ...item, countdown: 0, status: "nao_confirmou" as const };
+                        continue;
                     }
-                    return { ...item, countdown: item.countdown - 1 };
-                })
-            );
+
+                    next[bookingId] = { ...chamado, countdown: chamado.countdown - 1 };
+                }
+
+                return changed ? next : prev;
+            });
         }, 1000);
 
         return () => clearInterval(interval);
     }, []);
 
-    const presentes = chamada.filter((c) => c.presente).length;
-    const ausentes = chamada.filter((c) => !c.presente).length;
-    const vagasDisponiveis = ausentes;
+    const isPresente = (aluno: AttendanceStudentType) =>
+        presencaOverrides[aluno.bookingId] ?? aluno.status !== "Absent";
 
-    const togglePresenca = (id: string) => {
-        const aluno = chamada.find((c) => c.id === id);
-        setChamada((prev) =>
-            prev.map((c) => (c.id === id ? { ...c, presente: !c.presente } : c))
-        );
-        if (aluno?.presente) {
+    const togglePresenca = (aluno: AttendanceStudentType) => {
+        const presenteAgora = isPresente(aluno);
+
+        setPresencaOverrides((prev) => ({ ...prev, [aluno.bookingId]: !presenteAgora }));
+
+        if (presenteAgora) {
             toast({
-                title: `${aluno.nome} marcado como ausente`,
+                title: `${aluno.studentName} marcado como ausente`,
                 description: "Deseja chamar o próximo da lista de espera?",
             });
         }
     };
 
-    const chamarAluno = (aluno: EsperaAluno) => {
-        setEspera((prev) =>
-            prev.map((item) =>
-                item.id === aluno.id
-                    ? { ...item, status: "chamado" as const, countdown: TEMPO_CONFIRMACAO }
-                    : item
-            )
-        );
+    const chamarAluno = (aluno: AttendanceStudentType) => {
+        setChamadosFila((prev) => ({
+            ...prev,
+            [aluno.bookingId]: { status: "chamado", countdown: TEMPO_CONFIRMACAO },
+        }));
         setChamarModal(null);
-        toast({ title: `Notificação enviada para ${aluno.nome} ✓` });
+        toast({ title: `Notificação enviada para ${aluno.studentName} ✓` });
     };
 
     const encerrarChamada = () => {
@@ -222,25 +269,31 @@ export default function AulaAoVivo() {
         });
     };
 
-    const confirmarPagamento = (aluno: ChamadaAluno) => {
-        setChamada((prev) =>
-            prev.map((c) => (c.id === aluno.id ? { ...c, avulsoPendente: false } : c))
+    const confirmarPagamento = (aluno: AttendanceStudentType) => {
+        setExtras((prev) =>
+            prev.map((e) =>
+                e.bookingId === aluno.bookingId ? { ...e, avulsoPending: false } : e
+            )
         );
         setPagamentoModal(null);
-        toast({ title: `Pagamento de ${aluno.nome} confirmado ✓` });
+        toast({ title: `Pagamento de ${aluno.studentName} confirmado ✓` });
     };
 
     const addExperimental = () => {
         if (!expNome.trim() || !expTel.trim()) return;
-        setChamada((prev) => [
+
+        setExtras((prev) => [
             ...prev,
             {
-                id: `exp-${Date.now()}`,
-                nome: expNome,
-                modalidade: "Futevôlei",
-                nivel: "Iniciante",
-                presente: true,
-                experimental: true,
+                bookingId: `exp-${Date.now()}`,
+                studentId: "",
+                studentName: expNome,
+                photoUrl: null,
+                isExperimental: expToggle,
+                status: "Pending",
+                level: "iniciante",
+                paymentMethod: "Experimental",
+                avulsoPending: false,
             },
         ]);
         toast({ title: `${expNome} adicionado como experimental ✓` });
@@ -253,181 +306,230 @@ export default function AulaAoVivo() {
             ? alunos.filter((a) => a.nome.toLowerCase().includes(searchAdd.toLowerCase()))
             : [];
 
-    const nomesNaChamada = new Set(chamada.map((c) => c.nome));
+    const nomesNaChamada = new Set(chamadaLista.map((c) => c.studentName));
     const expDisabled = !expNome.trim() || !expTel.trim();
+
+    const renderListState = (emptyMessage: string) => {
+        if (isLoading) return <ChamadaSkeleton />;
+        if (error) return <ErrorState title="Erro ao carregar a chamada" detail={error} />;
+        if (lista.length === 0) return <EmptyState message={emptyMessage} />;
+        return null;
+    };
+
+    if (isLoadingOcorrencias) {
+        return (
+            <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+                <ClientHeader />
+                <ChamadaSkeleton />
+            </SafeAreaView>
+        );
+    }
+
+    if (!ocorrencia) {
+        return (
+            <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+                <ClientHeader />
+                <EmptyState message="Nenhuma aula agendada para hoje" />
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
             <ClientHeader />
 
             <View style={styles.classHeader}>
-                <Text style={styles.classTitle}>Futevôlei — 19h</Text>
+                <Text style={styles.classTitle}>
+                    {ocorrencia.aulaName || ocorrencia.modalidadeName} —{" "}
+                    {formatHora(ocorrencia.startTime)}
+                </Text>
                 <View style={styles.classMetaRow}>
-                    <Badge variant="success" pulse>
-                        Em andamento
-                    </Badge>
+                    <StatusBadge status={STATUS_BADGE[ocorrencia.status]} />
                     <Text style={styles.classMeta}>
-                        {presentes + ausentes}/{CAPACIDADE} confirmados · {espera.length} na espera
+                        {confirmados}/{capacidade} confirmados · {totalEspera} na espera
                     </Text>
                 </View>
                 <View style={{ marginTop: 12 }}>
-                    <Progress value={((presentes + ausentes) / CAPACIDADE) * 100} height={6} />
+                    <Progress
+                        value={capacidade > 0 ? (confirmados / capacidade) * 100 : 0}
+                        height={6}
+                    />
                 </View>
             </View>
 
-            {loading ? (
-                <ChamadaSkeleton />
-            ) : (
-                <View style={{ flex: 1 }}>
-                    <SegmentedTabs value={tab} onChange={setTab} esperaCount={espera.length} />
+            <View style={{ flex: 1 }}>
+                <SegmentedTabs value={tab} onChange={setTab} esperaCount={totalEspera} />
 
-                    {tab === "chamada" && (
-                        <View style={{ flex: 1 }}>
-                            <ScrollView
-                                style={{ flex: 1 }}
-                                contentContainerStyle={styles.tabContent}
-                                showsVerticalScrollIndicator={false}
-                            >
-                                <View style={styles.countRow}>
-                                    <Text style={styles.countPresent}>✓ {presentes} presentes</Text>
-                                    <Text style={styles.mutedText}>·</Text>
-                                    <Text style={styles.countAbsent}>
-                                        ✗ {ausentes} ausente{ausentes !== 1 ? "s" : ""}
-                                    </Text>
-                                </View>
-
-                                <Text style={styles.hint}>
-                                    Toque no nome para marcar presença ou ausência
-                                </Text>
-
-                                <View style={{ gap: 8 }}>
-                                    {chamada.map((c) => (
-                                        <View
-                                            key={c.id}
-                                            style={[styles.card, !c.presente && styles.cardAbsent]}
-                                        >
-                                            <View style={styles.alunoInfo}>
-                                                <Avatar nome={c.nome} />
-                                                <View style={{ flex: 1 }}>
-                                                    <View style={styles.nameRow}>
-                                                        <Text style={styles.alunoNome} numberOfLines={1}>
-                                                            {c.nome}
-                                                        </Text>
-                                                        {c.avulsoPendente && (
-                                                            <TouchableOpacity
-                                                                onPress={() => setPagamentoModal(c)}
-                                                                activeOpacity={0.7}
-                                                            >
-                                                                <Badge variant="warning" compact>
-                                                                    💰 Pend.
-                                                                </Badge>
-                                                            </TouchableOpacity>
-                                                        )}
-                                                    </View>
-                                                    <View style={styles.badgeRow}>
-                                                        <Badge variant="primary" compact>
-                                                            {c.modalidade}
-                                                        </Badge>
-                                                        <Badge variant={nivelVariant(c.nivel)} compact>
-                                                            {c.nivel}
-                                                        </Badge>
-                                                        {c.experimental && (
-                                                            <Badge variant="manager" compact>
-                                                                Experimental
-                                                            </Badge>
-                                                        )}
-                                                    </View>
-                                                </View>
-                                            </View>
-
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.presenceButton,
-                                                    c.presente
-                                                        ? styles.presenceButtonPresent
-                                                        : styles.presenceButtonAbsent,
-                                                ]}
-                                                onPress={() => togglePresenca(c.id)}
-                                                activeOpacity={0.7}
-                                            >
-                                                <Text
-                                                    style={[
-                                                        styles.presenceIcon,
-                                                        {
-                                                            color: c.presente
-                                                                ? COLORS.success
-                                                                : COLORS.destructive,
-                                                        },
-                                                    ]}
-                                                >
-                                                    {c.presente ? "✓" : "✗"}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
-                                </View>
-                            </ScrollView>
-
-                            <View style={styles.footer}>
-                                <TouchableOpacity
-                                    style={styles.destructiveOutlineButton}
-                                    onPress={() => setEncerrarModal(true)}
-                                    activeOpacity={0.8}
-                                >
-                                    <Text style={styles.destructiveOutlineText}>Encerrar chamada</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
-
-                    {tab === "espera" && (
+                {tab === "chamada" && (
+                    <View style={{ flex: 1 }}>
                         <ScrollView
                             style={{ flex: 1 }}
                             contentContainerStyle={styles.tabContent}
                             showsVerticalScrollIndicator={false}
                         >
-                            <Text style={styles.esperaTitle}>
-                                {espera.length} pessoas aguardando vaga
+                            <View style={styles.countRow}>
+                                <Text style={styles.countPresent}>✓ {presentes} presentes</Text>
+                                <Text style={styles.mutedText}>·</Text>
+                                <Text style={styles.countAbsent}>
+                                    ✗ {ausentes} ausente{ausentes !== 1 ? "s" : ""}
+                                </Text>
+                                <Text style={styles.mutedText}>·</Text>
+                                <Text style={styles.countPending}>⏳ {pendentes} pendente{pendentes !== 1 ? "s" : ""}</Text>
+                            </View>
+
+                            <Text style={styles.hint}>
+                                Toque no nome para marcar presença ou ausência
                             </Text>
 
-                            {vagasDisponiveis > 0 && (
-                                <View style={styles.vagaBanner}>
-                                    <Text style={styles.vagaBannerText}>
-                                        {vagasDisponiveis} vaga{vagasDisponiveis > 1 ? "s" : ""}{" "}
-                                        disponível — Rafael Santos foi marcado ausente
-                                    </Text>
-                                </View>
-                            )}
+                            {renderListState("Nenhum aluno confirmado nesta aula") ?? (
+                                <View style={{ gap: 8 }}>
+                                    {chamadaLista.map((c) => {
+                                        const presente = isPresente(c);
 
-                            <View style={{ gap: 8 }}>
-                                {espera.map((item, index) => {
-                                    const bloqueado =
-                                        index !== 0 && espera[0]?.status === "aguardando";
-
-                                    return (
-                                        <View key={item.id} style={styles.cardColumn}>
-                                            <View style={styles.alunoInfo}>
-                                                <View style={styles.posicaoCircle}>
-                                                    <Text style={styles.posicaoText}>{item.posicao}</Text>
-                                                </View>
-                                                <View>
-                                                    <Text style={styles.alunoNome}>{item.nome}</Text>
-                                                    <View style={styles.filaRow}>
-                                                        <Clock size={12} color={COLORS.mutedForeground} />
-                                                        <Text style={styles.filaText}>
-                                                            Na fila desde {item.horaEntrada}
-                                                        </Text>
+                                        return (
+                                            <View
+                                                key={c.bookingId}
+                                                style={[styles.card, !presente && styles.cardAbsent]}
+                                            >
+                                                <View style={styles.alunoInfo}>
+                                                    <Avatar nome={c.studentName} photoUrl={c.photoUrl} />
+                                                    <View style={{ flex: 1 }}>
+                                                        <View style={styles.nameRow}>
+                                                            <Text style={styles.alunoNome} numberOfLines={1}>
+                                                                {c.studentName}
+                                                            </Text>
+                                                            {c.avulsoPending && (
+                                                                <TouchableOpacity
+                                                                    onPress={() => setPagamentoModal(c)}
+                                                                    activeOpacity={0.7}
+                                                                >
+                                                                    <Badge variant="warning" compact>
+                                                                        💰 Pend.
+                                                                    </Badge>
+                                                                </TouchableOpacity>
+                                                            )}
+                                                        </View>
+                                                        <View style={styles.badgeRow}>
+                                                            <Badge variant="primary" compact>
+                                                                {ocorrencia.modalidadeName}
+                                                            </Badge>
+                                                            {!!c.level && (
+                                                                <Badge variant={levelVariant(c.level)} compact>
+                                                                    {levelLabel(c.level)}
+                                                                </Badge>
+                                                            )}
+                                                            {c.isExperimental && (
+                                                                <Badge variant="manager" compact>
+                                                                    Experimental
+                                                                </Badge>
+                                                            )}
+                                                        </View>
                                                     </View>
                                                 </View>
+
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.presenceButton,
+                                                        presente
+                                                            ? styles.presenceButtonPresent
+                                                            : styles.presenceButtonAbsent,
+                                                    ]}
+                                                    onPress={() => togglePresenca(c)}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            styles.presenceIcon,
+                                                            {
+                                                                color: presente
+                                                                    ? COLORS.success
+                                                                    : COLORS.destructive,
+                                                            },
+                                                        ]}
+                                                    >
+                                                        {presente ? "✓" : "✗"}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            )}
+                        </ScrollView>
+
+                        <View style={styles.footer}>
+                            <TouchableOpacity
+                                style={styles.destructiveOutlineButton}
+                                onPress={() => setEncerrarModal(true)}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={styles.destructiveOutlineText}>Encerrar chamada</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
+                {tab === "espera" && (
+                    <ScrollView
+                        style={{ flex: 1 }}
+                        contentContainerStyle={styles.tabContent}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <Text style={styles.esperaTitle}>
+                            {lista.length} pessoa{lista.length !== 1 ? "s" : ""} aguardando vaga
+                        </Text>
+
+                        {vagasDisponiveis > 0 && (
+                            <View style={styles.vagaBanner}>
+                                <Text style={styles.vagaBannerText}>
+                                    {vagasDisponiveis} vaga{vagasDisponiveis > 1 ? "s" : ""}{" "}
+                                    disponível — confirme a chamada para liberar
+                                </Text>
+                            </View>
+                        )}
+
+                        {renderListState("Ninguém na lista de espera") ?? (
+                            <View style={{ gap: 8 }}>
+                                {lista.map((item, index) => {
+                                    const chamado = chamadosFila[item.bookingId];
+                                    const primeiroAguardando = !chamadosFila[lista[0]?.bookingId];
+                                    const bloqueado = index !== 0 && primeiroAguardando;
+                                    const proximo = lista[index + 1];
+
+                                    return (
+                                        <View key={item.bookingId} style={styles.cardColumn}>
+                                            <View style={styles.alunoInfo}>
+                                                <View style={styles.posicaoCircle}>
+                                                    <Text style={styles.posicaoText}>{index + 1}</Text>
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.alunoNome}>{item.studentName}</Text>
+                                                    <View style={styles.badgeRow}>
+                                                        {!!item.level && (
+                                                            <Badge variant={levelVariant(item.level)} compact>
+                                                                {levelLabel(item.level)}
+                                                            </Badge>
+                                                        )}
+                                                        {item.isExperimental && (
+                                                            <Badge variant="manager" compact>
+                                                                Experimental
+                                                            </Badge>
+                                                        )}
+                                                        {item.avulsoPending && (
+                                                            <Badge variant="warning" compact>
+                                                                💰 Pend.
+                                                            </Badge>
+                                                        )}
+                                                    </View>
+                                                </View>
+                                                <Avatar nome={item.studentName} photoUrl={item.photoUrl} />
                                             </View>
 
-                                            {item.status === "aguardando" && (
+                                            {!chamado && (
                                                 <TouchableOpacity
                                                     style={[
                                                         styles.fullButton,
-                                                        index === 0
-                                                            ? styles.solidButton
-                                                            : styles.outlineButton,
+                                                        index === 0 ? styles.solidButton : styles.outlineButton,
                                                         bloqueado && styles.buttonDisabled,
                                                     ]}
                                                     onPress={() => setChamarModal(item)}
@@ -446,26 +548,26 @@ export default function AulaAoVivo() {
                                                 </TouchableOpacity>
                                             )}
 
-                                            {item.status === "chamado" && item.countdown !== undefined && (
+                                            {chamado?.status === "chamado" && (
                                                 <View style={styles.countdownRow}>
                                                     <Badge variant="warning">
                                                         Aguardando confirmação ·{" "}
-                                                        {formatCountdown(item.countdown)} ⏱
+                                                        {formatCountdown(chamado.countdown)} ⏱
                                                     </Badge>
                                                 </View>
                                             )}
 
-                                            {item.status === "nao_confirmou" && (
+                                            {chamado?.status === "nao_confirmou" && (
                                                 <View style={{ marginTop: 8, gap: 8 }}>
                                                     <Badge variant="destructive">Não confirmou</Badge>
-                                                    {index < espera.length - 1 && (
+                                                    {proximo && (
                                                         <TouchableOpacity
                                                             style={[styles.fullButton, styles.solidButton]}
-                                                            onPress={() => setChamarModal(espera[index + 1])}
+                                                            onPress={() => setChamarModal(proximo)}
                                                             activeOpacity={0.8}
                                                         >
                                                             <Text style={styles.solidButtonText}>
-                                                                Chamar {espera[index + 1]?.nome}
+                                                                Chamar {proximo.studentName}
                                                             </Text>
                                                         </TouchableOpacity>
                                                     )}
@@ -475,142 +577,146 @@ export default function AulaAoVivo() {
                                     );
                                 })}
                             </View>
-                        </ScrollView>
-                    )}
+                        )}
+                    </ScrollView>
+                )}
 
-                    {tab === "adicionar" && (
-                        <ScrollView
-                            style={{ flex: 1 }}
-                            contentContainerStyle={styles.tabContent}
-                            showsVerticalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
-                        >
-                            <Text style={styles.addTitle}>Adicionar aluno à aula</Text>
+                {tab === "adicionar" && (
+                    <ScrollView
+                        style={{ flex: 1 }}
+                        contentContainerStyle={styles.tabContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        <Text style={styles.addTitle}>Adicionar aluno à aula</Text>
 
-                            <View style={styles.searchWrapper}>
-                                <Search
-                                    size={16}
-                                    color={COLORS.mutedForeground}
-                                    style={styles.searchIcon}
-                                />
-                                <TextInput
-                                    style={styles.searchInput}
-                                    placeholder="Buscar aluno do local..."
-                                    placeholderTextColor="#9ca3af"
-                                    value={searchAdd}
-                                    onChangeText={setSearchAdd}
-                                />
-                            </View>
+                        <View style={styles.searchWrapper}>
+                            <Search
+                                size={16}
+                                color={COLORS.mutedForeground}
+                                style={styles.searchIcon}
+                            />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Buscar aluno do local..."
+                                placeholderTextColor="#9ca3af"
+                                value={searchAdd}
+                                onChangeText={setSearchAdd}
+                            />
+                        </View>
 
-                            {searchResults.length > 0 && (
-                                <View style={{ gap: 4, marginBottom: 16 }}>
-                                    {searchResults.map((a) => {
-                                        const jaNaAula = nomesNaChamada.has(a.nome);
+                        {searchResults.length > 0 && (
+                            <View style={{ gap: 4, marginBottom: 16 }}>
+                                {searchResults.map((a) => {
+                                    const jaNaAula = nomesNaChamada.has(a.nome);
 
-                                        return (
-                                            <View key={a.id} style={styles.card}>
-                                                <View style={styles.alunoInfo}>
-                                                    <Avatar nome={a.nome} size={32} />
-                                                    <Text style={styles.searchName}>{a.nome}</Text>
-                                                </View>
-                                                {jaNaAula ? (
-                                                    <Text style={styles.mutedSmall}>(já confirmado)</Text>
-                                                ) : (
-                                                    <TouchableOpacity
-                                                        style={[styles.smallButton, styles.solidButton]}
-                                                        activeOpacity={0.8}
-                                                        onPress={() => {
-                                                            setChamada((prev) => [
-                                                                ...prev,
-                                                                {
-                                                                    id: a.id,
-                                                                    nome: a.nome,
-                                                                    modalidade: a.modalidades[0],
-                                                                    nivel: a.nivel,
-                                                                    presente: true,
-                                                                },
-                                                            ]);
-                                                            setSearchAdd("");
-                                                            toast({ title: `${a.nome} adicionado à aula ✓` });
-                                                        }}
-                                                    >
-                                                        <Text style={styles.solidButtonText}>
-                                                            Adicionar à aula
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                )}
+                                    return (
+                                        <View key={a.id} style={styles.card}>
+                                            <View style={styles.alunoInfo}>
+                                                <Avatar nome={a.nome} size={32} />
+                                                <Text style={styles.searchName}>{a.nome}</Text>
                                             </View>
-                                        );
-                                    })}
-                                </View>
-                            )}
+                                            {jaNaAula ? (
+                                                <Text style={styles.mutedSmall}>(já confirmado)</Text>
+                                            ) : (
+                                                <TouchableOpacity
+                                                    style={[styles.smallButton, styles.solidButton]}
+                                                    activeOpacity={0.8}
+                                                    onPress={() => {
+                                                        setExtras((prev) => [
+                                                            ...prev,
+                                                            {
+                                                                bookingId: `local-${a.id}`,
+                                                                studentId: a.id,
+                                                                studentName: a.nome,
+                                                                photoUrl: null,
+                                                                isExperimental: false,
+                                                                status: "Pending",
+                                                                level: a.nivel,
+                                                                paymentMethod: a.tipo,
+                                                                avulsoPending: false,
+                                                            },
+                                                        ]);
+                                                        setSearchAdd("");
+                                                        toast({ title: `${a.nome} adicionado à aula ✓` });
+                                                    }}
+                                                >
+                                                    <Text style={styles.solidButtonText}>
+                                                        Adicionar à aula
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        )}
 
-                            <View style={styles.dividerRow}>
-                                <View style={styles.divider} />
-                                <Text style={styles.mutedSmall}>ou</Text>
-                                <View style={styles.divider} />
+                        <View style={styles.dividerRow}>
+                            <View style={styles.divider} />
+                            <Text style={styles.mutedSmall}>ou</Text>
+                            <View style={styles.divider} />
+                        </View>
+
+                        <Text style={styles.addSubtitle}>Aluno experimental</Text>
+
+                        <View style={{ gap: 12 }}>
+                            <View style={{ gap: 6 }}>
+                                <Text style={styles.label}>Nome *</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Nome do aluno"
+                                    placeholderTextColor="#9ca3af"
+                                    value={expNome}
+                                    onChangeText={setExpNome}
+                                />
                             </View>
 
-                            <Text style={styles.addSubtitle}>Aluno experimental</Text>
-
-                            <View style={{ gap: 12 }}>
-                                <View style={{ gap: 6 }}>
-                                    <Text style={styles.label}>Nome *</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Nome do aluno"
-                                        placeholderTextColor="#9ca3af"
-                                        value={expNome}
-                                        onChangeText={setExpNome}
-                                    />
-                                </View>
-
-                                <View style={{ gap: 6 }}>
-                                    <Text style={styles.label}>Telefone *</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="(19) 99999-9999"
-                                        placeholderTextColor="#9ca3af"
-                                        keyboardType="phone-pad"
-                                        value={expTel}
-                                        onChangeText={setExpTel}
-                                    />
-                                </View>
-
-                                <View style={styles.switchRow}>
-                                    <Switch
-                                        value={expToggle}
-                                        onValueChange={setExpToggle}
-                                        trackColor={{ true: COLORS.mainOrange, false: "#d1d5db" }}
-                                        thumbColor="#fff"
-                                    />
-                                    <Text style={styles.switchLabel}>Aula experimental</Text>
-                                </View>
-
-                                <Text style={styles.mutedSmall}>
-                                    Aluno experimental não precisa ter cadastro no app. O registro fica
-                                    salvo no histórico da aula.
-                                </Text>
-
-                                <TouchableOpacity
-                                    style={[
-                                        styles.fullButton,
-                                        styles.solidButton,
-                                        styles.buttonWithIcon,
-                                        expDisabled && styles.buttonDisabled,
-                                    ]}
-                                    onPress={addExperimental}
-                                    disabled={expDisabled}
-                                    activeOpacity={0.8}
-                                >
-                                    <UserPlus size={16} color="#fff" />
-                                    <Text style={styles.solidButtonText}>Adicionar à chamada</Text>
-                                </TouchableOpacity>
+                            <View style={{ gap: 6 }}>
+                                <Text style={styles.label}>Telefone *</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="(19) 99999-9999"
+                                    placeholderTextColor="#9ca3af"
+                                    keyboardType="phone-pad"
+                                    value={expTel}
+                                    onChangeText={setExpTel}
+                                />
                             </View>
-                        </ScrollView>
-                    )}
-                </View>
-            )}
+
+                            <View style={styles.switchRow}>
+                                <Switch
+                                    value={expToggle}
+                                    onValueChange={setExpToggle}
+                                    trackColor={{ true: COLORS.mainOrange, false: "#d1d5db" }}
+                                    thumbColor="#fff"
+                                />
+                                <Text style={styles.switchLabel}>Aula experimental</Text>
+                            </View>
+
+                            <Text style={styles.mutedSmall}>
+                                Aluno experimental não precisa ter cadastro no app. O registro fica
+                                salvo no histórico da aula.
+                            </Text>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.fullButton,
+                                    styles.solidButton,
+                                    styles.buttonWithIcon,
+                                    expDisabled && styles.buttonDisabled,
+                                ]}
+                                onPress={addExperimental}
+                                disabled={expDisabled}
+                                activeOpacity={0.8}
+                            >
+                                <UserPlus size={16} color="#fff" />
+                                <Text style={styles.solidButtonText}>Adicionar à chamada</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+                )}
+            </View>
 
             <Modal
                 visible={!!pagamentoModal}
@@ -621,13 +727,15 @@ export default function AulaAoVivo() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>
-                            Confirmar pagamento de {pagamentoModal?.nome}?
+                            Confirmar pagamento de {pagamentoModal?.studentName}?
                         </Text>
                         {pagamentoModal && (
                             <View style={styles.paymentBox}>
-                                <Text style={styles.mutedSmall}>Aula avulsa Futevôlei</Text>
+                                <Text style={styles.mutedSmall}>
+                                    Aula avulsa {ocorrencia.modalidadeName}
+                                </Text>
                                 <Text style={styles.paymentValue}>
-                                    R$ {pagamentoModal.avulsoValor},00
+                                    {pagamentoModal.paymentMethod}
                                 </Text>
                             </View>
                         )}
@@ -657,7 +765,9 @@ export default function AulaAoVivo() {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Encerrar chamada da aula das 19h?</Text>
+                        <Text style={styles.modalTitle}>
+                            Encerrar chamada da aula das {formatHora(ocorrencia.startTime)}?
+                        </Text>
                         <Text style={styles.modalText}>
                             {presentes} presenças e {ausentes} ausência(s) serão registradas no
                             sistema.
@@ -690,10 +800,10 @@ export default function AulaAoVivo() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>
-                            Chamar {chamarModal?.nome} para a aula?
+                            Chamar {chamarModal?.studentName} para a aula?
                         </Text>
                         <Text style={styles.modalText}>
-                            Ela receberá uma notificação push e terá 15 minutos para confirmar.
+                            O aluno receberá uma notificação push e terá 15 minutos para confirmar.
                         </Text>
                         <View style={styles.modalActions}>
                             <TouchableOpacity
@@ -782,6 +892,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: 8,
         paddingVertical: 8,
+        flexWrap: "wrap",
     },
     countPresent: {
         fontSize: 14,
@@ -792,6 +903,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: "500",
         color: COLORS.destructive,
+    },
+    countPending: {
+        fontSize: 14,
+        fontWeight: "500",
+        color: COLORS.warning,
     },
     hint: {
         fontSize: 12,
@@ -923,16 +1039,6 @@ const styles = StyleSheet.create({
         color: COLORS.warning,
         fontWeight: "700",
         fontSize: 14,
-    },
-    filaRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 4,
-        marginTop: 2,
-    },
-    filaText: {
-        fontSize: 12,
-        color: COLORS.mutedForeground,
     },
     countdownRow: {
         marginTop: 8,

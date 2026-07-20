@@ -77,6 +77,29 @@ export type PaginatedSchedule = PaginatedType & {
   items: ScheduleOccurrenceType[];
 }
 
+export type AttendanceFilterStatusType = 'Confirmado' | 'FilaEspera';
+
+export type AttendanceStudentStatusType = 'Pending' | 'Present' | 'Absent';
+
+export type AttendanceStudentType = {
+  bookingId: string;
+  studentId: string;
+  studentName: string;
+  photoUrl: string | null;
+  isExperimental: boolean;
+  status: AttendanceStudentStatusType;
+  level: string;
+  paymentMethod: string;
+  avulsoPending: boolean;
+}
+
+export type AttendanceType = {
+  presentCount: number;
+  absentCount: number;
+  pendingCount: number;
+  lista: AttendanceStudentType[];
+}
+
 export type BookingUserHistoryType = {
   bookingId: string;
   bookingStatus: string;

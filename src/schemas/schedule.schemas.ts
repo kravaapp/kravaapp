@@ -40,6 +40,12 @@ export const getMyMonthlyScheduleRequestSchema = z.object({
     modalityId: z.uuid().optional(),
 });
 
+export const getAttendanceRequestSchema = z.object({
+    ocorrenciaId: z.string(),
+    status: z.enum(["Confirmado", "FilaEspera"]),
+});
+
+export type GetAttendanceRequestSchema = z.infer<typeof getAttendanceRequestSchema>;
 export type GetMyMonthlyScheduleRequestSchema = z.infer<typeof getMyMonthlyScheduleRequestSchema>;
 export type GetBookingUserHistoryRequestSchema = z.infer<typeof getBookingUserHistoryRequestSchema>;
 export type ScheduleRequestSchema = z.infer<typeof scheduleRequestSchema>;

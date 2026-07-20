@@ -17,7 +17,7 @@ import { router } from "expo-router";
 import { AlertTriangle, Calendar, Clock, Users } from "lucide-react-native";
 import { getTimeUntilClass } from "../(user)";
 
-const STATUS_BADGE: Record<OccurrenceStatusType, BadgeStatus> = {
+export const STATUS_BADGE: Record<OccurrenceStatusType, BadgeStatus> = {
     "Agendada": "agendada",
     "Em andamento": "em andamento",
     "Encerrada": "encerrada",
@@ -33,7 +33,7 @@ const getModalidadeSigla = (modalidadeName: string) => {
     return SIGLAS[key] || key.slice(0, 2).toUpperCase();
 };
 
-const formatHora = (startTime: string) => {
+export const formatHora = (startTime: string) => {
     const [hora, minuto] = startTime.split(":");
     return minuto === "00" ? `${hora}h` : `${hora}:${minuto}`;
 };

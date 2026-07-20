@@ -1,5 +1,5 @@
 import { ScheduleRoutes } from "@/routes/schedule.routes";
-import { CreateScheduleRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
+import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
@@ -154,6 +154,28 @@ export function useMyMonthlySchedule(params: GetMyMonthlyScheduleRequestSchema) 
             ? (query.error as any).data?.detail ||
             query.error.message ||
             "Erro ao buscar status mensal de presença"
+            : null,
+        refetch: query.refetch,
+    };
+}
+
+export function useAttendance({ ocorrenciaId, status }: GetAttendanceRequestSchema) {
+    const query = useQuery({
+        queryKey: ["attendance", ocorrenciaId, status],
+        queryFn: async () => {
+            const scheduleRoutes = new ScheduleRoutes();
+            return await scheduleRoutes.getAttendance({ ocorrenciaId, status });
+        },
+        enabled: !!ocorrenciaId,
+    });
+
+    return {
+        attendance: query.data,
+        isLoading: query.isLoading,
+        error: query.error
+            ? (query.error as ApiError).data?.detail ||
+            query.error.message ||
+            "Erro ao buscar a chamada da aula"
             : null,
         refetch: query.refetch,
     };

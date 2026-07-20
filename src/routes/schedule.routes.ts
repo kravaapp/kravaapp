@@ -1,5 +1,5 @@
-import { CreateScheduleRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { MyMonthlyScheduleType, PaginatedBookingUserHistory, PaginatedSchedule, ScheduleType, TodayOccurrenceType } from "@/types/schedules.types";
+import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
+import { AttendanceType, MyMonthlyScheduleType, PaginatedBookingUserHistory, PaginatedSchedule, ScheduleType, TodayOccurrenceType } from "@/types/schedules.types";
 import api from "./client";
 
 export class ScheduleRoutes {
@@ -37,5 +37,11 @@ export class ScheduleRoutes {
 
     async getMyMonthlySchedule(params: GetMyMonthlyScheduleRequestSchema) {
         return await api.get("/checkin/my-status").json<MyMonthlyScheduleType>();
+    }
+
+    async getAttendance({ ocorrenciaId, status }: GetAttendanceRequestSchema) {
+        return await api.get(`/scheduling/ocorrencias/${ocorrenciaId}/attendance`, {
+            searchParams: { status }
+        }).json<AttendanceType>();
     }
 }
