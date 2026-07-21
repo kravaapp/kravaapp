@@ -11,6 +11,7 @@ import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { Progress } from "@/components/Progress";
 import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/hooks/auth.hooks";
+import { useTeacherDashboard } from "@/hooks/dashboard.hooks";
 import { useTodayOccurrences } from "@/hooks/schedule.hooks";
 import { OccurrenceStatusType, TodayOccurrenceType } from "@/types/schedules.types";
 import { router } from "expo-router";
@@ -126,15 +127,18 @@ const HomeSkeleton = () => (
 
 export default function TeacherHome() {
     const { user } = useAuth();
-    const { todayOccurrences, isLoading, error } = useTodayOccurrences();
+    const { todayOccurrences, isLoading: isLoadingOccurrences, error } = useTodayOccurrences();
+    const { teacherDashboard, isLoading: isLoadingDashboard } = useTeacherDashboard();
+
+    const isLoading = isLoadingOccurrences || isLoadingDashboard;
 
     const ocorrencias = todayOccurrences || [];
     const isMinhaAula = (aula: TodayOccurrenceType) => aula.professorName === user?.userName;
-    const minhasAulas = ocorrencias.filter(isMinhaAula);
 
-    const totalAlunosHoje = minhasAulas.reduce((sum, a) => sum + a.confirmedCount, 0);
-    const totalEspera = minhasAulas.reduce((sum, a) => sum + a.waitlistCount, 0);
-    const proximaAula = minhasAulas.find((a) => a.status === "Agendada");
+    const totalAulasHoje = teacherDashboard?.todayClassesCount ?? 0;
+    const totalAlunosHoje = teacherDashboard?.todayStudentsCount ?? 0;
+    const totalEspera = teacherDashboard?.todayWaitlistCount ?? 0;
+    const proximaAula = teacherDashboard?.nextClass ?? null;
 
     const handleOpenAttendance = () => router.push("/(teacher)/classes");
 
@@ -171,14 +175,17 @@ export default function TeacherHome() {
                             <View style={styles.nextClassSection}>
                                 <Text style={styles.nextClassLabel}>PRÓXIMA AULA</Text>
                                 <Text style={styles.nextClassTitle}>
-                                    {proximaAula.aulaName || proximaAula.modalidadeName} — hoje{" "}
-                                    {formatHora(proximaAula.startTime)}
+                                    {proximaAula.name} — hoje{" "}
+                                    {proximaAula.startTime ? formatHora(proximaAula.startTime) : ""}
                                 </Text>
                                 <View style={styles.nextClassRow}>
                                     <Clock size={16} color="rgba(255,255,255,0.7)" />
                                     <Text style={styles.nextClassMuted}>
                                         Faltam{" "}
-                                        {getTimeUntilClass(proximaAula.date, proximaAula.startTime)}
+                                        {getTimeUntilClass(
+                                            proximaAula.date?.split("T")[0] || "",
+                                            proximaAula.startTime || ""
+                                        )}
                                     </Text>
                                 </View>
                                 <Text style={styles.nextClassMuted}>
@@ -219,7 +226,7 @@ export default function TeacherHome() {
                         <View style={styles.summaryRow}>
                             <SummaryCard
                                 icon={<Calendar size={20} color={COLORS.mainOrange} />}
-                                value={minhasAulas.length}
+                                value={totalAulasHoje}
                                 label="aulas hoje"
                             />
                             <SummaryCard
@@ -267,7 +274,7 @@ export default function TeacherHome() {
                                 <Text style={styles.warningText}>
                                     <Text style={styles.warningTextStrong}>
                                         {totalEspera} alunos na lista de espera para as{" "}
-                                        {formatHora(proximaAula.startTime)}
+                                        {proximaAula.startTime ? formatHora(proximaAula.startTime) : ""}
                                     </Text>
                                     <Text style={styles.mutedText}>
                                         {" "}
