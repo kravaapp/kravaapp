@@ -22,6 +22,7 @@ export const STATUS_BADGE: Record<OccurrenceStatusType, BadgeStatus> = {
     "Agendada": "agendada",
     "Em andamento": "em andamento",
     "Encerrada": "encerrada",
+    "Concluida": "concluida",
 };
 
 const SIGLAS: Record<string, string> = {
@@ -86,7 +87,8 @@ const AulaItem = ({
 
         <View style={styles.aulaActions}>
             <StatusBadge status={STATUS_BADGE[aula.status]} />
-            {isMinhaAula && aula.status !== "Encerrada" && (
+            {isMinhaAula &&
+                (aula.status === "Agendada" || aula.status === "Em andamento") && (
                 <TouchableOpacity
                     style={[
                         styles.smallButton,

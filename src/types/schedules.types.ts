@@ -32,7 +32,7 @@ export type PaginatedType = {
 
 export type SubscriptionStatusType = 'Confirmado' | 'ListaEspera' | 'WaitlistPending' | 'CheckedIn' | 'Faltou';
 
-export type OccurrenceStatusType = 'Agendada' | 'Em andamento' | 'Encerrada';
+export type OccurrenceStatusType = 'Agendada' | 'Em andamento' | 'Encerrada' | 'Concluida';
 
 export type ScheduleOccurrenceType = {
   id: string;
@@ -79,6 +79,10 @@ export type PaginatedSchedule = PaginatedType & {
 
 export type AttendanceFilterStatusType = 'Confirmado' | 'FilaEspera';
 
+/**
+ * Status da chamada de cada aluno: `Present` = presença marcada;
+ * `Absent` = falta marcada; `Pending` = ainda sem presença nem falta.
+ */
 export type AttendanceStudentStatusType = 'Pending' | 'Present' | 'Absent';
 
 export type AttendanceStudentType = {

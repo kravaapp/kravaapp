@@ -159,6 +159,62 @@ export function useMyMonthlySchedule(params: GetMyMonthlyScheduleRequestSchema) 
     };
 }
 
+/**
+ * Marca presença/falta de um aluno. `present` decide qual endpoint é chamado,
+ * já que a tela usa um único botão de toggle por aluno.
+ */
+export function useMarkAttendance() {
+    const queryClient = useQueryClient();
+
+    const mutation = useMutation({
+        mutationFn: async ({ bookingId, present }: { bookingId: string; present: boolean }) => {
+            const scheduleRoutes = new ScheduleRoutes();
+            return present
+                ? await scheduleRoutes.markPresent(bookingId)
+                : await scheduleRoutes.markAbsent(bookingId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["attendance"] });
+        },
+    });
+
+    return {
+        markAttendance: mutation.mutateAsync,
+        isLoading: mutation.isPending,
+        error: mutation.error
+            ? (mutation.error as ApiError).data?.detail ||
+            mutation.error.message ||
+            "Erro ao registrar a presença"
+            : null,
+    };
+}
+
+/** Encerra a aula (marca faltas dos pendentes no servidor). */
+export function useCloseOcorrencia() {
+    const queryClient = useQueryClient();
+
+    const mutation = useMutation({
+        mutationFn: async (ocorrenciaId: string) => {
+            const scheduleRoutes = new ScheduleRoutes();
+            return await scheduleRoutes.closeOcorrencia(ocorrenciaId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["attendance"] });
+            queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+        },
+    });
+
+    return {
+        closeOcorrencia: mutation.mutateAsync,
+        isLoading: mutation.isPending,
+        error: mutation.error
+            ? (mutation.error as ApiError).data?.detail ||
+            mutation.error.message ||
+            "Erro ao encerrar a chamada"
+            : null,
+    };
+}
+
 export function useAttendance({ ocorrenciaId, status }: GetAttendanceRequestSchema) {
     const query = useQuery({
         queryKey: ["attendance", ocorrenciaId, status],

@@ -44,4 +44,17 @@ export class ScheduleRoutes {
             searchParams: { status }
         }).json<AttendanceType>();
     }
+
+    /** Endpoints sem corpo de resposta — a Response não é parseada. */
+    async markPresent(bookingId: string) {
+        await api.patch(`/scheduling/bookings/${bookingId}/mark-present`);
+    }
+
+    async markAbsent(bookingId: string) {
+        await api.patch(`/scheduling/bookings/${bookingId}/mark-absent`);
+    }
+
+    async closeOcorrencia(ocorrenciaId: string) {
+        await api.post(`/scheduling/ocorrencias/${ocorrenciaId}/close`);
+    }
 }

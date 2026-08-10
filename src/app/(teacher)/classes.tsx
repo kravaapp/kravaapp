@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     Image,
     Modal,
@@ -18,15 +18,19 @@ import { Progress } from "@/components/Progress";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
 import { alunos } from "@/data/mockData";
-import { useAttendance, useTodayOccurrences } from "@/hooks/schedule.hooks";
+import {
+    useAttendance,
+    useCloseOcorrencia,
+    useMarkAttendance,
+    useTodayOccurrences,
+} from "@/hooks/schedule.hooks";
 import {
     AttendanceFilterStatusType,
+    AttendanceStudentStatusType,
     AttendanceStudentType,
 } from "@/types/schedules.types";
 import { Search, UserPlus } from "lucide-react-native";
 import { formatHora, STATUS_BADGE } from "./index";
-
-const TEMPO_CONFIRMACAO = 900;
 
 type TabKey = "chamada" | "espera" | "adicionar";
 
@@ -37,11 +41,12 @@ const TAB_STATUS: Record<TabKey, AttendanceFilterStatusType> = {
     adicionar: "Confirmado",
 };
 
-/** Estado local da chamada da fila de espera (não há endpoint para isso ainda). */
-type ChamadaFila = {
-    status: "chamado" | "nao_confirmou";
-    countdown: number;
-};
+/**
+ * Alunos adicionados pela aba "Adicionar" ainda não têm booking no servidor,
+ * então a presença deles fica só no estado local.
+ */
+const isLocalBooking = (bookingId: string) =>
+    bookingId.startsWith("exp-") || bookingId.startsWith("local-");
 
 const LEVEL_VARIANT: Record<string, BadgeVariant> = {
     iniciante: "success",
@@ -57,12 +62,6 @@ const levelVariant = (level: string): BadgeVariant =>
 
 const levelLabel = (level: string) =>
     level ? level.charAt(0).toUpperCase() + level.slice(1) : "";
-
-const formatCountdown = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const rest = seconds % 60;
-    return `${minutes.toString().padStart(2, "0")}:${rest.toString().padStart(2, "0")}`;
-};
 
 const Avatar = ({
     nome,
@@ -156,12 +155,15 @@ export default function AulaAoVivo() {
         ocorrenciaId,
         status: TAB_STATUS[tab],
     });
+    const { markAttendance } = useMarkAttendance();
+    const { closeOcorrencia, isLoading: isEncerrando } = useCloseOcorrencia();
 
-    const [presencaOverrides, setPresencaOverrides] = useState<Record<string, boolean>>({});
-    const [chamadosFila, setChamadosFila] = useState<Record<string, ChamadaFila>>({});
+    const [presencaOverrides, setPresencaOverrides] = useState<
+        Record<string, AttendanceStudentStatusType>
+    >({});
+    const [salvandoPresenca, setSalvandoPresenca] = useState<Record<string, boolean>>({});
     const [extras, setExtras] = useState<AttendanceStudentType[]>([]);
     const [encerrarModal, setEncerrarModal] = useState(false);
-    const [chamarModal, setChamarModal] = useState<AttendanceStudentType | null>(null);
     const [pagamentoModal, setPagamentoModal] = useState<AttendanceStudentType | null>(null);
     const [searchAdd, setSearchAdd] = useState("");
     const [expNome, setExpNome] = useState("");
@@ -183,90 +185,79 @@ export default function AulaAoVivo() {
         [tab, lista, extras]
     );
 
-    const toastRef = useRef(toast);
-    toastRef.current = toast;
-
-    // O countdown roda fora do render, então precisa dos nomes por ref.
-    const nomesFilaRef = useRef<Record<string, string>>({});
-    nomesFilaRef.current = Object.fromEntries(
-        lista.map((item) => [item.bookingId, item.studentName])
-    );
-
     // Estado local é específico da ocorrência aberta.
     useEffect(() => {
         setPresencaOverrides({});
-        setChamadosFila({});
+        setSalvandoPresenca({});
         setExtras([]);
     }, [ocorrenciaId]);
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setChamadosFila((prev) => {
-                const entries = Object.entries(prev);
-                if (entries.length === 0) return prev;
+    const getStatus = (aluno: AttendanceStudentType): AttendanceStudentStatusType =>
+        presencaOverrides[aluno.bookingId] ?? aluno.status;
 
-                let changed = false;
-                const next: Record<string, ChamadaFila> = {};
+    const marcarPresenca = async (aluno: AttendanceStudentType, present: boolean) => {
+        const { bookingId, studentName } = aluno;
+        if (salvandoPresenca[bookingId]) return;
 
-                for (const [bookingId, chamado] of entries) {
-                    if (chamado.status !== "chamado") {
-                        next[bookingId] = chamado;
-                        continue;
-                    }
+        const novoStatus: AttendanceStudentStatusType = present ? "Present" : "Absent";
+        const anterior = presencaOverrides[bookingId];
 
-                    changed = true;
+        // Atualiza o botão na hora; o override é revertido se a API recusar.
+        setPresencaOverrides((prev) => ({ ...prev, [bookingId]: novoStatus }));
 
-                    if (chamado.countdown <= 1) {
-                        next[bookingId] = { status: "nao_confirmou", countdown: 0 };
-                        toastRef.current({
-                            title: `${nomesFilaRef.current[bookingId] ?? "O aluno"} não confirmou`,
-                            description: "Deseja chamar o próximo da fila?",
-                            variant: "destructive",
-                        });
-                        continue;
-                    }
+        if (isLocalBooking(bookingId)) return;
 
-                    next[bookingId] = { ...chamado, countdown: chamado.countdown - 1 };
-                }
+        setSalvandoPresenca((prev) => ({ ...prev, [bookingId]: true }));
 
-                return changed ? next : prev;
+        try {
+            await markAttendance({ bookingId, present });
+
+            if (!present) {
+                toast({
+                    title: `${studentName} marcado como ausente`,
+                    description: "A vaga será preenchida automaticamente pela lista de espera.",
+                });
+            }
+        } catch (err) {
+            setPresencaOverrides((prev) => {
+                const next = { ...prev };
+                if (anterior === undefined) delete next[bookingId];
+                else next[bookingId] = anterior;
+                return next;
             });
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, []);
-
-    const isPresente = (aluno: AttendanceStudentType) =>
-        presencaOverrides[aluno.bookingId] ?? aluno.status !== "Absent";
-
-    const togglePresenca = (aluno: AttendanceStudentType) => {
-        const presenteAgora = isPresente(aluno);
-
-        setPresencaOverrides((prev) => ({ ...prev, [aluno.bookingId]: !presenteAgora }));
-
-        if (presenteAgora) {
             toast({
-                title: `${aluno.studentName} marcado como ausente`,
-                description: "Deseja chamar o próximo da lista de espera?",
+                title: `Não foi possível marcar ${present ? "presença" : "falta"} de ${studentName}`,
+                description:
+                    (err as any)?.data?.detail || (err as Error)?.message || "Tente novamente.",
+                variant: "destructive",
+            });
+        } finally {
+            setSalvandoPresenca((prev) => {
+                const next = { ...prev };
+                delete next[bookingId];
+                return next;
             });
         }
     };
 
-    const chamarAluno = (aluno: AttendanceStudentType) => {
-        setChamadosFila((prev) => ({
-            ...prev,
-            [aluno.bookingId]: { status: "chamado", countdown: TEMPO_CONFIRMACAO },
-        }));
-        setChamarModal(null);
-        toast({ title: `Notificação enviada para ${aluno.studentName} ✓` });
-    };
+    const encerrarChamada = async () => {
+        if (!ocorrenciaId) return;
 
-    const encerrarChamada = () => {
-        setEncerrarModal(false);
-        toast({
-            title: "Chamada encerrada",
-            description: `${presentes} presenças e ${ausentes} ausência(s) salvas ✓`,
-        });
+        try {
+            await closeOcorrencia(ocorrenciaId);
+            setEncerrarModal(false);
+            toast({
+                title: "Chamada encerrada",
+                description: `${presentes} presenças e ${ausentes} ausência(s) salvas ✓`,
+            });
+        } catch (err) {
+            toast({
+                title: "Não foi possível encerrar a chamada",
+                description:
+                    (err as any)?.data?.detail || (err as Error)?.message || "Tente novamente.",
+                variant: "destructive",
+            });
+        }
     };
 
     const confirmarPagamento = (aluno: AttendanceStudentType) => {
@@ -378,18 +369,22 @@ export default function AulaAoVivo() {
                             </View>
 
                             <Text style={styles.hint}>
-                                Toque no nome para marcar presença ou ausência
+                                Marque a presença ou a falta de cada aluno
                             </Text>
 
                             {renderListState("Nenhum aluno confirmado nesta aula") ?? (
                                 <View style={{ gap: 8 }}>
                                     {chamadaLista.map((c) => {
-                                        const presente = isPresente(c);
+                                        const status = getStatus(c);
+                                        const salvando = !!salvandoPresenca[c.bookingId];
 
                                         return (
                                             <View
                                                 key={c.bookingId}
-                                                style={[styles.card, !presente && styles.cardAbsent]}
+                                                style={[
+                                                    styles.card,
+                                                    status === "Absent" && styles.cardAbsent,
+                                                ]}
                                             >
                                                 <View style={styles.alunoInfo}>
                                                     <Avatar nome={c.studentName} photoUrl={c.photoUrl} />
@@ -427,29 +422,61 @@ export default function AulaAoVivo() {
                                                     </View>
                                                 </View>
 
-                                                <TouchableOpacity
-                                                    style={[
-                                                        styles.presenceButton,
-                                                        presente
-                                                            ? styles.presenceButtonPresent
-                                                            : styles.presenceButtonAbsent,
-                                                    ]}
-                                                    onPress={() => togglePresenca(c)}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <Text
+                                                <View style={styles.presenceActions}>
+                                                    <TouchableOpacity
                                                         style={[
-                                                            styles.presenceIcon,
-                                                            {
-                                                                color: presente
-                                                                    ? COLORS.success
-                                                                    : COLORS.destructive,
-                                                            },
+                                                            styles.presenceButton,
+                                                            status === "Present"
+                                                                ? styles.presenceButtonPresent
+                                                                : styles.presenceButtonIdle,
+                                                            salvando && styles.buttonDisabled,
                                                         ]}
+                                                        onPress={() => marcarPresenca(c, true)}
+                                                        disabled={salvando}
+                                                        activeOpacity={0.7}
                                                     >
-                                                        {presente ? "✓" : "✗"}
-                                                    </Text>
-                                                </TouchableOpacity>
+                                                        <Text
+                                                            style={[
+                                                                styles.presenceIcon,
+                                                                {
+                                                                    color:
+                                                                        status === "Present"
+                                                                            ? COLORS.success
+                                                                            : COLORS.mutedForeground,
+                                                                },
+                                                            ]}
+                                                        >
+                                                            ✓
+                                                        </Text>
+                                                    </TouchableOpacity>
+
+                                                    <TouchableOpacity
+                                                        style={[
+                                                            styles.presenceButton,
+                                                            status === "Absent"
+                                                                ? styles.presenceButtonAbsent
+                                                                : styles.presenceButtonIdle,
+                                                            salvando && styles.buttonDisabled,
+                                                        ]}
+                                                        onPress={() => marcarPresenca(c, false)}
+                                                        disabled={salvando}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text
+                                                            style={[
+                                                                styles.presenceIcon,
+                                                                {
+                                                                    color:
+                                                                        status === "Absent"
+                                                                            ? COLORS.destructive
+                                                                            : COLORS.mutedForeground,
+                                                                },
+                                                            ]}
+                                                        >
+                                                            ✗
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
                                             </View>
                                         );
                                     })}
@@ -483,99 +510,43 @@ export default function AulaAoVivo() {
                             <View style={styles.vagaBanner}>
                                 <Text style={styles.vagaBannerText}>
                                     {vagasDisponiveis} vaga{vagasDisponiveis > 1 ? "s" : ""}{" "}
-                                    disponível — confirme a chamada para liberar
+                                    disponível — a lista de espera é chamada automaticamente
                                 </Text>
                             </View>
                         )}
 
                         {renderListState("Ninguém na lista de espera") ?? (
                             <View style={{ gap: 8 }}>
-                                {lista.map((item, index) => {
-                                    const chamado = chamadosFila[item.bookingId];
-                                    const primeiroAguardando = !chamadosFila[lista[0]?.bookingId];
-                                    const bloqueado = index !== 0 && primeiroAguardando;
-                                    const proximo = lista[index + 1];
-
-                                    return (
-                                        <View key={item.bookingId} style={styles.cardColumn}>
-                                            <View style={styles.alunoInfo}>
-                                                <View style={styles.posicaoCircle}>
-                                                    <Text style={styles.posicaoText}>{index + 1}</Text>
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={styles.alunoNome}>{item.studentName}</Text>
-                                                    <View style={styles.badgeRow}>
-                                                        {!!item.level && (
-                                                            <Badge variant={levelVariant(item.level)} compact>
-                                                                {levelLabel(item.level)}
-                                                            </Badge>
-                                                        )}
-                                                        {item.isExperimental && (
-                                                            <Badge variant="manager" compact>
-                                                                Experimental
-                                                            </Badge>
-                                                        )}
-                                                        {item.avulsoPending && (
-                                                            <Badge variant="warning" compact>
-                                                                💰 Pend.
-                                                            </Badge>
-                                                        )}
-                                                    </View>
-                                                </View>
-                                                <Avatar nome={item.studentName} photoUrl={item.photoUrl} />
+                                {lista.map((item, index) => (
+                                    <View key={item.bookingId} style={styles.cardColumn}>
+                                        <View style={styles.alunoInfo}>
+                                            <View style={styles.posicaoCircle}>
+                                                <Text style={styles.posicaoText}>{index + 1}</Text>
                                             </View>
-
-                                            {!chamado && (
-                                                <TouchableOpacity
-                                                    style={[
-                                                        styles.fullButton,
-                                                        index === 0 ? styles.solidButton : styles.outlineButton,
-                                                        bloqueado && styles.buttonDisabled,
-                                                    ]}
-                                                    onPress={() => setChamarModal(item)}
-                                                    disabled={bloqueado}
-                                                    activeOpacity={0.8}
-                                                >
-                                                    <Text
-                                                        style={
-                                                            index === 0
-                                                                ? styles.solidButtonText
-                                                                : styles.outlineButtonText
-                                                        }
-                                                    >
-                                                        {index === 0 ? "Chamar para a aula" : "Chamar"}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            )}
-
-                                            {chamado?.status === "chamado" && (
-                                                <View style={styles.countdownRow}>
-                                                    <Badge variant="warning">
-                                                        Aguardando confirmação ·{" "}
-                                                        {formatCountdown(chamado.countdown)} ⏱
-                                                    </Badge>
-                                                </View>
-                                            )}
-
-                                            {chamado?.status === "nao_confirmou" && (
-                                                <View style={{ marginTop: 8, gap: 8 }}>
-                                                    <Badge variant="destructive">Não confirmou</Badge>
-                                                    {proximo && (
-                                                        <TouchableOpacity
-                                                            style={[styles.fullButton, styles.solidButton]}
-                                                            onPress={() => setChamarModal(proximo)}
-                                                            activeOpacity={0.8}
-                                                        >
-                                                            <Text style={styles.solidButtonText}>
-                                                                Chamar {proximo.studentName}
-                                                            </Text>
-                                                        </TouchableOpacity>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.alunoNome}>{item.studentName}</Text>
+                                                <View style={styles.badgeRow}>
+                                                    {!!item.level && (
+                                                        <Badge variant={levelVariant(item.level)} compact>
+                                                            {levelLabel(item.level)}
+                                                        </Badge>
+                                                    )}
+                                                    {item.isExperimental && (
+                                                        <Badge variant="manager" compact>
+                                                            Experimental
+                                                        </Badge>
+                                                    )}
+                                                    {item.avulsoPending && (
+                                                        <Badge variant="warning" compact>
+                                                            💰 Pend.
+                                                        </Badge>
                                                     )}
                                                 </View>
-                                            )}
+                                            </View>
+                                            <Avatar nome={item.studentName} photoUrl={item.photoUrl} />
                                         </View>
-                                    );
-                                })}
+                                    </View>
+                                ))}
                             </View>
                         )}
                     </ScrollView>
@@ -777,46 +748,22 @@ export default function AulaAoVivo() {
                             <TouchableOpacity
                                 style={[styles.modalButton, styles.modalButtonCancel]}
                                 onPress={() => setEncerrarModal(false)}
+                                disabled={isEncerrando}
                             >
                                 <Text style={styles.modalButtonCancelText}>Cancelar</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={[styles.modalButton, styles.destructiveButton]}
+                                style={[
+                                    styles.modalButton,
+                                    styles.destructiveButton,
+                                    isEncerrando && styles.buttonDisabled,
+                                ]}
                                 onPress={encerrarChamada}
+                                disabled={isEncerrando}
                             >
-                                <Text style={styles.solidButtonText}>Encerrar e salvar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-
-            <Modal
-                visible={!!chamarModal}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setChamarModal(null)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>
-                            Chamar {chamarModal?.studentName} para a aula?
-                        </Text>
-                        <Text style={styles.modalText}>
-                            O aluno receberá uma notificação push e terá 15 minutos para confirmar.
-                        </Text>
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.modalButtonCancel]}
-                                onPress={() => setChamarModal(null)}
-                            >
-                                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.solidButton]}
-                                onPress={() => chamarModal && chamarAluno(chamarModal)}
-                            >
-                                <Text style={styles.solidButtonText}>Chamar agora</Text>
+                                <Text style={styles.solidButtonText}>
+                                    {isEncerrando ? "Encerrando..." : "Encerrar e salvar"}
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -975,12 +922,19 @@ const styles = StyleSheet.create({
         marginTop: 2,
         flexWrap: "wrap",
     },
+    presenceActions: {
+        flexDirection: "row",
+        gap: 8,
+    },
     presenceButton: {
         width: 40,
         height: 40,
         borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
+    },
+    presenceButtonIdle: {
+        backgroundColor: "#f3f4f6",
     },
     presenceButtonPresent: {
         backgroundColor: COLORS.successSurface,
@@ -1040,10 +994,6 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         fontSize: 14,
     },
-    countdownRow: {
-        marginTop: 8,
-        alignItems: "center",
-    },
     fullButton: {
         borderRadius: 8,
         paddingVertical: 10,
@@ -1067,15 +1017,6 @@ const styles = StyleSheet.create({
     },
     solidButtonText: {
         color: "#fff",
-        fontSize: 13,
-        fontWeight: "600",
-    },
-    outlineButton: {
-        borderWidth: 1,
-        borderColor: COLORS.outline,
-    },
-    outlineButtonText: {
-        color: COLORS.foreground,
         fontSize: 13,
         fontWeight: "600",
     },

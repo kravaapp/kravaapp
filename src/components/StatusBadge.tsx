@@ -6,6 +6,7 @@ import { COLORS } from './ClientHeader';
 export type BadgeStatus =
   | 'lotada'
   | 'encerrada'
+  | 'concluida'
   | 'confirmado'
   | 'bloqueada'
   | 'agendada'
@@ -25,6 +26,13 @@ export const StatusBadge = ({ status, label }: StatusBadgeProps) => {
           <Text style={styles.statusTextEnded}>
             {label || (status === 'lotada' ? 'Lotada' : 'Encerrada')}
           </Text>
+        </View>
+      );
+    case 'concluida':
+      return (
+        <View style={styles.statusBadgeConfirmed}>
+          <Check size={14} color="#22c55e" style={{ marginRight: 4 }} />
+          <Text style={styles.statusTextConfirmed}>{label || 'Concluída'}</Text>
         </View>
       );
     case 'confirmado':
