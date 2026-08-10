@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { Progress } from "@/components/Progress";
 import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
+import { setPendingOcorrenciaId } from "@/hooks/attendanceSelection";
 import { useAuth } from "@/hooks/auth.hooks";
 import { useTeacherDashboard } from "@/hooks/dashboard.hooks";
 import { useTodayOccurrences } from "@/hooks/schedule.hooks";
@@ -142,7 +143,10 @@ export default function TeacherHome() {
     const totalEspera = teacherDashboard?.todayWaitlistCount ?? 0;
     const proximaAula = teacherDashboard?.nextClass ?? null;
 
-    const handleOpenAttendance = () => router.push("/(teacher)/classes");
+    const handleOpenAttendance = (ocorrenciaId?: string) => {
+        if (ocorrenciaId) setPendingOcorrenciaId(ocorrenciaId);
+        router.push("/(teacher)/classes");
+    };
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -215,7 +219,7 @@ export default function TeacherHome() {
 
                                 <TouchableOpacity
                                     style={styles.primaryButton}
-                                    onPress={handleOpenAttendance}
+                                    onPress={() => handleOpenAttendance(proximaAula.ocorrenciaId)}
                                     activeOpacity={0.8}
                                 >
                                     <Text style={styles.primaryButtonText}>Abrir chamada</Text>
@@ -263,7 +267,7 @@ export default function TeacherHome() {
                                             key={aula.id}
                                             aula={aula}
                                             isMinhaAula={isMinhaAula(aula)}
-                                            onOpenAttendance={handleOpenAttendance}
+                                            onOpenAttendance={() => handleOpenAttendance(aula.id)}
                                         />
                                     ))}
                                 </View>

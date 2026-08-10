@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Image,
     Modal,
@@ -18,6 +18,8 @@ import { Progress } from "@/components/Progress";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
 import { alunos } from "@/data/mockData";
+import { consumePendingOcorrenciaId } from "@/hooks/attendanceSelection";
+import { useFocusEffect } from "expo-router";
 import {
     useAttendance,
     useCloseOcorrencia,
@@ -148,7 +150,26 @@ export default function AulaAoVivo() {
 
     // Reaproveita o cache do React Query alimentado pela tela inicial ("SUAS AULAS HOJE").
     const { todayOccurrences, isLoading: isLoadingOcorrencias } = useTodayOccurrences();
-    const ocorrencia = todayOccurrences?.[0];
+
+    // Ocorrência escolhida ao clicar em "Abrir chamada" na tela inicial. É um
+    // sinal one-shot: consumido ao focar a tela. Ao voltar pelo menu (sem novo
+    // clique), volta a ser null e a tela usa a primeira ocorrência do dia.
+    const [selectedOcorrenciaId, setSelectedOcorrenciaId] = useState<string | null>(null);
+
+    useFocusEffect(
+        useCallback(() => {
+            setSelectedOcorrenciaId(consumePendingOcorrenciaId());
+        }, [])
+    );
+
+    const ocorrencia = useMemo(() => {
+        const selecionada = selectedOcorrenciaId
+            ? todayOccurrences?.find((o) => o.id === selectedOcorrenciaId)
+            : undefined;
+        // Regra padrão: primeira ocorrência do dia que ainda não foi concluída.
+        return selecionada ?? todayOccurrences?.find((o) => o.status !== "Concluida");
+    }, [todayOccurrences, selectedOcorrenciaId]);
+
     const ocorrenciaId = ocorrencia?.id ?? "";
 
     const { attendance, isLoading, error } = useAttendance({
