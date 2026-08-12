@@ -15,7 +15,7 @@ export default function ProtectedLayout() {
         return <Redirect href="/signIn" />;
     }
 
-    if (user.role === USER_ROLES.professor) {
+    if (user.role === USER_ROLES.professor || user.role === USER_ROLES.admin) {
         return <Redirect href={getHomeRoute(user.role)} />;
     }
 

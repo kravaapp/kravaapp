@@ -20,6 +20,10 @@ export default function Layout() {
               options={{ headerShown: false, animation: "none" }}
             />
             <Stack.Screen
+              name="(admin)"
+              options={{ headerShown: false, animation: "none" }}
+            />
+            <Stack.Screen
               name="signIn"
               options={{ headerShown: false, animation: "none" }}
             />

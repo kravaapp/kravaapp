@@ -20,7 +20,9 @@ type AuthState = {
 export const AUTH_STORAGE_KEY = "@krava:auth-state";
 
 export function getHomeRoute(role: string): Href {
-    return role === USER_ROLES.professor ? "/(teacher)" : "/(user)";
+    if (role === USER_ROLES.professor) return "/(teacher)";
+    if (role === USER_ROLES.admin) return "/(admin)";
+    return "/(user)";
 }
 
 export const AuthContext = createContext<AuthState>({} as AuthState);
