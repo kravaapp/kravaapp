@@ -1,6 +1,7 @@
 import { AUTH_STORAGE_KEY } from "@/contexts/authContext";
 import { Token } from "@/types/auth.types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import ky from "ky";
 
 const baseUrl =
@@ -36,7 +37,8 @@ const api = ky.create({
     afterResponse: [
       async ({ request, response }) => {
         if (response.status === 401) {
-          AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+          await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+          router.replace("/signIn");
         }
 
         return response;
