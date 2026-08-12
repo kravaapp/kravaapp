@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     Modal,
     ScrollView,
@@ -12,59 +12,48 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Badge, BadgeVariant } from "@/components/Badge";
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
-import { Select } from "@/components/Select";
-import { useToast } from "@/components/Toast";
-import {
-    Aluno,
-    alunos,
-    historicoPresencas,
-    Modalidade,
-    Nivel,
-    NIVEIS,
-    PresencaStatus,
-    TipoAluno,
-} from "@/data/mockData";
-import { ChevronRight, Save, Search } from "lucide-react-native";
+import { useAlunos } from "@/hooks/alunos.hooks";
+import { useCategories } from "@/hooks/categories.hooks";
+import { AlunoSummaryType } from "@/types/alunos.types";
+import { Category } from "@/types/categories.types";
+import { ChevronRight, Search } from "lucide-react-native";
 
-const FILTROS = ["Todos", "Futevôlei", "Funcional"] as const;
-type Filtro = (typeof FILTROS)[number];
+const capitalize = (value: string) =>
+    value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 
-const GESTOR = "João Silva";
-
-const nivelVariant = (nivel: Nivel): BadgeVariant => {
-    switch (nivel) {
-        case "Iniciante":
-            return "success";
-        case "Intermediário":
-            return "warning";
-        case "Avançado":
-            return "destructive";
-        case "Elite":
-            return "manager";
-    }
+const formatDate = (isoDate: string) => {
+    const date = new Date(isoDate);
+    return date.toLocaleDateString("pt-BR");
 };
 
-const tipoVariant = (tipo: TipoAluno): BadgeVariant => {
-    switch (tipo) {
-        case "Mensalista":
-            return "primary";
-        case "Gympass":
-            return "info";
-        case "Totalpass":
-            return "manager";
+const statusVariant = (status: string): BadgeVariant => {
+    switch (status.toLowerCase()) {
+        case "ativo":
+            return "success";
+        case "inativo":
+        case "suspenso":
+            return "destructive";
         default:
             return "muted";
     }
 };
 
-const statusVariant: Record<PresencaStatus, BadgeVariant> = {
-    Presente: "success",
-    Ausente: "destructive",
-    "Falta não cancelada": "destructive",
+const levelVariant = (level: string): BadgeVariant => {
+    switch (level.toLowerCase()) {
+        case "iniciante":
+            return "success";
+        case "intermediário":
+        case "intermediario":
+            return "warning";
+        case "avançado":
+        case "avancado":
+            return "destructive";
+        case "elite":
+            return "manager";
+        default:
+            return "muted";
+    }
 };
-
-const modalidadeVariant = (modalidade: Modalidade): BadgeVariant =>
-    modalidade === "Futevôlei" ? "primary" : "warning";
 
 const Avatar = ({ nome, size = 40 }: { nome: string; size?: number }) => (
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
@@ -82,44 +71,66 @@ const ListSkeleton = () => (
     </View>
 );
 
+const ModalityFilter = ({
+    categories,
+    loading,
+    selectedId,
+    onSelect,
+}: {
+    categories: Category[] | undefined;
+    loading: boolean;
+    selectedId: string;
+    onSelect: (id: string) => void;
+}) => (
+    <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+    >
+        <TouchableOpacity
+            style={[styles.filterChip, selectedId === "Todos" && styles.filterChipActive]}
+            onPress={() => onSelect("Todos")}
+            activeOpacity={0.8}
+        >
+            <Text
+                style={[styles.filterText, selectedId === "Todos" && styles.filterTextActive]}
+            >
+                Todos
+            </Text>
+        </TouchableOpacity>
+        {!loading &&
+            categories?.map((cat) => (
+                <TouchableOpacity
+                    key={cat.id}
+                    style={[styles.filterChip, selectedId === cat.id && styles.filterChipActive]}
+                    onPress={() => onSelect(cat.id)}
+                    activeOpacity={0.8}
+                >
+                    <Text
+                        style={[styles.filterText, selectedId === cat.id && styles.filterTextActive]}
+                    >
+                        {cat.name}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+    </ScrollView>
+);
+
 export default function PerfilAluno() {
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
-    const [filtro, setFiltro] = useState<Filtro>("Todos");
-    const [selectedAluno, setSelectedAluno] = useState<Aluno | null>(null);
-    const [editNivel, setEditNivel] = useState<Nivel>("Iniciante");
-    const [confirmModal, setConfirmModal] = useState(false);
+    const [modalityId, setModalityId] = useState("Todos");
+    const [selectedAluno, setSelectedAluno] = useState<AlunoSummaryType | null>(null);
 
-    useEffect(() => {
-        const timeout = setTimeout(() => setLoading(false), 400);
-        return () => clearTimeout(timeout);
-    }, []);
+    const { categories, isLoading: categoriesLoading } = useCategories();
 
-    const filtered = alunos.filter((a) => {
-        const matchSearch = a.nome.toLowerCase().includes(search.toLowerCase());
-        const matchFiltro = filtro === "Todos" || a.modalidades.includes(filtro);
-        return matchSearch && matchFiltro;
+    const { alunos, isLoading } = useAlunos({
+        search: search || undefined,
+        modalityId: modalityId === "Todos" ? undefined : modalityId,
+        page: 1,
+        pageSize: 50,
     });
 
-    const openProfile = (aluno: Aluno) => {
-        setSelectedAluno(aluno);
-        setEditNivel(aluno.nivel);
-    };
-
-    const handleSaveNivel = () => {
-        setConfirmModal(false);
-        toast({
-            title: `Nível de ${selectedAluno?.nome} atualizado para ${editNivel} ✓`,
-            description: `O gestor ${GESTOR} será notificado desta alteração.`,
-        });
-        setSelectedAluno(null);
-    };
-
-    const ultimas5 = historicoPresencas.slice(0, 5);
-    const faltasMes = historicoPresencas.filter(
-        (p) => p.status === "Falta não cancelada"
-    ).length;
+    const items = alunos?.items ?? [];
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -137,28 +148,15 @@ export default function PerfilAluno() {
                     />
                 </View>
 
-                <View style={styles.filterRow}>
-                    {FILTROS.map((f) => (
-                        <TouchableOpacity
-                            key={f}
-                            style={[styles.filterChip, filtro === f && styles.filterChipActive]}
-                            onPress={() => setFiltro(f)}
-                            activeOpacity={0.8}
-                        >
-                            <Text
-                                style={[
-                                    styles.filterText,
-                                    filtro === f && styles.filterTextActive,
-                                ]}
-                            >
-                                {f}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
+                <ModalityFilter
+                    categories={categories}
+                    loading={categoriesLoading}
+                    selectedId={modalityId}
+                    onSelect={setModalityId}
+                />
             </View>
 
-            {loading ? (
+            {isLoading ? (
                 <ListSkeleton />
             ) : (
                 <ScrollView
@@ -167,32 +165,39 @@ export default function PerfilAluno() {
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {filtered.map((a) => (
-                        <TouchableOpacity
-                            key={a.id}
-                            style={styles.card}
-                            onPress={() => openProfile(a)}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.alunoInfo}>
-                                <Avatar nome={a.nome} />
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.alunoNome}>{a.nome}</Text>
-                                    <View style={styles.badgeRow}>
-                                        {a.modalidades.map((m) => (
-                                            <Badge key={m} variant={modalidadeVariant(m)} compact>
-                                                {m}
+                    {items.length === 0 ? (
+                        <Text style={styles.emptyText}>Nenhum aluno encontrado</Text>
+                    ) : (
+                        items.map((a) => (
+                            <TouchableOpacity
+                                key={a.id}
+                                style={styles.card}
+                                onPress={() => setSelectedAluno(a)}
+                                activeOpacity={0.7}
+                            >
+                                <View style={styles.alunoInfo}>
+                                    <Avatar nome={a.userName} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.alunoNome}>{a.userName}</Text>
+                                        <View style={styles.badgeRow}>
+                                            {a.modalities.map((m) => (
+                                                <Badge key={m} variant="primary" compact>
+                                                    {m}
+                                                </Badge>
+                                            ))}
+                                            <Badge variant={levelVariant(a.level)} compact>
+                                                {capitalize(a.level)}
                                             </Badge>
-                                        ))}
-                                        <Badge variant={nivelVariant(a.nivel)} compact>
-                                            {a.nivel}
-                                        </Badge>
+                                            <Badge variant={statusVariant(a.status)} compact>
+                                                {a.status}
+                                            </Badge>
+                                        </View>
                                     </View>
                                 </View>
-                            </View>
-                            <ChevronRight size={16} color={COLORS.mutedForeground} />
-                        </TouchableOpacity>
-                    ))}
+                                <ChevronRight size={16} color={COLORS.mutedForeground} />
+                            </TouchableOpacity>
+                        ))
+                    )}
                 </ScrollView>
             )}
 
@@ -215,138 +220,56 @@ export default function PerfilAluno() {
 
                             <ScrollView showsVerticalScrollIndicator={false}>
                                 <View style={styles.sheetHeader}>
-                                    <Avatar nome={selectedAluno.nome} size={64} />
-                                    <Text style={styles.sheetTitle}>{selectedAluno.nome}</Text>
+                                    <Avatar nome={selectedAluno.userName} size={64} />
+                                    <Text style={styles.sheetTitle}>{selectedAluno.userName}</Text>
+                                    <Text style={styles.mutedSmall}>{selectedAluno.userEmail}</Text>
+                                    <Text style={styles.mutedSmall}>{selectedAluno.phone}</Text>
                                     <View style={styles.sheetBadges}>
-                                        {selectedAluno.modalidades.map((m) => (
-                                            <Badge key={m} variant={modalidadeVariant(m)}>
+                                        {selectedAluno.modalities.map((m) => (
+                                            <Badge key={m} variant="primary">
                                                 {m}
                                             </Badge>
                                         ))}
-                                        <Badge variant={nivelVariant(selectedAluno.nivel)}>
-                                            {selectedAluno.nivel}
+                                        <Badge variant={levelVariant(selectedAluno.level)}>
+                                            {capitalize(selectedAluno.level)}
                                         </Badge>
-                                        <Badge variant={tipoVariant(selectedAluno.tipo)}>
-                                            {selectedAluno.tipo}
+                                        <Badge variant={statusVariant(selectedAluno.status)}>
+                                            {selectedAluno.status}
                                         </Badge>
+                                        {selectedAluno.paymentMethods.map((p) => (
+                                            <Badge key={p} variant="info">
+                                                {p}
+                                            </Badge>
+                                        ))}
                                     </View>
                                 </View>
 
                                 <View style={{ gap: 20 }}>
                                     <View>
-                                        <Text style={styles.sectionLabel}>NÍVEL ATUAL</Text>
-                                        <Select
-                                            value={editNivel}
-                                            options={NIVEIS}
-                                            onChange={setEditNivel}
-                                        />
-                                        <Text style={styles.sectionHint}>
-                                            Você pode atualizar o nível. O gestor também será
-                                            notificado.
+                                        <Text style={styles.sectionLabel}>PLANO ATIVO</Text>
+                                        <Text style={styles.sectionValue}>
+                                            {selectedAluno.planoAtivo || "Sem plano ativo"}
                                         </Text>
                                     </View>
 
-                                    <View>
-                                        <Text style={styles.sectionLabel}>ÚLTIMAS 5 PRESENÇAS</Text>
-                                        <View>
-                                            {ultimas5.map((p, index) => (
-                                                <View
-                                                    key={p.id}
-                                                    style={[
-                                                        styles.presencaRow,
-                                                        index === ultimas5.length - 1 &&
-                                                            styles.presencaRowLast,
-                                                    ]}
-                                                >
-                                                    <View>
-                                                        <Text style={styles.presencaData}>
-                                                            {p.data} — {p.horario}
-                                                        </Text>
-                                                        <Text style={styles.mutedSmall}>
-                                                            {p.modalidade}
-                                                        </Text>
-                                                    </View>
-                                                    <Badge variant={statusVariant[p.status]} compact>
-                                                        {p.status}
-                                                    </Badge>
-                                                </View>
-                                            ))}
+                                    <View style={styles.statsRow}>
+                                        <View style={styles.statCard}>
+                                            <Text style={styles.statValuePrimary}>
+                                                {selectedAluno.checkinsThisMonth}
+                                            </Text>
+                                            <Text style={styles.statLabel}>check-ins este mês</Text>
                                         </View>
-                                    </View>
-
-                                    <View>
-                                        <Text style={styles.sectionLabel}>ESTATÍSTICAS RÁPIDAS</Text>
-                                        <View style={styles.statsRow}>
-                                            <View style={styles.statCard}>
-                                                <Text style={styles.statValuePrimary}>
-                                                    {selectedAluno.presencasMes}
-                                                </Text>
-                                                <Text style={styles.statLabel}>
-                                                    presenças este mês
-                                                </Text>
-                                            </View>
-                                            <View style={styles.statCard}>
-                                                <Text style={styles.statValueDestructive}>
-                                                    {faltasMes}
-                                                </Text>
-                                                <Text style={styles.statLabel}>
-                                                    faltas não canceladas
-                                                </Text>
-                                            </View>
+                                        <View style={styles.statCard}>
+                                            <Text style={styles.statValueMuted}>
+                                                {formatDate(selectedAluno.enrolledAtUtc)}
+                                            </Text>
+                                            <Text style={styles.statLabel}>aluno desde</Text>
                                         </View>
                                     </View>
                                 </View>
-
-                                <TouchableOpacity
-                                    style={[
-                                        styles.saveButton,
-                                        editNivel === selectedAluno.nivel && styles.buttonDisabled,
-                                    ]}
-                                    onPress={() => setConfirmModal(true)}
-                                    disabled={editNivel === selectedAluno.nivel}
-                                    activeOpacity={0.8}
-                                >
-                                    <Save size={16} color="#fff" />
-                                    <Text style={styles.saveButtonText}>
-                                        Salvar alteração de nível
-                                    </Text>
-                                </TouchableOpacity>
                             </ScrollView>
                         </View>
                     )}
-                </View>
-            </Modal>
-
-            <Modal
-                visible={confirmModal}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setConfirmModal(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Confirmar alteração de nível?</Text>
-                        <Text style={styles.modalText}>
-                            {selectedAluno?.nome}: {selectedAluno?.nivel} → {editNivel}
-                        </Text>
-                        <Text style={styles.mutedSmall}>
-                            O gestor {GESTOR} será notificado desta alteração.
-                        </Text>
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.modalButtonCancel]}
-                                onPress={() => setConfirmModal(false)}
-                            >
-                                <Text style={styles.modalButtonCancelText}>Cancelar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.solidButton]}
-                                onPress={handleSaveNivel}
-                            >
-                                <Text style={styles.solidButtonText}>Confirmar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
                 </View>
             </Modal>
         </SafeAreaView>
@@ -403,6 +326,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingBottom: 16,
         gap: 8,
+    },
+    emptyText: {
+        textAlign: "center",
+        color: COLORS.mutedForeground,
+        marginTop: 20,
     },
     card: {
         backgroundColor: COLORS.card,
@@ -469,12 +397,13 @@ const styles = StyleSheet.create({
     sheetHeader: {
         alignItems: "center",
         paddingBottom: 20,
-        gap: 8,
+        gap: 4,
     },
     sheetTitle: {
         fontSize: 18,
         fontWeight: "700",
         color: COLORS.foreground,
+        marginTop: 8,
     },
     sheetBadges: {
         flexDirection: "row",
@@ -482,6 +411,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         gap: 8,
         flexWrap: "wrap",
+        marginTop: 8,
     },
     sectionLabel: {
         fontSize: 12,
@@ -489,23 +419,7 @@ const styles = StyleSheet.create({
         color: COLORS.mutedForeground,
         marginBottom: 8,
     },
-    sectionHint: {
-        fontSize: 12,
-        color: COLORS.mutedForeground,
-        marginTop: 4,
-    },
-    presencaRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-    },
-    presencaRowLast: {
-        borderBottomWidth: 0,
-    },
-    presencaData: {
+    sectionValue: {
         fontSize: 14,
         color: COLORS.foreground,
     },
@@ -534,33 +448,15 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         color: COLORS.mainOrange,
     },
-    statValueDestructive: {
-        fontSize: 18,
+    statValueMuted: {
+        fontSize: 14,
         fontWeight: "700",
-        color: COLORS.destructive,
+        color: COLORS.foreground,
     },
     statLabel: {
         fontSize: 10,
         color: COLORS.mutedForeground,
         textAlign: "center",
-    },
-    saveButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        backgroundColor: COLORS.mainOrange,
-        borderRadius: 8,
-        paddingVertical: 12,
-        marginTop: 20,
-    },
-    saveButtonText: {
-        color: "#fff",
-        fontSize: 14,
-        fontWeight: "600",
-    },
-    buttonDisabled: {
-        opacity: 0.5,
     },
     skeletonContainer: {
         paddingHorizontal: 16,
@@ -570,63 +466,5 @@ const styles = StyleSheet.create({
         height: 64,
         backgroundColor: "#e5e7eb",
         borderRadius: 12,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: COLORS.overlay,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-    },
-    modalContent: {
-        backgroundColor: "#fff",
-        borderRadius: 16,
-        width: "100%",
-        maxWidth: 400,
-        padding: 20,
-        gap: 12,
-        elevation: 5,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-    },
-    modalTitle: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: COLORS.foreground,
-    },
-    modalText: {
-        fontSize: 14,
-        color: COLORS.foreground,
-    },
-    modalActions: {
-        flexDirection: "row",
-        justifyContent: "flex-end",
-        gap: 12,
-        marginTop: 4,
-    },
-    modalButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 8,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    modalButtonCancel: {
-        backgroundColor: "#f3f4f6",
-    },
-    modalButtonCancelText: {
-        color: "#4b5563",
-        fontSize: 13,
-        fontWeight: "600",
-    },
-    solidButton: {
-        backgroundColor: COLORS.mainOrange,
-    },
-    solidButtonText: {
-        color: "#fff",
-        fontSize: 13,
-        fontWeight: "600",
     },
 });
