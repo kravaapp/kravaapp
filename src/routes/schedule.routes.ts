@@ -1,5 +1,5 @@
 import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { AttendanceType, MyMonthlyScheduleType, PaginatedBookingUserHistory, PaginatedSchedule, ScheduleType, TodayOccurrenceType } from "@/types/schedules.types";
+import { AttendanceType, AulaType, CreateAulaType, MyMonthlyScheduleType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType } from "@/types/schedules.types";
 import api from "./client";
 
 export class ScheduleRoutes {
@@ -15,6 +15,26 @@ export class ScheduleRoutes {
 
     async getTodayOccurrences() {
         return await api.get("/scheduling/ocorrencias/today").json<TodayOccurrenceType[]>();
+    }
+
+    async getAulas() {
+        return await api.get("/scheduling/aulas", {
+            searchParams: { activeOnly: true, page: 1, pageSize: 100 },
+        }).json<PaginatedAulas>();
+    }
+
+    async getModalidades() {
+        return await api.get("/scheduling/modalidades", {
+            searchParams: { page: 1, pageSize: 100 },
+        }).json<PaginatedModalidades>();
+    }
+
+    async getProfessors() {
+        return await api.get("/tenant/professors").json<ProfessorType[]>();
+    }
+
+    async createAula(params: CreateAulaType) {
+        return await api.post("/scheduling/aulas", { json: params }).json<AulaType>();
     }
 
     async getSchedule(params: ScheduleRequestSchema) {

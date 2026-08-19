@@ -2,6 +2,7 @@ import { ScheduleRoutes } from "@/routes/schedule.routes";
 import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { CreateAulaType } from "@/types/schedules.types";
 
 type ApiError = Error & { data?: { detail?: string } };
 
@@ -65,6 +66,63 @@ export function useTodayOccurrences() {
             "Erro ao buscar aulas de hoje"
             : null,
         refetch: query.refetch,
+    };
+}
+
+export function useAulas() {
+    const query = useQuery({
+        queryKey: ["aulas", "active"],
+        queryFn: async () => {
+            const scheduleRoutes = new ScheduleRoutes();
+            return await scheduleRoutes.getAulas();
+        },
+    });
+
+    return {
+        aulas: query.data?.items ?? [],
+        isLoading: query.isLoading,
+        error: query.error
+            ? (query.error as ApiError).data?.detail ||
+            query.error.message ||
+            "Erro ao buscar a grade de aulas"
+            : null,
+        refetch: query.refetch,
+    };
+}
+
+export function useClassFormOptions() {
+    const routes = new ScheduleRoutes();
+    const modalidades = useQuery({
+        queryKey: ["modalidades", "active"],
+        queryFn: () => routes.getModalidades(),
+    });
+    const professors = useQuery({
+        queryKey: ["professors", "active"],
+        queryFn: () => routes.getProfessors(),
+    });
+
+    return {
+        modalidades: (modalidades.data?.items ?? []).filter((item) => item.isActive),
+        professors: professors.data ?? [],
+        isLoading: modalidades.isLoading || professors.isLoading,
+        error: modalidades.error || professors.error,
+    };
+}
+
+export function useCreateAula() {
+    const queryClient = useQueryClient();
+    const mutation = useMutation({
+        mutationFn: (params: CreateAulaType) => new ScheduleRoutes().createAula(params),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["aulas"] });
+            queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+        },
+    });
+
+    return {
+        createAula: mutation.mutateAsync,
+        isLoading: mutation.isPending,
+        error: mutation.error,
     };
 }
 

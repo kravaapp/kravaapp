@@ -129,3 +129,58 @@ export type MyMonthlyScheduleType = {
   availableForSchedulingThisMonth: number | null;
   modalityId: string | null;
 }
+
+export type AulaType = {
+  id: string;
+  modalidadeId: string;
+  modalidadeName: string | null;
+  professorId: string;
+  professorName: string | null;
+  name: string | null;
+  dayOfWeek: number;
+  startTime: string | null;
+  endTime: string | null;
+  maxCapacity: number;
+  isActive: boolean;
+  allowTrial: boolean;
+  minLevel: string | null;
+  publicGender: string | null;
+  waitlistTimeoutMinutes: number | null;
+}
+
+export type PaginatedAulas = PaginatedType & {
+  items: AulaType[] | null;
+}
+
+export type ModalidadeType = {
+  id: string;
+  name: string | null;
+  description: string | null;
+  isActive: boolean;
+  createdAtUtc: string;
+}
+
+export type PaginatedModalidades = PaginatedType & {
+  items: ModalidadeType[] | null;
+}
+
+export type ProfessorType = {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+}
+
+export type CreateAulaType = {
+  modalidadeId: string;
+  professorId: string;
+  name: string | null;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  maxCapacity: number;
+  allowTrial: boolean;
+  minLevel: string | null;
+  publicGender: string | null;
+  waitlistTimeoutMinutes: number | null;
+}
