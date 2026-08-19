@@ -1,6 +1,8 @@
 import { COLORS } from "@/components/ClientHeader";
-import { PropsWithChildren, ReactNode } from "react";
+import { PropsWithChildren, ReactNode, useEffect, useRef } from "react";
 import {
+  Animated,
+  DimensionValue,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -88,6 +90,49 @@ export const initials = (name: string) =>
     .slice(0, 2)
     .join("");
 
+export const AdminSkeleton = ({
+  width = "100%",
+  height = 14,
+  radius = 8,
+  style,
+}: {
+  width?: DimensionValue;
+  height?: number;
+  radius?: number;
+  style?: ViewStyle;
+}) => {
+  const opacity = useRef(new Animated.Value(0.45)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.45,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [opacity]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.skeleton,
+        { width, height, borderRadius: radius, opacity },
+        style,
+      ]}
+    />
+  );
+};
+
 const styles = StyleSheet.create({
   screen: { padding: 16, gap: 16 },
   card: {
@@ -135,4 +180,5 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fill: { height: "100%", borderRadius: 99 },
+  skeleton: { backgroundColor: "#e2e8f0" },
 });
