@@ -1,25 +1,28 @@
+import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import { useToast } from "@/components/Toast";
 import {
   ActionButton,
   AdminCard,
   AdminScreen,
+  AdminSkeleton,
   Pill,
   SectionTitle,
 } from "@/components/admin/AdminUi";
-import ClientHeader, { COLORS } from "@/components/ClientHeader";
-import { useToast } from "@/components/Toast";
-import { bookingRules } from "@/data/adminMockData";
+import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
+import { AvulsoConfigType, SchedulingRuleType } from "@/types/settings.types";
 import {
   Check,
   Clock,
   DollarSign,
-  Dumbbell,
   Pencil,
   Plus,
   ShieldAlert,
   Users,
+  X,
 } from "lucide-react-native";
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Switch,
@@ -30,45 +33,137 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type SettingKey =
-  | "deadline"
-  | "gympass"
-  | "totalpass"
-  | "futevoleiCapacity"
-  | "functionalCapacity"
-  | "futevoleiPrice"
-  | "functionalPrice";
+const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const ruleDescription = (rule: SchedulingRuleType) => {
+  const selectedDays =
+    rule.daysOfWeek
+      ?.map((day) => days[day])
+      .filter(Boolean)
+      .join(", ") || "todos os dias";
+  const hours = rule.targetHours?.length
+    ? `, aulas às ${rule.targetHours.map((hour) => hour.slice(0, 5)).join(", ")}`
+    : "";
+  return `Liberar ${rule.targetOffset} dia(s) antes, às ${rule.releaseTime?.slice(0, 5) || "--:--"}, para ${selectedDays}${hours}`;
+};
 
 export default function AdminSettings() {
   const { toast } = useToast();
-  const [editing, setEditing] = useState<SettingKey | null>(null);
-  const [values, setValues] = useState<Record<SettingKey, string>>({
-    deadline: "1",
-    gympass: "3",
-    totalpass: "12",
-    futevoleiCapacity: "14",
-    functionalCapacity: "14",
-    futevoleiPrice: "35",
-    functionalPrice: "25",
+  const { rules, avulsoConfigs, tenantSettings, loading, hasError } =
+    useAdminSettings();
+  const {
+    createRule,
+    updateAvulso,
+    updateTenant,
+    isCreatingRule,
+    isUpdatingAvulso,
+    isUpdatingTenant,
+  } = useSettingsActions();
+  const [newRule, setNewRule] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [tenantEditing, setTenantEditing] = useState<string | null>(null);
+  const [tenantValues, setTenantValues] = useState({
+    cancellationTimeoutMinutes: "",
+    noShowPenaltyFee: "",
+    partnerCheckInLimit: "",
   });
-  const [penalty, setPenalty] = useState(true);
-  const [singleClass, setSingleClass] = useState(true);
-  const [payments, setPayments] = useState({
-    pix: true,
-    card: true,
-    inPerson: true,
-  });
-  const update = (key: SettingKey, value: string) =>
-    setValues((current) => ({ ...current, [key]: value }));
-  const save = () => {
-    setEditing(null);
-    toast({ title: "Configuração atualizada!" });
+  useEffect(() => {
+    setPrices(
+      Object.fromEntries(
+        avulsoConfigs.map((item) => [item.modalidadeId, String(item.price)]),
+      ),
+    );
+  }, [avulsoConfigs]);
+
+  useEffect(() => {
+    if (!tenantSettings) return;
+    setTenantValues({
+      cancellationTimeoutMinutes: String(
+        tenantSettings.cancellationTimeoutMinutes,
+      ),
+      noShowPenaltyFee: String(tenantSettings.noShowPenaltyFee),
+      partnerCheckInLimit: String(tenantSettings.partnerCheckInLimit),
+    });
+  }, [tenantSettings]);
+
+  const saveTenant = async () => {
+    if (!tenantSettings) return;
+    const cancellationTimeoutMinutes = Number(
+      tenantValues.cancellationTimeoutMinutes,
+    );
+    const noShowPenaltyFee = Number(
+      tenantValues.noShowPenaltyFee.replace(",", "."),
+    );
+    const partnerCheckInLimit = Number(tenantValues.partnerCheckInLimit);
+    if (
+      !Number.isInteger(cancellationTimeoutMinutes) ||
+      cancellationTimeoutMinutes < 0 ||
+      !Number.isFinite(noShowPenaltyFee) ||
+      noShowPenaltyFee < 0 ||
+      !Number.isInteger(partnerCheckInLimit) ||
+      partnerCheckInLimit < 0
+    ) {
+      toast({
+        title: "Informe valores válidos para a configuração.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await updateTenant({
+        name: tenantSettings.name,
+        slug: tenantSettings.slug,
+        logoUrl: tenantSettings.logoUrl,
+        address: tenantSettings.address,
+        contact: tenantSettings.contact,
+        gympassRepasse: tenantSettings.gympassRepasse,
+        totalpassRepasse: tenantSettings.totalpassRepasse,
+        waitlistTimeoutMinutes: tenantSettings.waitlistTimeoutMinutes,
+        cancellationTimeoutMinutes,
+        noShowPenaltyFee,
+        partnerCheckInLimit,
+      });
+      setTenantEditing(null);
+      toast({ title: "Configuração atualizada!" });
+    } catch {
+      toast({
+        title: "Não foi possível atualizar a configuração.",
+        variant: "destructive",
+      });
+    }
   };
+
+  const saveAvulso = async (item: AvulsoConfigType, active = item.active) => {
+    const price = Number((prices[item.modalidadeId] ?? "").replace(",", "."));
+    if (!Number.isFinite(price) || price < 0) {
+      toast({ title: "Informe um preço válido.", variant: "destructive" });
+      return;
+    }
+    try {
+      await updateAvulso({
+        modalidadeId: item.modalidadeId,
+        config: { price, active },
+      });
+      setEditing(null);
+      toast({ title: "Configuração de aula avulsa atualizada!" });
+    } catch {
+      toast({
+        title: "Não foi possível atualizar a aula avulsa.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <ClientHeader />
       <ScrollView>
         <AdminScreen>
+          {hasError && (
+            <Text style={styles.error}>
+              Algumas configurações não puderam ser carregadas.
+            </Text>
+          )}
           <SettingsCard
             icon={<Clock color={COLORS.mainOrange} size={20} />}
             title="Regras de agendamento"
@@ -76,153 +171,296 @@ export default function AdminSettings() {
               <ActionButton
                 label="Adicionar"
                 icon={<Plus size={14} color="#fff" />}
-                onPress={() =>
-                  toast({ title: "Funcionalidade em desenvolvimento" })
-                }
+                onPress={() => setNewRule(true)}
               />
             }
           >
-            {bookingRules.map((rule) => (
-              <View key={rule.id} style={styles.rule}>
-                <Text style={styles.itemTitle}>{rule.description}</Text>
-                <Pill label="Ativa" tone="success" />
-              </View>
-            ))}
+            {loading.rules ? (
+              <AdminSkeleton width="100%" height={130} radius={12} />
+            ) : rules.length === 0 ? (
+              <Text style={styles.empty}>Nenhuma regra cadastrada.</Text>
+            ) : (
+              rules.map((rule) => (
+                <View key={rule.id} style={styles.rule}>
+                  <Text style={[styles.itemTitle, styles.grow]}>
+                    {ruleDescription(rule)}
+                  </Text>
+                  <Pill label="Ativa" tone="success" />
+                </View>
+              ))
+            )}
           </SettingsCard>
           <SettingsCard
             icon={<DollarSign color={COLORS.success} size={20} />}
             title="Aula avulsa"
-            action={
-              <Switch
-                value={singleClass}
-                onValueChange={setSingleClass}
-                trackColor={{ true: COLORS.mainOrange }}
-              />
-            }
           >
-            {singleClass && (
-              <>
-                <Text style={styles.muted}>
-                  Qualquer aluno pode pagar avulso, independente do plano.
-                </Text>
-                <EditableRow
-                  label="Futevôlei"
-                  value={values.futevoleiPrice}
-                  suffix="reais por aula"
-                  editing={editing === "futevoleiPrice"}
-                  onEdit={() => setEditing("futevoleiPrice")}
-                  onChange={(v) => update("futevoleiPrice", v)}
-                  onSave={save}
-                />
-                <EditableRow
-                  label="Funcional"
-                  value={values.functionalPrice}
-                  suffix="reais por aula"
-                  editing={editing === "functionalPrice"}
-                  onEdit={() => setEditing("functionalPrice")}
-                  onChange={(v) => update("functionalPrice", v)}
-                  onSave={save}
-                />
-                <Text style={styles.subheading}>OPÇÕES DE PAGAMENTO</Text>
-                <CheckRow
-                  label="Pix"
-                  value={payments.pix}
-                  onPress={() => setPayments((p) => ({ ...p, pix: !p.pix }))}
-                />
-                <CheckRow
-                  label="Cartão de crédito/débito (via app)"
-                  value={payments.card}
-                  onPress={() => setPayments((p) => ({ ...p, card: !p.card }))}
-                />
-                <CheckRow
-                  label="Pagamento presencial"
-                  value={payments.inPerson}
-                  onPress={() =>
-                    setPayments((p) => ({ ...p, inPerson: !p.inPerson }))
-                  }
-                />
-              </>
+            <Text style={styles.muted}>
+              Configure a disponibilidade e o preço por modalidade.
+            </Text>
+            {loading.avulso ? (
+              <AdminSkeleton width="100%" height={160} radius={12} />
+            ) : avulsoConfigs.length === 0 ? (
+              <Text style={styles.empty}>
+                Nenhuma modalidade configurada para aula avulsa.
+              </Text>
+            ) : (
+              avulsoConfigs.map((item) => (
+                <View key={item.modalidadeId} style={styles.rule}>
+                  <View style={styles.grow}>
+                    <Text style={styles.itemTitle}>
+                      {item.modalidadeName || "Modalidade"}
+                    </Text>
+                    {editing === item.modalidadeId ? (
+                      <View style={styles.inputRow}>
+                        <Text>R$</Text>
+                        <TextInput
+                          value={prices[item.modalidadeId] ?? ""}
+                          onChangeText={(value) =>
+                            setPrices((current) => ({
+                              ...current,
+                              [item.modalidadeId]: value,
+                            }))
+                          }
+                          keyboardType="decimal-pad"
+                          style={styles.input}
+                        />
+                        <Text style={styles.muted}>por aula</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.muted}>
+                        R${" "}
+                        {item.price.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        })}{" "}
+                        por aula
+                      </Text>
+                    )}
+                  </View>
+                  {editing === item.modalidadeId ? (
+                    <ActionButton
+                      label={isUpdatingAvulso ? "Salvando..." : "Salvar"}
+                      icon={<Check size={14} color="#fff" />}
+                      onPress={() => saveAvulso(item)}
+                    />
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setEditing(item.modalidadeId)}
+                      style={styles.edit}
+                    >
+                      <Pencil size={17} color={COLORS.mutedForeground} />
+                    </TouchableOpacity>
+                  )}
+                  <Switch
+                    value={item.active}
+                    onValueChange={(active) => saveAvulso(item, active)}
+                    trackColor={{ true: COLORS.mainOrange }}
+                  />
+                </View>
+              ))
             )}
           </SettingsCard>
           <SettingsCard
             icon={<ShieldAlert color={COLORS.destructive} size={20} />}
             title="Regras de cancelamento"
           >
-            <EditableRow
-              label="Prazo mínimo para cancelamento"
-              value={values.deadline}
-              suffix="hora(s) antes da aula"
-              editing={editing === "deadline"}
-              onEdit={() => setEditing("deadline")}
-              onChange={(v) => update("deadline", v)}
-              onSave={save}
-            />
-            <View style={styles.rule}>
-              <View style={styles.grow}>
-                <Text style={styles.itemTitle}>
-                  Penalidade por falta não cancelada
-                </Text>
-                <Text style={styles.muted}>Bloquear agendamentos por 48h</Text>
-              </View>
-              <Switch
-                value={penalty}
-                onValueChange={setPenalty}
-                trackColor={{ true: COLORS.mainOrange }}
-              />
-            </View>
+            {loading.tenant ? (
+              <AdminSkeleton width="100%" height={130} radius={12} />
+            ) : tenantSettings ? (
+              <>
+                <EditableRow
+                  label="Prazo mínimo para cancelamento"
+                  value={tenantValues.cancellationTimeoutMinutes}
+                  suffix="minuto(s) antes da aula"
+                  editing={tenantEditing === "cancellationTimeoutMinutes"}
+                  onEdit={() => setTenantEditing("cancellationTimeoutMinutes")}
+                  onChange={(value) =>
+                    setTenantValues((current) => ({
+                      ...current,
+                      cancellationTimeoutMinutes: value,
+                    }))
+                  }
+                  onSave={saveTenant}
+                  saving={isUpdatingTenant}
+                />
+                <EditableRow
+                  label="Multa por falta não cancelada"
+                  value={tenantValues.noShowPenaltyFee}
+                  suffix="reais"
+                  editing={tenantEditing === "noShowPenaltyFee"}
+                  onEdit={() => setTenantEditing("noShowPenaltyFee")}
+                  onChange={(value) =>
+                    setTenantValues((current) => ({
+                      ...current,
+                      noShowPenaltyFee: value,
+                    }))
+                  }
+                  onSave={saveTenant}
+                  saving={isUpdatingTenant}
+                />
+              </>
+            ) : (
+              <Text style={styles.empty}>Configurações indisponíveis.</Text>
+            )}
           </SettingsCard>
           <SettingsCard
             icon={<Users color={COLORS.info} size={20} />}
             title="Limites de check-in por parceiro"
           >
-            <EditableRow
-              label="Gympass"
-              value={values.gympass}
-              suffix="check-ins por semana"
-              editing={editing === "gympass"}
-              onEdit={() => setEditing("gympass")}
-              onChange={(v) => update("gympass", v)}
-              onSave={save}
-            />
-            <EditableRow
-              label="Totalpass"
-              value={values.totalpass}
-              suffix="check-ins por mês"
-              editing={editing === "totalpass"}
-              onEdit={() => setEditing("totalpass")}
-              onChange={(v) => update("totalpass", v)}
-              onSave={save}
-            />
+            {loading.tenant ? (
+              <AdminSkeleton width="100%" height={90} radius={12} />
+            ) : tenantSettings ? (
+              <EditableRow
+                label="Todos os parceiros"
+                value={tenantValues.partnerCheckInLimit}
+                suffix="check-in(s) por aluno"
+                editing={tenantEditing === "partnerCheckInLimit"}
+                onEdit={() => setTenantEditing("partnerCheckInLimit")}
+                onChange={(value) =>
+                  setTenantValues((current) => ({
+                    ...current,
+                    partnerCheckInLimit: value,
+                  }))
+                }
+                onSave={saveTenant}
+                saving={isUpdatingTenant}
+              />
+            ) : (
+              <Text style={styles.empty}>Configurações indisponíveis.</Text>
+            )}
             <Text style={styles.info}>
               ⓘ Estas configurações se aplicam a todos os alunos parceiros.
             </Text>
           </SettingsCard>
-          <SettingsCard
-            icon={<Dumbbell color={COLORS.warning} size={20} />}
-            title="Capacidade padrão das aulas"
-          >
-            <EditableRow
-              label="Futevôlei"
-              value={values.futevoleiCapacity}
-              suffix="alunos por turma"
-              editing={editing === "futevoleiCapacity"}
-              onEdit={() => setEditing("futevoleiCapacity")}
-              onChange={(v) => update("futevoleiCapacity", v)}
-              onSave={save}
-            />
-            <EditableRow
-              label="Funcional"
-              value={values.functionalCapacity}
-              suffix="alunos por turma"
-              editing={editing === "functionalCapacity"}
-              onEdit={() => setEditing("functionalCapacity")}
-              onChange={(v) => update("functionalCapacity", v)}
-              onSave={save}
-            />
-          </SettingsCard>
         </AdminScreen>
       </ScrollView>
+      <RuleModal
+        visible={newRule}
+        saving={isCreatingRule}
+        onClose={() => setNewRule(false)}
+        onSave={async (rule) => {
+          try {
+            await createRule(rule);
+            setNewRule(false);
+            toast({ title: "Regra de agendamento criada!" });
+          } catch {
+            toast({
+              title: "Não foi possível criar a regra.",
+              variant: "destructive",
+            });
+          }
+        }}
+      />
     </SafeAreaView>
+  );
+}
+
+function RuleModal({
+  visible,
+  saving,
+  onClose,
+  onSave,
+}: {
+  visible: boolean;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (rule: Omit<SchedulingRuleType, "id">) => void;
+}) {
+  const [releaseTime, setReleaseTime] = useState("");
+  const [targetOffset, setTargetOffset] = useState("");
+  const [targetHours, setTargetHours] = useState("");
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const submit = () => {
+    const offset = Number(targetOffset);
+    if (
+      !/^\d{2}:\d{2}$/.test(releaseTime) ||
+      !Number.isInteger(offset) ||
+      offset < 0 ||
+      selectedDays.length === 0
+    )
+      return;
+    onSave({
+      releaseTime,
+      targetOffset: offset,
+      daysOfWeek: selectedDays,
+      targetHours: targetHours
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    });
+  };
+  return (
+    <Modal
+      transparent
+      animationType="slide"
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={styles.backdrop}>
+        <View style={styles.modal}>
+          <View style={styles.header}>
+            <SectionTitle>Nova regra</SectionTitle>
+            <TouchableOpacity onPress={onClose}>
+              <X color={COLORS.foreground} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.fieldLabel}>Dias das aulas</Text>
+          <View style={styles.dayOptions}>
+            {days.map((day, index) => (
+              <TouchableOpacity
+                key={day}
+                onPress={() =>
+                  setSelectedDays((current) =>
+                    current.includes(index)
+                      ? current.filter((value) => value !== index)
+                      : [...current, index],
+                  )
+                }
+                style={[
+                  styles.dayOption,
+                  selectedDays.includes(index) && styles.dayOptionActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.dayText,
+                    selectedDays.includes(index) && styles.dayTextActive,
+                  ]}
+                >
+                  {day}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.fieldLabel}>Liberar às</Text>
+          <TextInput
+            value={releaseTime}
+            onChangeText={setReleaseTime}
+            placeholder="08:00"
+            maxLength={5}
+            style={styles.fullInput}
+          />
+          <Text style={styles.fieldLabel}>Antecedência em dias</Text>
+          <TextInput
+            value={targetOffset}
+            onChangeText={setTargetOffset}
+            placeholder="7"
+            keyboardType="number-pad"
+            style={styles.fullInput}
+          />
+          <Text style={styles.fieldLabel}>Horários das aulas (opcional)</Text>
+          <TextInput
+            value={targetHours}
+            onChangeText={setTargetHours}
+            placeholder="18:00, 19:00"
+            style={styles.fullInput}
+          />
+          <ActionButton
+            label={saving ? "Criando..." : "Criar regra"}
+            onPress={submit}
+          />
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -250,6 +488,7 @@ function SettingsCard({
     </AdminCard>
   );
 }
+
 function EditableRow({
   label,
   value,
@@ -258,14 +497,16 @@ function EditableRow({
   onEdit,
   onChange,
   onSave,
+  saving = false,
 }: {
   label: string;
   value: string;
   suffix: string;
   editing: boolean;
   onEdit: () => void;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
   onSave: () => void;
+  saving?: boolean;
 }) {
   return (
     <View style={styles.rule}>
@@ -289,7 +530,7 @@ function EditableRow({
       </View>
       {editing ? (
         <ActionButton
-          label="Salvar"
+          label={saving ? "Salvando..." : "Salvar"}
           icon={<Check size={14} color="#fff" />}
           onPress={onSave}
         />
@@ -301,27 +542,17 @@ function EditableRow({
     </View>
   );
 }
-function CheckRow({
-  label,
-  value,
-  onPress,
-}: {
-  label: string;
-  value: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.checkRow} onPress={onPress}>
-      <View style={[styles.checkbox, value && styles.checked]}>
-        {value && <Check size={14} color="#fff" />}
-      </View>
-      <Text style={styles.itemTitle}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f8fafc" },
+  error: {
+    backgroundColor: "#fee2e2",
+    color: COLORS.destructive,
+    padding: 12,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -355,7 +586,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   input: {
-    width: 64,
+    width: 72,
     height: 34,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -364,34 +595,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   edit: { padding: 8 },
-  subheading: {
-    color: COLORS.mutedForeground,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    marginTop: 4,
-  },
-  checkRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 11,
-    borderRadius: 11,
-    backgroundColor: "#f8fafc",
-  },
-  checkbox: {
-    width: 21,
-    height: 21,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.outline,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checked: {
-    backgroundColor: COLORS.mainOrange,
-    borderColor: COLORS.mainOrange,
-  },
   info: {
     color: COLORS.info,
     fontSize: 11,
@@ -400,4 +603,39 @@ const styles = StyleSheet.create({
     padding: 11,
     borderRadius: 10,
   },
+  empty: { textAlign: "center", color: COLORS.mutedForeground, padding: 24 },
+  backdrop: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+    justifyContent: "flex-end",
+  },
+  modal: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    gap: 12,
+  },
+  fieldLabel: { color: COLORS.foreground, fontSize: 12, fontWeight: "700" },
+  fullInput: {
+    height: 42,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+  },
+  dayOptions: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  dayOption: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  dayOptionActive: {
+    backgroundColor: COLORS.mainOrange,
+    borderColor: COLORS.mainOrange,
+  },
+  dayText: { color: COLORS.mutedForeground, fontSize: 11, fontWeight: "700" },
+  dayTextActive: { color: COLORS.white },
 });

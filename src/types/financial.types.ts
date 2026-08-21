@@ -26,8 +26,11 @@ export type TenantSettingsType = {
   name: string | null; slug: string | null; logoUrl: string | null;
   address: string | null; contact: string | null; gympassRepasse: number;
   totalpassRepasse: number; waitlistTimeoutMinutes: number;
+  cancellationTimeoutMinutes: number; noShowPenaltyFee: number;
+  partnerCheckInLimit: number;
   saasStatus: string | null; saasPlanName: string | null; nextBillingAt: string | null;
 };
 export type UpdateTenantSettingsType = Pick<TenantSettingsType,
   "name" | "slug" | "logoUrl" | "address" | "contact" | "gympassRepasse" |
-  "totalpassRepasse" | "waitlistTimeoutMinutes">;
+  "totalpassRepasse" | "waitlistTimeoutMinutes" | "cancellationTimeoutMinutes" |
+  "noShowPenaltyFee" | "partnerCheckInLimit">;
