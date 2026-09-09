@@ -1,6 +1,7 @@
 import { AlunosRoutes } from "@/routes/alunos.routes";
 import { GetAlunosRequestSchema } from "@/schemas/alunos.schemas";
-import { useQuery } from "@tanstack/react-query";
+import { CreateAlunoType, UpdateAlunoPaymentMethodsType, UpdateAlunoType } from "@/types/alunos.types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useAlunos(params: GetAlunosRequestSchema) {
     const query = useQuery({
@@ -21,4 +22,24 @@ export function useAlunos(params: GetAlunosRequestSchema) {
             : null,
         refetch: query.refetch,
     };
+}
+
+export function useAlunoDetails(id: string | null) {
+    const detail = useQuery({ queryKey: ["aluno", id], queryFn: () => new AlunosRoutes().getAluno(id!), enabled: !!id });
+    const history = useQuery({ queryKey: ["aluno-history", id], queryFn: () => new AlunosRoutes().getHistory(id!), enabled: !!id });
+    return { aluno: detail.data, history: history.data, isLoading: detail.isLoading, historyLoading: history.isLoading, hasError: detail.isError, historyError: history.isError };
+}
+
+export function useAlunoActions() {
+    const client = useQueryClient();
+    const refresh = (id?: string) => {
+        client.invalidateQueries({ queryKey: ["alunos"] });
+        if (id) client.invalidateQueries({ queryKey: ["aluno", id] });
+    };
+    const create = useMutation({ mutationFn: (data: CreateAlunoType) => new AlunosRoutes().createAluno(data), onSuccess: () => refresh() });
+    const update = useMutation({ mutationFn: ({ id, data }: { id: string; data: UpdateAlunoType }) => new AlunosRoutes().updateAluno(id, data), onSuccess: (_, values) => refresh(values.id) });
+    const level = useMutation({ mutationFn: ({ id, value }: { id: string; value: string | null }) => new AlunosRoutes().updateLevel(id, value), onSuccess: (_, values) => refresh(values.id) });
+    const status = useMutation({ mutationFn: ({ id, value }: { id: string; value: string | null }) => new AlunosRoutes().updateStatus(id, value), onSuccess: (_, values) => refresh(values.id) });
+    const payments = useMutation({ mutationFn: ({ id, data }: { id: string; data: UpdateAlunoPaymentMethodsType }) => new AlunosRoutes().updatePaymentMethods(id, data), onSuccess: (_, values) => refresh(values.id) });
+    return { createAluno: create.mutateAsync, updateAluno: update.mutateAsync, updateLevel: level.mutateAsync, updateStatus: status.mutateAsync, updatePaymentMethods: payments.mutateAsync, isSaving: create.isPending || update.isPending || level.isPending || status.isPending || payments.isPending };
 }

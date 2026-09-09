@@ -1,6 +1,6 @@
 import { AuthContext } from "@/contexts/authContext";
 import { AuthRoutes } from "@/routes/auth.routes";
-import { LoginRequest, SelectTenantRequest } from "@/schemas/auth.schemas";
+import { CreateInvitationRequest, LoginRequest, SelectTenantRequest } from "@/schemas/auth.schemas";
 import { useMutation } from "@tanstack/react-query";
 import { useContext } from "react";
 
@@ -58,5 +58,16 @@ export function useSelectTenant() {
         error: selectTenantMutation.error
             ? (selectTenantMutation.error as any).data?.detail || selectTenantMutation.error.message || "Erro ao selecionar tenant"
             : null
+    };
+}
+
+export function useCreateInvitation() {
+    const invitationMutation = useMutation({
+        mutationFn: (request: CreateInvitationRequest) => new AuthRoutes().createInvitation(request),
+    });
+
+    return {
+        createInvitation: invitationMutation.mutateAsync,
+        isLoading: invitationMutation.isPending,
     };
 }

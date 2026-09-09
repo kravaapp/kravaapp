@@ -176,20 +176,20 @@ export default function PerfilAluno() {
                                 activeOpacity={0.7}
                             >
                                 <View style={styles.alunoInfo}>
-                                    <Avatar nome={a.userName} />
+                                    <Avatar nome={a.userName || "Aluno"} />
                                     <View style={{ flex: 1 }}>
-                                        <Text style={styles.alunoNome}>{a.userName}</Text>
+                                        <Text style={styles.alunoNome}>{a.userName || "Aluno"}</Text>
                                         <View style={styles.badgeRow}>
-                                            {a.modalities.map((m) => (
+                                            {(a.modalities ?? []).map((m) => (
                                                 <Badge key={m} variant="primary" compact>
                                                     {m}
                                                 </Badge>
                                             ))}
-                                            <Badge variant={levelVariant(a.level)} compact>
-                                                {capitalize(a.level)}
+                                            <Badge variant={levelVariant(a.level || "")} compact>
+                                                {capitalize(a.level || "Sem nível")}
                                             </Badge>
-                                            <Badge variant={statusVariant(a.status)} compact>
-                                                {a.status}
+                                            <Badge variant={statusVariant(a.status || "")} compact>
+                                                {a.status || "Sem status"}
                                             </Badge>
                                         </View>
                                     </View>
@@ -220,23 +220,23 @@ export default function PerfilAluno() {
 
                             <ScrollView showsVerticalScrollIndicator={false}>
                                 <View style={styles.sheetHeader}>
-                                    <Avatar nome={selectedAluno.userName} size={64} />
-                                    <Text style={styles.sheetTitle}>{selectedAluno.userName}</Text>
+                                    <Avatar nome={selectedAluno.userName || "Aluno"} size={64} />
+                                    <Text style={styles.sheetTitle}>{selectedAluno.userName || "Aluno"}</Text>
                                     <Text style={styles.mutedSmall}>{selectedAluno.userEmail}</Text>
                                     <Text style={styles.mutedSmall}>{selectedAluno.phone}</Text>
                                     <View style={styles.sheetBadges}>
-                                        {selectedAluno.modalities.map((m) => (
+                                        {(selectedAluno.modalities ?? []).map((m) => (
                                             <Badge key={m} variant="primary">
                                                 {m}
                                             </Badge>
                                         ))}
-                                        <Badge variant={levelVariant(selectedAluno.level)}>
-                                            {capitalize(selectedAluno.level)}
+                                        <Badge variant={levelVariant(selectedAluno.level || "")}>
+                                            {capitalize(selectedAluno.level || "Sem nível")}
                                         </Badge>
-                                        <Badge variant={statusVariant(selectedAluno.status)}>
-                                            {selectedAluno.status}
+                                        <Badge variant={statusVariant(selectedAluno.status || "")}>
+                                            {selectedAluno.status || "Sem status"}
                                         </Badge>
-                                        {selectedAluno.paymentMethods.map((p) => (
+                                        {(selectedAluno.paymentMethods ?? []).map((p) => (
                                             <Badge key={p} variant="info">
                                                 {p}
                                             </Badge>
