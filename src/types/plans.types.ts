@@ -11,7 +11,31 @@ export type PlanType = {
     allowsAllModalidades: boolean;
     isActive: boolean;
     modalidadeIds: string[] | null;
+    basePrice?: number;
 }
+
+export type AdminPlanType = {
+    id: string;
+    name: string | null;
+    description: string | null;
+    basePrice?: number;
+    price?: number;
+    durationDays: number;
+    allowsAllModalidades: boolean;
+    isActive: boolean;
+    modalidadeIds?: string[] | null;
+}
+
+export type CreateAdminPlanType = {
+    name: string;
+    description: string | null;
+    basePrice: number;
+    durationDays: number;
+    allowsAllModalidades: boolean;
+}
+
+export type UpdateAdminPlanType = CreateAdminPlanType & { isActive: boolean };
+export type PaginatedAdminPlans = PaginatedType & { items: AdminPlanType[] | null; totalPages: number; pageNumber?: number };
 
 export type PaginatedPlanType = PaginatedType & {
     items: PlanType[];

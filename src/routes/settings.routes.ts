@@ -1,4 +1,4 @@
-import { AvulsoConfigType, CreateSchedulingRuleType, SchedulingRuleType, UpdateAvulsoConfigType } from "@/types/settings.types";
+import { AvulsoConfigType, CatalogProfileType, CreateSchedulingRuleType, SchedulingRuleType, UpdateAvulsoConfigType, UpdateCatalogProfileType } from "@/types/settings.types";
 import api from "./client";
 
 export class SettingsRoutes {
@@ -13,5 +13,11 @@ export class SettingsRoutes {
   }
   async updateAvulsoConfig(modalidadeId: string, config: UpdateAvulsoConfigType) {
     await api.put(`/financial/avulso-config/${modalidadeId}`, { json: config });
+  }
+  async getCatalogProfile() {
+    return api.get("/tenant/catalog-profile").json<CatalogProfileType>();
+  }
+  async updateCatalogProfile(profile: UpdateCatalogProfileType) {
+    await api.put("/tenant/catalog-profile", { json: profile });
   }
 }

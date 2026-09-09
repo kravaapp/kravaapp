@@ -13,3 +13,17 @@ export type AvulsoConfigType = {
   active: boolean;
 };
 export type UpdateAvulsoConfigType = { price: number; active: boolean };
+
+export type CatalogProfileType = {
+  showInCatalog: boolean;
+  description: string | null;
+  bannerUrl: string | null;
+  modalities: string[] | null;
+};
+
+export type UpdateCatalogProfileType = {
+  showInCatalog: boolean;
+  description: string | null;
+  bannerUrl: string | null;
+  modalities: string[];
+};

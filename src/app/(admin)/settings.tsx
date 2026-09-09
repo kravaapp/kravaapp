@@ -8,12 +8,14 @@ import {
   Pill,
   SectionTitle,
 } from "@/components/admin/AdminUi";
+import { useCategories } from "@/hooks/categories.hooks";
 import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
 import { AvulsoConfigType, SchedulingRuleType } from "@/types/settings.types";
 import {
   Check,
   Clock,
   DollarSign,
+  Globe2,
   Pencil,
   Plus,
   ShieldAlert,
@@ -48,15 +50,24 @@ const ruleDescription = (rule: SchedulingRuleType) => {
 
 export default function AdminSettings() {
   const { toast } = useToast();
-  const { rules, avulsoConfigs, tenantSettings, loading, hasError } =
-    useAdminSettings();
+  const {
+    rules,
+    avulsoConfigs,
+    tenantSettings,
+    catalogProfile,
+    loading,
+    hasError,
+  } = useAdminSettings();
+  const { categories, isLoading: categoriesLoading } = useCategories();
   const {
     createRule,
     updateAvulso,
     updateTenant,
+    updateCatalogProfile,
     isCreatingRule,
     isUpdatingAvulso,
     isUpdatingTenant,
+    isUpdatingCatalogProfile,
   } = useSettingsActions();
   const [newRule, setNewRule] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -66,6 +77,12 @@ export default function AdminSettings() {
     cancellationTimeoutMinutes: "",
     noShowPenaltyFee: "",
     partnerCheckInLimit: "",
+  });
+  const [profile, setProfile] = useState({
+    showInCatalog: false,
+    description: "",
+    bannerUrl: "",
+    modalities: [] as string[],
   });
   useEffect(() => {
     setPrices(
@@ -85,6 +102,34 @@ export default function AdminSettings() {
       partnerCheckInLimit: String(tenantSettings.partnerCheckInLimit),
     });
   }, [tenantSettings]);
+
+  useEffect(() => {
+    if (!catalogProfile) return;
+    setProfile({
+      showInCatalog: catalogProfile.showInCatalog,
+      description: catalogProfile.description ?? "",
+      bannerUrl: catalogProfile.bannerUrl ?? "",
+      modalities: catalogProfile.modalities ?? [],
+    });
+  }, [catalogProfile]);
+
+  const saveCatalogProfile = async () => {
+    if (isUpdatingCatalogProfile || categoriesLoading) return;
+    try {
+      await updateCatalogProfile({
+        showInCatalog: profile.showInCatalog,
+        description: profile.description.trim() || null,
+        bannerUrl: profile.bannerUrl.trim() || null,
+        modalities: profile.modalities,
+      });
+      toast({ title: "Perfil público atualizado!" });
+    } catch {
+      toast({
+        title: "Não foi possível atualizar o perfil público.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const saveTenant = async () => {
     if (!tenantSettings) return;
@@ -164,6 +209,104 @@ export default function AdminSettings() {
               Algumas configurações não puderam ser carregadas.
             </Text>
           )}
+          <SettingsCard
+            icon={<Globe2 color={COLORS.info} size={20} />}
+            title="Perfil público"
+          >
+            {loading.catalogProfile ? (
+              <AdminSkeleton width="100%" height={250} radius={12} />
+            ) : catalogProfile ? (
+              <>
+                <View style={styles.rule}>
+                  <View style={styles.grow}>
+                    <Text style={styles.itemTitle}>Exibir no catálogo</Text>
+                    <Text style={styles.muted}>
+                      Permite que novos alunos encontrem este CT.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={profile.showInCatalog}
+                    onValueChange={(showInCatalog) =>
+                      setProfile((current) => ({ ...current, showInCatalog }))
+                    }
+                    trackColor={{ true: COLORS.mainOrange }}
+                  />
+                </View>
+                <Text style={styles.fieldLabel}>Descrição</Text>
+                <TextInput
+                  value={profile.description}
+                  onChangeText={(description) =>
+                    setProfile((current) => ({ ...current, description }))
+                  }
+                  placeholder="Apresente seu centro de treinamento"
+                  multiline
+                  style={[styles.fullInput, styles.textarea]}
+                />
+                <Text style={styles.fieldLabel}>URL do banner</Text>
+                <TextInput
+                  value={profile.bannerUrl}
+                  onChangeText={(bannerUrl) =>
+                    setProfile((current) => ({ ...current, bannerUrl }))
+                  }
+                  placeholder="https://..."
+                  autoCapitalize="none"
+                  keyboardType="url"
+                  style={styles.fullInput}
+                />
+                <Text style={styles.fieldLabel}>Modalidades exibidas</Text>
+                {categoriesLoading ? (
+                  <AdminSkeleton width="100%" height={50} radius={10} />
+                ) : (
+                  <View style={styles.profileModalities}>
+                    {(categories ?? [])
+                      .filter((item) => item.isActive)
+                      .map((item) => {
+                        const selected = profile.modalities.includes(item.name);
+                        return (
+                          <TouchableOpacity
+                            key={item.id}
+                            onPress={() =>
+                              setProfile((current) => ({
+                                ...current,
+                                modalities: selected
+                                  ? current.modalities.filter(
+                                      (name) => name !== item.name,
+                                    )
+                                  : [...current.modalities, item.name],
+                              }))
+                            }
+                            style={[
+                              styles.dayOption,
+                              selected && styles.dayOptionActive,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.dayText,
+                                selected && styles.dayTextActive,
+                              ]}
+                            >
+                              {item.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </View>
+                )}
+                <ActionButton
+                  label={
+                    isUpdatingCatalogProfile || categoriesLoading
+                      ? "Aguarde..."
+                      : "Salvar perfil público"
+                  }
+                  icon={<Check size={14} color="#fff" />}
+                  onPress={saveCatalogProfile}
+                />
+              </>
+            ) : (
+              <Text style={styles.empty}>Perfil público indisponível.</Text>
+            )}
+          </SettingsCard>
           <SettingsCard
             icon={<Clock color={COLORS.mainOrange} size={20} />}
             title="Regras de agendamento"
@@ -624,6 +767,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
   },
+  textarea: { minHeight: 90, paddingTop: 10, textAlignVertical: "top" },
+  profileModalities: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   dayOptions: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   dayOption: {
     borderWidth: 1,
