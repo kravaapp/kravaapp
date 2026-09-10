@@ -1,50 +1,58 @@
-import { AuthContext } from '@/contexts/authContext';
-import { Token } from '@/types/auth.types';
-import { LogOut } from 'lucide-react-native';
-import { useContext, useState } from 'react';
+import { AuthContext } from "@/contexts/authContext";
+import { Token } from "@/types/auth.types";
+import { router } from "expo-router";
+import { Building2, LogOut } from "lucide-react-native";
+import { useContext, useState } from "react";
 import {
   Modal,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
-} from 'react-native';
+  View,
+} from "react-native";
 import KravaLogo from "./KravaLogo";
 
 export const COLORS = {
-  card: '#ffffff',
-  border: '#e5e7eb',
-  primary: '#6366f1',
-  primaryFg: '#ffffff',
-  foreground: '#111827',
-  mutedForeground: '#6b7280',
-  destructive: '#ef4444',
-  destructiveFg: '#ffffff',
-  overlay: 'rgba(0,0,0,0.4)',
-  white: '#ffffff',
-  outline: '#d1d5db',
-  mainOrange: '#e95a07',
-  subOrange: '#fbdecd',
-  grayLabels: '#6b7280',
-  navy: '#0f172a',
-  navyForeground: '#ffffff',
-  warning: '#f59e0b',
-  warningSurface: '#fffbeb',
-  info: '#3b82f6',
-  infoSurface: '#dbeafe',
-  success: '#22c55e',
-  successSurface: '#dcfce7',
+  card: "#ffffff",
+  border: "#e5e7eb",
+  primary: "#6366f1",
+  primaryFg: "#ffffff",
+  foreground: "#111827",
+  mutedForeground: "#6b7280",
+  destructive: "#ef4444",
+  destructiveFg: "#ffffff",
+  overlay: "rgba(0,0,0,0.4)",
+  white: "#ffffff",
+  outline: "#d1d5db",
+  mainOrange: "#e95a07",
+  subOrange: "#fbdecd",
+  grayLabels: "#6b7280",
+  navy: "#0f172a",
+  navyForeground: "#ffffff",
+  warning: "#f59e0b",
+  warningSurface: "#fffbeb",
+  info: "#3b82f6",
+  infoSurface: "#dbeafe",
+  success: "#22c55e",
+  successSurface: "#dcfce7",
 };
 
 type DropdownProps = {
   visible: boolean;
   onClose: () => void;
   onLogout: () => void;
+  onExplore?: () => void;
   user: Token | null;
 };
 
-const ProfileDropdown = ({ visible, onClose, onLogout, user }: DropdownProps) => (
+const ProfileDropdown = ({
+  visible,
+  onClose,
+  onLogout,
+  onExplore,
+  user,
+}: DropdownProps) => (
   <Modal
     transparent
     visible={visible}
@@ -53,14 +61,35 @@ const ProfileDropdown = ({ visible, onClose, onLogout, user }: DropdownProps) =>
     statusBarTranslucent
   >
     <Pressable style={styles.dropdownBackdrop} onPress={onClose}>
-      <Pressable style={styles.dropdownMenu} onPress={e => e.stopPropagation()}>
+      <Pressable
+        style={styles.dropdownMenu}
+        onPress={(e) => e.stopPropagation()}
+      >
         <View style={styles.dropdownLabel}>
-          <Text style={styles.dropdownName}>{user?.userName || 'Usuário'}</Text>
-          <Text style={styles.dropdownMuted}>{user?.tenantName || 'Arena'}</Text>
-          <Text style={styles.dropdownMuted}>{'Plano Intermediário'}</Text>
+          <Text style={styles.dropdownName}>{user?.userName || "Usuário"}</Text>
+          <Text style={styles.dropdownMuted}>
+            {user?.tenantName || "Arena"}
+          </Text>
+          <Text style={styles.dropdownMuted}>{"Plano Intermediário"}</Text>
         </View>
 
         <View style={styles.dropdownSeparator} />
+
+        {onExplore && (
+          <TouchableOpacity
+            style={styles.dropdownItem}
+            activeOpacity={0.7}
+            onPress={() => {
+              onClose();
+              onExplore();
+            }}
+          >
+            <Building2 color={COLORS.foreground} size={16} />
+            <Text style={styles.dropdownExploreText}>
+              Trocar ou explorar CTs
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.dropdownItem}
@@ -79,12 +108,15 @@ const ProfileDropdown = ({ visible, onClose, onLogout, user }: DropdownProps) =>
 );
 
 export const getInitials = (name: string) => {
-  return name.split(' ').map(word => word[0]).join('');
-}
+  return name
+    .split(" ")
+    .map((word) => word[0])
+    .join("");
+};
 
 const AlunoHeader = () => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
-  const { signOut, user } = useContext(AuthContext);
+  const { signOut, user, selectTenantState } = useContext(AuthContext);
 
   const handleLogout = () => {
     signOut();
@@ -101,7 +133,9 @@ const AlunoHeader = () => {
           onPress={() => setDropdownVisible(true)}
           accessibilityLabel="Abrir menu do perfil"
         >
-          <Text style={styles.avatarText}>{getInitials(user?.userName || '')}</Text>
+          <Text style={styles.avatarText}>
+            {getInitials(user?.userName || "")}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -109,6 +143,9 @@ const AlunoHeader = () => {
         visible={dropdownVisible}
         onClose={() => setDropdownVisible(false)}
         onLogout={handleLogout}
+        onExplore={
+          selectTenantState ? () => router.push("/selectTenant") : undefined
+        }
         user={user}
       />
     </>
@@ -119,9 +156,9 @@ export default AlunoHeader;
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 12,
     backgroundColor: COLORS.card,
@@ -133,18 +170,18 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: `${COLORS.subOrange}`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarText: {
     color: COLORS.mainOrange,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 11,
   },
 
   dropdownBackdrop: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
     paddingTop: 96,
     paddingRight: 16,
   },
@@ -153,7 +190,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderRadius: 10,
     paddingVertical: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
@@ -168,7 +205,7 @@ const styles = StyleSheet.create({
   },
   dropdownName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.foreground,
     marginBottom: 2,
   },
@@ -182,8 +219,8 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -191,6 +228,11 @@ const styles = StyleSheet.create({
   dropdownItemText: {
     fontSize: 14,
     color: COLORS.destructive,
-    fontWeight: '500',
-  }
+    fontWeight: "500",
+  },
+  dropdownExploreText: {
+    fontSize: 14,
+    color: COLORS.foreground,
+    fontWeight: "500",
+  },
 });

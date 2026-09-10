@@ -22,7 +22,7 @@ const api = ky.create({
 
           const user: Token = JSON.parse(authState);
 
-          if (user?.accessToken) {
+          if (user?.accessToken && !request.headers.has("Authorization")) {
             request.headers.set(
               "Authorization",
               `Bearer ${user.accessToken}`

@@ -1,26 +1,68 @@
 import { COLORS } from "@/components/ClientHeader";
 import KravaLogo from "@/components/KravaLogo";
-import { useLogin } from "@/hooks/auth.hooks";
+import { useToast } from "@/components/Toast";
+import { useLogin, useSelfRegister } from "@/hooks/auth.hooks";
+import { selfRegisterSchema } from "@/schemas/auth.schemas";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Login() {
+  const { toast } = useToast();
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const { login, isLoading, error } = useLogin();
+  const {
+    selfRegister,
+    isLoading: isRegistering,
+    error: registerError,
+  } = useSelfRegister();
+  const busy = isLoading || isRegistering;
 
   const handleLogin = async () => {
     if (!email || !senha) return;
     await login({ email, password: senha });
+  };
+
+  const handleRegister = async () => {
+    if (busy) return;
+    const request = selfRegisterSchema.safeParse({
+      name,
+      email,
+      password: senha,
+    });
+    if (!request.success) {
+      toast({
+        title: "Preencha nome, e-mail e senha corretamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (senha !== confirmPassword) {
+      toast({ title: "As senhas não coincidem.", variant: "destructive" });
+      return;
+    }
+    try {
+      await selfRegister(request.data);
+      setMode("login");
+      setName("");
+      setSenha("");
+      setConfirmPassword("");
+      toast({ title: "Conta criada! Entre para escolher seu CT." });
+    } catch {
+      // O erro detalhado da API é exibido abaixo do formulário.
+    }
   };
 
   return (
@@ -31,11 +73,25 @@ export default function Login() {
 
           <Text style={styles.title}>krava</Text>
           <Text style={styles.subtitle}>
-            Gestão esportiva inteligente
+            {mode === "login"
+              ? "Gestão esportiva inteligente"
+              : "Crie sua conta para encontrar um CT"}
           </Text>
         </View>
 
         <View style={styles.form}>
+          {mode === "register" && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nome completo</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Seu nome"
+                autoCapitalize="words"
+                value={name}
+                onChangeText={setName}
+              />
+            </View>
+          )}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>E-mail</Text>
             <TextInput
@@ -59,26 +115,50 @@ export default function Login() {
             />
           </View>
 
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          {mode === "register" && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Confirmar senha</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                secureTextEntry
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+            </View>
+          )}
+
+          {(mode === "login" ? error : registerError) && (
+            <Text style={styles.errorText}>
+              {mode === "login" ? error : registerError}
+            </Text>
+          )}
 
           <TouchableOpacity
-            style={[styles.button, isLoading && { opacity: 0.7 }]}
-            onPress={handleLogin}
-            disabled={isLoading}
+            style={[styles.button, busy && { opacity: 0.7 }]}
+            onPress={mode === "login" ? handleLogin : handleRegister}
+            disabled={busy}
           >
-            {isLoading ? (
+            {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Entrar</Text>
+              <Text style={styles.buttonText}>
+                {mode === "login" ? "Entrar" : "Criar conta"}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
           style={styles.registerButton}
+          onPress={() => {
+            setMode((current) => (current === "login" ? "register" : "login"));
+            setSenha("");
+            setConfirmPassword("");
+          }}
         >
           <Text style={styles.registerText}>
-            Criar conta
+            {mode === "login" ? "Criar conta" : "Já tenho uma conta"}
           </Text>
         </TouchableOpacity>
       </View>

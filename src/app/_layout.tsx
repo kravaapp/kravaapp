@@ -3,7 +3,19 @@ import { AuthProvider } from "@/contexts/authContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      retryOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+    mutations: {
+      retry: false,
+    },
+  },
+});
 
 export default function Layout() {
   return (

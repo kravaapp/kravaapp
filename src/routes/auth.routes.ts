@@ -1,19 +1,88 @@
-import { CreateInvitationRequest, LoginRequest, SelectTenantRequest } from "@/schemas/auth.schemas";
-import { LoginResponse, Token } from "@/types/auth.types";
+import {
+  CreateInvitationRequest,
+  JoinCatalogRequest,
+  LoginRequest,
+  SelectTenantRequest,
+  SelfRegisterRequest,
+} from "@/schemas/auth.schemas";
+import {
+  CatalogTenantDetailsType,
+  CatalogTenantType,
+  LoginResponse,
+  PendingInvitationType,
+  Token,
+} from "@/types/auth.types";
 import api from "./client";
 
 export class AuthRoutes {
   constructor() {}
 
   async login(request: LoginRequest) {
-    return await api.post("/auth/login", { json: request }).json<LoginResponse>();
+    return await api
+      .post("/auth/login", { json: request })
+      .json<LoginResponse>();
+  }
+
+  async selfRegister(request: SelfRegisterRequest) {
+    await api.post("/auth/self-register", { json: request });
   }
 
   async selectTenant(request: SelectTenantRequest) {
-    return await api.post("/auth/select-tenant", { json: request }).json<Token>();
+    return await api
+      .post("/auth/select-tenant", { json: request })
+      .json<Token>();
   }
 
   async createInvitation(request: CreateInvitationRequest) {
     await api.post("/auth/invitations", { json: request });
+  }
+
+  async getCatalog(searchTerm?: string) {
+    const tenants = await api
+      .get("/auth/catalog", {
+        searchParams: searchTerm ? { searchTerm } : undefined,
+      })
+      .json<
+        Array<
+          Omit<CatalogTenantType, "id"> & {
+            id?: string;
+            ctId?: string;
+          }
+        >
+      >();
+
+    return tenants.map((tenant) => ({
+      ...tenant,
+      id: tenant.id ?? tenant.ctId ?? "",
+    }));
+  }
+
+  async getCatalogTenant(ctId: string) {
+    return api.get(`/auth/catalog/${ctId}`).json<CatalogTenantDetailsType>();
+  }
+
+  async requestToJoin(
+    ctId: string,
+    request: JoinCatalogRequest,
+    accessToken: string,
+  ) {
+    await api.post(`/auth/catalog/${ctId}/join`, {
+      json: request,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  }
+
+  async getPendingInvitations(accessToken: string) {
+    return api
+      .get("/auth/invitations/pending", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      .json<PendingInvitationType[]>();
+  }
+
+  async acceptInvitation(id: string, accessToken: string) {
+    await api.post(`/auth/invitations/${id}/accept`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
   }
 }
