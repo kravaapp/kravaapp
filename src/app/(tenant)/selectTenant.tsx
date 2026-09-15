@@ -78,11 +78,19 @@ export default function SelectTenant() {
     selectTenantState?.currentToken?.accessToken ??
     selectTenantState?.preAuthToken ??
     null;
+  const roles = [
+    user?.role,
+    selectTenantState?.currentToken?.role,
+    ...(selectTenantState?.availableTenants.map((tenant) => tenant.role) ?? []),
+  ];
+  const canViewInvitations = !roles.some((role) =>
+    ["Admin", "Professor", "Instrutor"].includes(role ?? ""),
+  );
   const {
     invitations,
     isLoading: invitationsLoading,
     error: invitationsError,
-  } = usePendingInvitations(token);
+  } = usePendingInvitations(canViewInvitations ? token : null);
   const { acceptInvitation, isAccepting } = useCatalogActions(token ?? "");
 
   if (!selectTenantState) return <Redirect href="/signIn" />;
@@ -137,11 +145,13 @@ export default function SelectTenant() {
           active={activeTab === "linked"}
           onPress={() => setActiveTab("linked")}
         />
-        <Tab
-          label="Convites"
-          active={activeTab === "invitations"}
-          onPress={() => setActiveTab("invitations")}
-        />
+        {canViewInvitations && (
+          <Tab
+            label="Convites"
+            active={activeTab === "invitations"}
+            onPress={() => setActiveTab("invitations")}
+          />
+        )}
         <Tab
           label="Explorar"
           active={activeTab === "catalog"}
@@ -197,7 +207,7 @@ export default function SelectTenant() {
           </Section>
         )}
 
-        {activeTab === "invitations" && (
+        {canViewInvitations && activeTab === "invitations" && (
           <Section
             title="Convites pendentes"
             subtitle="Convites enviados para o e-mail da sua conta."
