@@ -14,6 +14,10 @@ import {
   useAlunos,
 } from "@/hooks/alunos.hooks";
 import { useCreateInvitation } from "@/hooks/auth.hooks";
+import {
+  useJoinRequestActions,
+  usePendingJoinRequests,
+} from "@/hooks/tenant.hooks";
 import { createInvitationSchema } from "@/schemas/auth.schemas";
 import { AlunoType } from "@/types/alunos.types";
 import {
@@ -57,6 +61,20 @@ export default function AdminStudents() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedMethods, setSelectedMethods] = useState<string[]>([]);
   const [inviting, setInviting] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(
+    null,
+  );
+  const { toast } = useToast();
+  const {
+    requests: joinRequests,
+    isLoading: joinRequestsLoading,
+    error: joinRequestsError,
+  } = usePendingJoinRequests();
+  const {
+    approveJoinRequest,
+    rejectJoinRequest,
+    isSaving: isSavingJoinRequest,
+  } = useJoinRequestActions();
   const { alunos, isLoading, error } = useAlunos({
     search: search || undefined,
     level: level === "Todos" ? undefined : level,
@@ -69,6 +87,30 @@ export default function AdminStudents() {
   });
   const items = alunos?.items ?? [];
   useEffect(() => setPage(1), [search, level, status, payment]);
+
+  const decideJoinRequest = async (
+    id: string,
+    decision: "approve" | "reject",
+  ) => {
+    if (isSavingJoinRequest) return;
+    setProcessingRequestId(id);
+    try {
+      if (decision === "approve") {
+        await approveJoinRequest(id);
+        toast({ title: "Solicitação aprovada. O aluno foi vinculado ao CT." });
+      } else {
+        await rejectJoinRequest(id);
+        toast({ title: "Solicitação recusada." });
+      }
+    } catch {
+      toast({
+        title: "Não foi possível atualizar a solicitação.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -91,6 +133,83 @@ export default function AdminStudents() {
               icon={<Plus size={15} color="#fff" />}
               onPress={() => setInviting(true)}
             />
+          </View>
+          <View style={styles.joinRequestsSection}>
+            <View style={styles.joinRequestsHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Solicitações de entrada</Text>
+                <Text style={styles.secondary}>
+                  Alunos aguardando aprovação para entrar no CT.
+                </Text>
+              </View>
+              {joinRequests.length > 0 && (
+                <Pill
+                  label={`${joinRequests.length} pendente${joinRequests.length === 1 ? "" : "s"}`}
+                  tone="warning"
+                />
+              )}
+            </View>
+            {joinRequestsLoading ? (
+              <AdminSkeleton height={106} radius={8} />
+            ) : joinRequestsError ? (
+              <Text style={styles.error}>{joinRequestsError}</Text>
+            ) : joinRequests.length === 0 ? (
+              <Text style={styles.empty}>Nenhuma solicitação pendente.</Text>
+            ) : (
+              joinRequests.map((request) => {
+                const processing = processingRequestId === request.id;
+                return (
+                  <AdminCard key={request.id} style={styles.joinRequestCard}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>
+                        {initials(
+                          request.userName || request.userEmail || "Aluno",
+                        )}
+                      </Text>
+                    </View>
+                    <View style={styles.grow}>
+                      <Text style={styles.name}>
+                        {request.userName || "Aluno sem nome"}
+                      </Text>
+                      <Text style={styles.secondary}>
+                        {request.userEmail || "E-mail não informado"}
+                      </Text>
+                      <Text style={styles.secondary}>
+                        Solicitado em{" "}
+                        {new Date(request.createdAtUtc).toLocaleDateString(
+                          "pt-BR",
+                        )}
+                      </Text>
+                      {request.planId ? (
+                        <Text style={styles.planReference}>
+                          Plano selecionado na solicitação
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.joinRequestActions}>
+                      <ActionButton
+                        label={
+                          processing && isSavingJoinRequest ? "..." : "Aprovar"
+                        }
+                        icon={<Check size={14} color="#fff" />}
+                        onPress={() => decideJoinRequest(request.id, "approve")}
+                      />
+                      <TouchableOpacity
+                        disabled={isSavingJoinRequest}
+                        onPress={() => decideJoinRequest(request.id, "reject")}
+                        style={[
+                          styles.rejectButton,
+                          isSavingJoinRequest && styles.disabled,
+                        ]}
+                      >
+                        <X size={14} color={COLORS.destructive} />
+                        <Text style={styles.rejectButtonText}>Recusar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </AdminCard>
+                );
+              })
+            )}
           </View>
           <Filter
             label="Status"
@@ -517,7 +636,10 @@ function InviteModal({
   const [email, setEmail] = useState("");
   const submit = async () => {
     if (isLoading) return;
-    const invitation = createInvitationSchema.safeParse({ email, role: "Aluno" });
+    const invitation = createInvitationSchema.safeParse({
+      email,
+      role: "Aluno",
+    });
     if (!invitation.success) {
       toast({ title: "Informe um e-mail válido.", variant: "destructive" });
       return;
@@ -712,6 +834,43 @@ const styles = StyleSheet.create({
   name: { color: COLORS.foreground, fontSize: 13, fontWeight: "700" },
   secondary: { color: COLORS.mutedForeground, fontSize: 11, lineHeight: 16 },
   pills: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginVertical: 5 },
+  joinRequestsSection: { gap: 10 },
+  joinRequestsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  joinRequestCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 8,
+  },
+  joinRequestActions: { gap: 7, minWidth: 82 },
+  planReference: {
+    color: COLORS.mainOrange,
+    fontSize: 10,
+    fontWeight: "700",
+    marginTop: 3,
+  },
+  rejectButton: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+  },
+  rejectButtonText: {
+    color: COLORS.destructive,
+    fontSize: 12,
+    fontWeight: "700",
+  },
   error: {
     color: COLORS.destructive,
     backgroundColor: "#fee2e2",
