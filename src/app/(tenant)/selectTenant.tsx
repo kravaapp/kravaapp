@@ -136,7 +136,7 @@ export default function SelectTenant() {
           style={styles.logout}
           accessibilityLabel="Sair"
         >
-          <LogOut size={18} color="#fff" />
+          <LogOut size={18} color={COLORS.foreground} />
         </TouchableOpacity>
       </View>
       <View style={styles.tabs}>
@@ -415,7 +415,7 @@ function CatalogDetails({
           style={styles.backButton}
           accessibilityLabel="Voltar para explorar CTs"
         >
-          <ArrowLeft size={20} color="#fff" />
+          <ArrowLeft size={20} color={COLORS.foreground} />
         </TouchableOpacity>
         <View style={styles.grow}>
           <Text style={styles.detailEyebrow}>EXPLORAR CTS</Text>
@@ -594,7 +594,7 @@ function CatalogDetails({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#18181b" },
+  safe: { flex: 1, backgroundColor: "#f8fafc" },
   topbar: {
     paddingHorizontal: 20,
     paddingTop: 18,
@@ -602,21 +602,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   brand: { color: COLORS.mainOrange, fontSize: 11, fontWeight: "900" },
-  heading: { color: "#fff", fontSize: 22, fontWeight: "800", marginTop: 2 },
+  heading: { color: COLORS.foreground, fontSize: 22, fontWeight: "800", marginTop: 2 },
   logout: {
     width: 40,
     height: 40,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
   },
   tabs: {
     height: 46,
     flexDirection: "row",
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#3f3f46",
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.white,
   },
   tab: {
     flex: 1,
@@ -626,12 +634,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
   },
   tabActive: { borderBottomColor: COLORS.mainOrange },
-  tabText: { color: "#a1a1aa", fontSize: 13, fontWeight: "600" },
-  tabTextActive: { color: "#fff" },
+  tabText: { color: COLORS.mutedForeground, fontSize: 13, fontWeight: "600" },
+  tabTextActive: { color: COLORS.foreground },
   content: { padding: 16, paddingBottom: 36 },
   section: { gap: 11 },
-  sectionTitle: { color: "#fff", fontSize: 17, fontWeight: "800" },
-  sectionSubtitle: { color: "#a1a1aa", fontSize: 11, lineHeight: 16 },
+  sectionTitle: { color: COLORS.foreground, fontSize: 17, fontWeight: "800" },
+  sectionSubtitle: { color: COLORS.mutedForeground, fontSize: 11, lineHeight: 16 },
   muted: { color: COLORS.mutedForeground, fontSize: 11, lineHeight: 16 },
   grow: { flex: 1 },
   rowCard: {
@@ -668,7 +676,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   emptyDark: {
-    color: "#d4d4d8",
+    color: COLORS.mutedForeground,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 16,
     paddingVertical: 18,
     fontSize: 13,
     lineHeight: 19,
@@ -687,12 +700,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     borderWidth: 1,
-    borderColor: "#52525b",
+    borderColor: COLORS.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    backgroundColor: "#27272a",
+    backgroundColor: COLORS.white,
   },
-  searchInput: { flex: 1, color: "#fff", fontSize: 13 },
+  searchInput: { flex: 1, color: COLORS.foreground, fontSize: 13 },
   catalogCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -710,7 +723,7 @@ const styles = StyleSheet.create({
   },
   logoText: { color: COLORS.mainOrange, fontWeight: "800" },
   pills: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginTop: 6 },
-  detailSafe: { flex: 1, backgroundColor: "#f5f5f4" },
+  detailSafe: { flex: 1, backgroundColor: "#f8fafc" },
   detailHeader: {
     minHeight: 72,
     flexDirection: "row",
@@ -718,9 +731,9 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#18181b",
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: "#3f3f46",
+    borderBottomColor: COLORS.border,
   },
   backButton: {
     width: 40,
@@ -730,7 +743,7 @@ const styles = StyleSheet.create({
   },
   detailEyebrow: { color: COLORS.mainOrange, fontSize: 10, fontWeight: "800" },
   detailHeaderTitle: {
-    color: "#fff",
+    color: COLORS.foreground,
     fontSize: 18,
     fontWeight: "800",
     marginTop: 1,
@@ -756,7 +769,7 @@ const styles = StyleSheet.create({
   bannerFallback: {
     width: "100%",
     aspectRatio: 16 / 6,
-    backgroundColor: "#27272a",
+    backgroundColor: COLORS.subOrange,
     borderBottomWidth: 3,
     borderBottomColor: COLORS.mainOrange,
   },
