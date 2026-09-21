@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "krava",
+    "name": "Krava",
     "slug": "krava",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,11 +8,16 @@
     "scheme": "krava",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.krava.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "br.com.krava.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#E85C07",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -40,6 +45,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2e12d7a8-1133-4ca8-9a18-d031881d19d1"
+      }
+    },
+    "owner": "gabrielfifreitas"
   }
 }
