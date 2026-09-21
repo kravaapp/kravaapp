@@ -184,3 +184,6 @@ export type CreateAulaType = {
   publicGender: string | null;
   waitlistTimeoutMinutes: number | null;
 }
+
+/** O contrato de atualização contém os mesmos campos editáveis da aula. */
+export type UpdateAulaType = CreateAulaType;

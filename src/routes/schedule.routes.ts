@@ -1,5 +1,5 @@
 import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { AttendanceType, AulaType, CreateAulaType, MyMonthlyScheduleType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType } from "@/types/schedules.types";
+import { AttendanceType, AulaType, CreateAulaType, MyMonthlyScheduleType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType, UpdateAulaType } from "@/types/schedules.types";
 import api from "./client";
 
 export class ScheduleRoutes {
@@ -35,6 +35,14 @@ export class ScheduleRoutes {
 
     async createAula(params: CreateAulaType) {
         return await api.post("/scheduling/aulas", { json: params }).json<AulaType>();
+    }
+
+    async updateAula(id: string, params: UpdateAulaType) {
+        return await api.put(`/scheduling/aulas/${id}`, { json: params }).json<AulaType>();
+    }
+
+    async deleteAula(id: string) {
+        await api.delete(`/scheduling/aulas/${id}`);
     }
 
     async getSchedule(params: ScheduleRequestSchema) {

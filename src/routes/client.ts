@@ -6,7 +6,7 @@ import ky from "ky";
 
 const baseUrl =
   process.env.EXPO_PUBLIC_API_URL?.trim() ||
-  "https://krava-api-latest.onrender.com/api";
+  "https://api.kravaapp.com.br/api";
 
 const api = ky.create({
   prefix: baseUrl,

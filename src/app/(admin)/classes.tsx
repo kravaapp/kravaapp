@@ -15,12 +15,15 @@ import {
   useAulas,
   useClassFormOptions,
   useCreateAula,
+  useDeleteAula,
   useTodayOccurrences,
+  useUpdateAula,
 } from "@/hooks/schedule.hooks";
-import { TodayOccurrenceType } from "@/types/schedules.types";
-import { Check, Plus, X } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { AulaType, TodayOccurrenceType } from "@/types/schedules.types";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react-native";
+import { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -63,6 +66,8 @@ export default function AdminClasses() {
   const [filter, setFilter] = useState<(typeof filters)[number]>("Todos");
   const [selected, setSelected] = useState<TodayOccurrenceType | null>(null);
   const [newClass, setNewClass] = useState(false);
+  const [editingClass, setEditingClass] = useState<AulaType | null>(null);
+  const { deleteAula, isLoading: isDeleting } = useDeleteAula();
   const {
     todayOccurrences = [],
     isLoading: loadingToday,
@@ -218,6 +223,43 @@ export default function AdminClasses() {
                           <Text style={styles.muted}>
                             {item.professorName} · capacidade {item.maxCapacity}
                           </Text>
+                          <View style={styles.slotActions}>
+                            <ActionButton
+                              outline
+                              label="Editar"
+                              icon={<Pencil size={14} color={COLORS.foreground} />}
+                              onPress={() => setEditingClass(item)}
+                            />
+                            <ActionButton
+                              outline
+                              label={isDeleting ? "Excluindo..." : "Excluir"}
+                              icon={<Trash2 size={14} color={COLORS.destructive} />}
+                              onPress={() => {
+                                Alert.alert(
+                                  "Excluir aula?",
+                                  "As ocorrências e reservas futuras desta aula serão canceladas e os alunos serão notificados.",
+                                  [
+                                    { text: "Voltar", style: "cancel" },
+                                    {
+                                      text: "Excluir aula",
+                                      style: "destructive",
+                                      onPress: async () => {
+                                        try {
+                                          await deleteAula(item.id);
+                                          toast({ title: "Aula excluída com sucesso!" });
+                                        } catch (requestError) {
+                                          toast({
+                                            title: requestError instanceof Error ? requestError.message : "Não foi possível excluir a aula.",
+                                            variant: "destructive",
+                                          });
+                                        }
+                                      },
+                                    },
+                                  ],
+                                );
+                              }}
+                            />
+                          </View>
                         </View>
                       ))}
                     </View>
@@ -238,6 +280,15 @@ export default function AdminClasses() {
         onSuccess={() => {
           setNewClass(false);
           toast({ title: "Aula criada com sucesso!" });
+        }}
+        onError={(message) => toast({ title: message, variant: "destructive" })}
+      />
+      <EditClassModal
+        item={editingClass}
+        onClose={() => setEditingClass(null)}
+        onSuccess={() => {
+          setEditingClass(null);
+          toast({ title: "Aula atualizada com sucesso!" });
         }}
         onError={(message) => toast({ title: message, variant: "destructive" })}
       />
@@ -417,6 +468,177 @@ function NewClassModal({
                   label={isCreating ? "Criando..." : "Criar aula"}
                   onPress={submit}
                 />
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function EditClassModal({
+  item,
+  onClose,
+  onSuccess,
+  onError,
+}: {
+  item: AulaType | null;
+  onClose: () => void;
+  onSuccess: () => void;
+  onError: (message: string) => void;
+}) {
+  const { modalidades, professors, isLoading, error } = useClassFormOptions();
+  const { updateAula, isLoading: isUpdating } = useUpdateAula();
+  const [modalidadeId, setModalidadeId] = useState("");
+  const [professorId, setProfessorId] = useState("");
+  const [name, setName] = useState("");
+  const [dayOfWeek, setDayOfWeek] = useState<number | null>(null);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [capacity, setCapacity] = useState("");
+  const [publicGender, setPublicGender] = useState<Audience | null>(null);
+  const [allowTrial, setAllowTrial] = useState(true);
+
+  useEffect(() => {
+    if (!item) return;
+    setModalidadeId(item.modalidadeId);
+    setProfessorId(item.professorId);
+    setName(item.name || "");
+    setDayOfWeek(item.dayOfWeek);
+    setStartTime(item.startTime?.slice(0, 5) || "");
+    setEndTime(item.endTime?.slice(0, 5) || "");
+    setCapacity(String(item.maxCapacity));
+    setPublicGender(audienceLabel(item.publicGender));
+    setAllowTrial(item.allowTrial);
+  }, [item]);
+
+  if (!item) return null;
+
+  const submit = () => {
+    const maxCapacity = Number(capacity);
+    if (
+      !modalidadeId ||
+      !professorId ||
+      dayOfWeek === null ||
+      !/^\d{2}:\d{2}$/.test(startTime) ||
+      !/^\d{2}:\d{2}$/.test(endTime) ||
+      !Number.isInteger(maxCapacity) ||
+      maxCapacity <= 0
+    ) {
+      onError("Preencha modalidade, professor, dia, horários e capacidade.");
+      return;
+    }
+
+    Alert.alert(
+      "Salvar alterações?",
+      "As alterações serão aplicadas às próximas ocorrências desta aula.",
+      [
+        { text: "Continuar editando", style: "cancel" },
+        {
+          text: "Salvar alterações",
+          onPress: async () => {
+            try {
+              await updateAula({
+                id: item.id,
+                params: {
+                  modalidadeId,
+                  professorId,
+                  name: name.trim() || null,
+                  dayOfWeek,
+                  startTime,
+                  endTime,
+                  maxCapacity,
+                  allowTrial,
+                  minLevel: item.minLevel,
+                  publicGender,
+                  waitlistTimeoutMinutes: item.waitlistTimeoutMinutes,
+                },
+              });
+              onSuccess();
+            } catch (requestError) {
+              onError(
+                requestError instanceof Error
+                  ? requestError.message
+                  : "Não foi possível atualizar a aula.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  return (
+    <Modal transparent animationType="slide" visible onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <View style={styles.modal}>
+          <View style={styles.rowBetween}>
+            <SectionTitle>Editar aula</SectionTitle>
+            <TouchableOpacity onPress={onClose}>
+              <X color={COLORS.foreground} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {isLoading ? (
+              <AdminSkeleton width="100%" height={260} radius={12} />
+            ) : error ? (
+              <Text style={styles.empty}>
+                Não foi possível carregar modalidades e professores.
+              </Text>
+            ) : (
+              <View style={styles.form}>
+                <OptionField
+                  label="Modalidade"
+                  options={modalidades.map((option) => ({
+                    id: option.id,
+                    label: option.name || "Modalidade",
+                  }))}
+                  value={modalidadeId}
+                  onChange={setModalidadeId}
+                />
+                <OptionField
+                  label="Professor"
+                  options={professors.map((option) => ({
+                    id: option.userId,
+                    label: option.name || option.email || "Professor",
+                  }))}
+                  value={professorId}
+                  onChange={setProfessorId}
+                />
+                <Text style={styles.label}>Nome da aula (opcional)</Text>
+                <TextInput value={name} onChangeText={setName} style={styles.input} />
+                <Text style={styles.label}>Dia da semana</Text>
+                <View style={styles.options}>
+                  {dayLabels.map((day, index) => (
+                    <Option key={day} label={day} active={dayOfWeek === index} onPress={() => setDayOfWeek(index)} />
+                  ))}
+                </View>
+                <View style={styles.fieldsRow}>
+                  <View style={styles.grow}>
+                    <Text style={styles.label}>Início</Text>
+                    <TextInput value={startTime} onChangeText={setStartTime} style={styles.input} maxLength={5} />
+                  </View>
+                  <View style={styles.grow}>
+                    <Text style={styles.label}>Fim</Text>
+                    <TextInput value={endTime} onChangeText={setEndTime} style={styles.input} maxLength={5} />
+                  </View>
+                  <View style={styles.grow}>
+                    <Text style={styles.label}>Capacidade</Text>
+                    <TextInput value={capacity} onChangeText={setCapacity} style={styles.input} keyboardType="number-pad" />
+                  </View>
+                </View>
+                <Text style={styles.label}>Público</Text>
+                <View style={styles.options}>
+                  {filters.slice(1).map((option) => (
+                    <Option key={option} label={option} active={publicGender === option} onPress={() => setPublicGender(option as Audience)} />
+                  ))}
+                </View>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.label}>Permitir aula experimental</Text>
+                  <Switch value={allowTrial} onValueChange={setAllowTrial} />
+                </View>
+                <ActionButton label={isUpdating ? "Salvando..." : "Salvar alterações"} onPress={submit} />
               </View>
             )}
           </ScrollView>
@@ -639,6 +861,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   slotTitle: { color: COLORS.mainOrange, fontSize: 12, fontWeight: "700" },
+  slotActions: { flexDirection: "row", gap: 8, marginTop: 8 },
   backdrop: {
     flex: 1,
     backgroundColor: COLORS.overlay,

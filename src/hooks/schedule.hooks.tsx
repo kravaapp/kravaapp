@@ -2,7 +2,7 @@ import { ScheduleRoutes } from "@/routes/schedule.routes";
 import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { CreateAulaType } from "@/types/schedules.types";
+import { CreateAulaType, UpdateAulaType } from "@/types/schedules.types";
 
 type ApiError = Error & { data?: { detail?: string } };
 
@@ -124,6 +124,33 @@ export function useCreateAula() {
         isLoading: mutation.isPending,
         error: mutation.error,
     };
+}
+
+export function useUpdateAula() {
+    const queryClient = useQueryClient();
+    const mutation = useMutation({
+        mutationFn: ({ id, params }: { id: string; params: UpdateAulaType }) =>
+            new ScheduleRoutes().updateAula(id, params),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["aulas"] });
+            queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+        },
+    });
+
+    return { updateAula: mutation.mutateAsync, isLoading: mutation.isPending };
+}
+
+export function useDeleteAula() {
+    const queryClient = useQueryClient();
+    const mutation = useMutation({
+        mutationFn: (id: string) => new ScheduleRoutes().deleteAula(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["aulas"] });
+            queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+        },
+    });
+
+    return { deleteAula: mutation.mutateAsync, isLoading: mutation.isPending };
 }
 
 export function useSchedule(params: ScheduleRequestSchema) {
