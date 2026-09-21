@@ -28,6 +28,10 @@ const api = ky.create({
               `Bearer ${user.accessToken}`
             );
           }
+
+          if (user?.tenantId && !request.headers.has("Tenant-Id")) {
+            request.headers.set("Tenant-Id", user.tenantId);
+          }
         } catch (err) {
           console.error("Erro ao carregar token:", err);
         }

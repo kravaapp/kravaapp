@@ -14,6 +14,8 @@ import {
   useAlunos,
 } from "@/hooks/alunos.hooks";
 import { useCreateInvitation } from "@/hooks/auth.hooks";
+import { useCreateContract } from "@/hooks/contracts.hooks";
+import { usePlans } from "@/hooks/plans.hooks";
 import {
   useJoinRequestActions,
   usePendingJoinRequests,
@@ -399,8 +401,14 @@ function StudentModal({
     updatePaymentMethods,
     isSaving,
   } = useAlunoActions();
+  const { plans, isLoading: plansLoading } = usePlans();
+  const { createContract, isLoading: isCreatingContract } = useCreateContract();
   const [form, setForm] = useState<AlunoType | null>(null);
   const [methods, setMethods] = useState<string[]>([]);
+  const [planId, setPlanId] = useState("");
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [isPaidLocally, setIsPaidLocally] = useState(false);
+  const [contractError, setContractError] = useState("");
   useEffect(() => {
     if (aluno) {
       setForm(aluno);
@@ -446,6 +454,41 @@ function StudentModal({
     } catch {
       toast({
         title: "Não foi possível atualizar os métodos.",
+        variant: "destructive",
+      });
+    }
+  };
+  const createPlanContract = async () => {
+    if (!id) return;
+    if (!planId || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      setContractError(
+        !planId
+          ? "Selecione um plano para o aluno."
+          : "Informe a data de início no formato AAAA-MM-DD.",
+      );
+      return;
+    }
+    try {
+      await createContract({
+        alunoId: id,
+        planoId: planId,
+        startDate,
+        endDate: null,
+        autoRenew: false,
+        priceOverride: null,
+        discountPct: null,
+        notes: null,
+        isPaidLocally,
+      });
+      setPlanId("");
+      setContractError("");
+      toast({ title: "Plano vinculado ao aluno!" });
+    } catch (requestError) {
+      toast({
+        title:
+          requestError instanceof Error
+            ? requestError.message
+            : "Não foi possível vincular o plano.",
         variant: "destructive",
       });
     }
@@ -558,6 +601,54 @@ function StudentModal({
                   label={isSaving ? "Salvando..." : "Salvar dados"}
                   icon={<Check size={15} color="#fff" />}
                   onPress={save}
+                />
+                <Text style={styles.sectionTitle}>Vincular plano</Text>
+                <Text style={styles.secondary}>
+                  Selecione o plano que será ativado para este aluno.
+                </Text>
+                {contractError ? <Text style={styles.fieldError}>{contractError}</Text> : null}
+                {plansLoading ? (
+                  <AdminSkeleton height={54} />
+                ) : (
+                  <View style={styles.choiceRow}>
+                    {(plans ?? []).map((plan) => {
+                      const selected = planId === plan.id;
+                      return (
+                        <TouchableOpacity
+                          key={plan.id}
+                          onPress={() => {
+                            setPlanId(plan.id);
+                            setContractError("");
+                          }}
+                          style={[styles.choice, selected && styles.choiceActive]}
+                        >
+                          <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>
+                            {plan.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+                <Field
+                  label="Data de início *"
+                  value={startDate}
+                  placeholder="AAAA-MM-DD"
+                  onChange={(value) => {
+                    setStartDate(value);
+                    setContractError("");
+                  }}
+                />
+                <View style={styles.switchRow}>
+                  <View style={styles.grow}>
+                    <Text style={styles.fieldLabel}>Pagamento realizado no local</Text>
+                    <Text style={styles.secondary}>Marca a primeira cobrança como paga.</Text>
+                  </View>
+                  <Switch value={isPaidLocally} onValueChange={setIsPaidLocally} trackColor={{ true: COLORS.mainOrange }} />
+                </View>
+                <ActionButton
+                  label={isCreatingContract ? "Vinculando..." : "Vincular plano"}
+                  onPress={createPlanContract}
                 />
                 <Text style={styles.sectionTitle}>Métodos de pagamento</Text>
                 <View style={styles.choiceRow}>
