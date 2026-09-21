@@ -99,6 +99,16 @@ export default function AdminPlans() {
                 <View style={styles.meta}>
                   <Text style={styles.metaText}>{plan.durationDays} dias</Text>
                   <Text style={styles.metaText}>
+                    {plan.maxClassesPerWeek
+                      ? `${plan.maxClassesPerWeek}/semana`
+                      : "Sem limite semanal"}
+                  </Text>
+                  <Text style={styles.metaText}>
+                    {plan.maxClassesPerDay
+                      ? `${plan.maxClassesPerDay}/dia`
+                      : "Sem limite diário"}
+                  </Text>
+                  <Text style={styles.metaText}>
                     {plan.allowsAllModalidades
                       ? "Todas as modalidades"
                       : `${plan.modalidadeIds?.length ?? 0} modalidade(s)`}
@@ -151,6 +161,8 @@ function PlanModal({
   const [description, setDescription] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [durationDays, setDurationDays] = useState("");
+  const [maxClassesPerWeek, setMaxClassesPerWeek] = useState("0");
+  const [maxClassesPerDay, setMaxClassesPerDay] = useState("0");
   const [allowsAll, setAllowsAll] = useState(true);
   const [active, setActive] = useState(true);
   const [modalidadeIds, setModalidadeIds] = useState<string[]>([]);
@@ -163,6 +175,8 @@ function PlanModal({
     setDescription(plan?.description ?? "");
     setBasePrice(String(plan?.basePrice ?? plan?.price ?? ""));
     setDurationDays(String(plan?.durationDays ?? ""));
+    setMaxClassesPerWeek(String(plan?.maxClassesPerWeek ?? 0));
+    setMaxClassesPerDay(String(plan?.maxClassesPerDay ?? 0));
     setAllowsAll(plan?.allowsAllModalidades ?? true);
     setActive(plan?.isActive ?? true);
     setModalidadeIds(plan?.modalidadeIds ?? []);
@@ -172,17 +186,29 @@ function PlanModal({
 
   useEffect(() => {
     setValidationMessage("");
-  }, [name, basePrice, durationDays, allowsAll, modalidadeIds]);
+  }, [
+    name,
+    basePrice,
+    durationDays,
+    maxClassesPerWeek,
+    maxClassesPerDay,
+    allowsAll,
+    modalidadeIds,
+  ]);
 
   const save = async () => {
     if (isSaving) return;
     const price = Number(basePrice.replace(",", "."));
     const duration = Number(durationDays);
+    const weeklyLimit = Number(maxClassesPerWeek);
+    const dailyLimit = Number(maxClassesPerDay);
     const missingFields = [
       !name.trim() && "Nome",
       (!Number.isFinite(price) || price < 0) && "Preço base",
       (!Number.isInteger(duration) || duration <= 0) && "Duração em dias",
-      (!allowsAll && modalidadeIds.length === 0) && "Modalidades permitidas",
+      (!Number.isInteger(weeklyLimit) || weeklyLimit < 0) && "Limite semanal",
+      (!Number.isInteger(dailyLimit) || dailyLimit < 0) && "Limite diário",
+      !allowsAll && modalidadeIds.length === 0 && "Modalidades permitidas",
     ].filter(Boolean) as string[];
     if (missingFields.length) {
       setValidationMessage(`Preencha: ${missingFields.join(", ")}.`);
@@ -193,6 +219,8 @@ function PlanModal({
       description: description.trim() || null,
       basePrice: price,
       durationDays: duration,
+      maxClassesPerWeek: weeklyLimit,
+      maxClassesPerDay: dailyLimit,
       allowsAllModalidades: allowsAll,
     };
     try {
@@ -241,7 +269,9 @@ function PlanModal({
             contentContainerStyle={styles.form}
             keyboardShouldPersistTaps="handled"
           >
-            {validationMessage ? <Text style={styles.validationError}>{validationMessage}</Text> : null}
+            {validationMessage ? (
+              <Text style={styles.validationError}>{validationMessage}</Text>
+            ) : null}
             <Field
               label="Nome *"
               value={name}
@@ -275,6 +305,29 @@ function PlanModal({
                 />
               </View>
             </View>
+            <View style={styles.fieldsRow}>
+              <View style={styles.grow}>
+                <Field
+                  label="Checkin's Máximo por semana *"
+                  value={maxClassesPerWeek}
+                  onChange={setMaxClassesPerWeek}
+                  placeholder="0"
+                  numeric
+                />
+              </View>
+              <View style={styles.grow}>
+                <Field
+                  label="Checkin's Máximo por dia *"
+                  value={maxClassesPerDay}
+                  onChange={setMaxClassesPerDay}
+                  placeholder="0"
+                  numeric
+                />
+              </View>
+            </View>
+            <Text style={styles.muted}>
+              Use 0 para não limitar o número de aulas.
+            </Text>
             <View style={styles.switchRow}>
               <View style={styles.grow}>
                 <Text style={styles.label}>Todas as modalidades</Text>
