@@ -59,6 +59,10 @@ export class ScheduleRoutes {
         }).json<ScheduleType>();
     }
 
+    async deleteSchedule(bookingId: string) {
+        await api.delete(`/scheduling/bookings/${bookingId}`);
+    }
+
     async getBookingUserHistory(params: GetBookingUserHistoryRequestSchema) {
         return await api.get("/scheduling/my-history", { searchParams: params }).json<PaginatedBookingUserHistory>();
     }

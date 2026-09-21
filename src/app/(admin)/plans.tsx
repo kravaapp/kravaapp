@@ -155,6 +155,7 @@ function PlanModal({
   const [active, setActive] = useState(true);
   const [modalidadeIds, setModalidadeIds] = useState<string[]>([]);
   const [modalitiesDirty, setModalitiesDirty] = useState(false);
+  const [validationMessage, setValidationMessage] = useState("");
 
   useEffect(() => {
     if (!visible) return;
@@ -166,24 +167,25 @@ function PlanModal({
     setActive(plan?.isActive ?? true);
     setModalidadeIds(plan?.modalidadeIds ?? []);
     setModalitiesDirty(false);
+    setValidationMessage("");
   }, [plan, visible]);
+
+  useEffect(() => {
+    setValidationMessage("");
+  }, [name, basePrice, durationDays, allowsAll, modalidadeIds]);
 
   const save = async () => {
     if (isSaving) return;
     const price = Number(basePrice.replace(",", "."));
     const duration = Number(durationDays);
-    if (
-      !name.trim() ||
-      !Number.isFinite(price) ||
-      price < 0 ||
-      !Number.isInteger(duration) ||
-      duration <= 0 ||
-      (!allowsAll && modalidadeIds.length === 0)
-    ) {
-      toast({
-        title: "Preencha nome, preço, duração e modalidades válidos.",
-        variant: "destructive",
-      });
+    const missingFields = [
+      !name.trim() && "Nome",
+      (!Number.isFinite(price) || price < 0) && "Preço base",
+      (!Number.isInteger(duration) || duration <= 0) && "Duração em dias",
+      (!allowsAll && modalidadeIds.length === 0) && "Modalidades permitidas",
+    ].filter(Boolean) as string[];
+    if (missingFields.length) {
+      setValidationMessage(`Preencha: ${missingFields.join(", ")}.`);
       return;
     }
     const payload = {
@@ -239,6 +241,7 @@ function PlanModal({
             contentContainerStyle={styles.form}
             keyboardShouldPersistTaps="handled"
           >
+            {validationMessage ? <Text style={styles.validationError}>{validationMessage}</Text> : null}
             <Field
               label="Nome *"
               value={name}
@@ -422,6 +425,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fee2e2",
     padding: 12,
     borderRadius: 8,
+  },
+  validationError: {
+    color: COLORS.destructive,
+    backgroundColor: "#fee2e2",
+    padding: 10,
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: "600",
   },
   empty: { color: COLORS.mutedForeground, textAlign: "center", padding: 20 },
   planCard: { borderRadius: 8 },

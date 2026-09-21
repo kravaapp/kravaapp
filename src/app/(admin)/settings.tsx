@@ -8,9 +8,10 @@ import {
   Pill,
   SectionTitle,
 } from "@/components/admin/AdminUi";
-import { useCategories } from "@/hooks/categories.hooks";
+import { useCategories, useCategoryActions } from "@/hooks/categories.hooks";
 import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
 import { AvulsoConfigType, SchedulingRuleType } from "@/types/settings.types";
+import { Category } from "@/types/categories.types";
 import {
   Check,
   Clock,
@@ -19,6 +20,7 @@ import {
   Pencil,
   Plus,
   ShieldAlert,
+  Trash2,
   Users,
   X,
 } from "lucide-react-native";
@@ -59,17 +61,23 @@ export default function AdminSettings() {
     hasError,
   } = useAdminSettings();
   const { categories, isLoading: categoriesLoading } = useCategories();
+  const { createCategory, updateCategory, isSaving: isSavingCategory } = useCategoryActions();
   const {
     createRule,
+    updateRule,
+    deleteRule,
     updateAvulso,
     updateTenant,
     updateCatalogProfile,
     isCreatingRule,
+    isUpdatingRule,
+    isDeletingRule,
     isUpdatingAvulso,
     isUpdatingTenant,
     isUpdatingCatalogProfile,
   } = useSettingsActions();
-  const [newRule, setNewRule] = useState(false);
+  const [editingRule, setEditingRule] = useState<SchedulingRuleType | null | undefined>(undefined);
+  const [editingCategory, setEditingCategory] = useState<Category | null | undefined>(undefined);
   const [editing, setEditing] = useState<string | null>(null);
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [tenantEditing, setTenantEditing] = useState<string | null>(null);
@@ -308,13 +316,45 @@ export default function AdminSettings() {
             )}
           </SettingsCard>
           <SettingsCard
+            icon={<Globe2 color={COLORS.info} size={20} />}
+            title="Modalidades"
+            action={
+              <ActionButton
+                label="Adicionar"
+                icon={<Plus size={14} color="#fff" />}
+                onPress={() => setEditingCategory(null)}
+              />
+            }
+          >
+            {categoriesLoading ? (
+              <AdminSkeleton width="100%" height={130} radius={12} />
+            ) : (categories ?? []).length === 0 ? (
+              <Text style={styles.empty}>Nenhuma modalidade cadastrada.</Text>
+            ) : (
+              (categories ?? []).map((category) => (
+                <View key={category.id} style={styles.rule}>
+                  <View style={styles.grow}>
+                    <Text style={styles.itemTitle}>{category.name || "Modalidade sem nome"}</Text>
+                    <Text style={styles.muted}>
+                      {category.description || "Sem descrição"} · capacidade padrão {category.defaultCapacity}
+                    </Text>
+                  </View>
+                  <Pill label={category.isActive ? "Ativa" : "Inativa"} tone={category.isActive ? "success" : "neutral"} />
+                  <TouchableOpacity onPress={() => setEditingCategory(category)} style={styles.edit}>
+                    <Pencil size={17} color={COLORS.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </SettingsCard>
+          <SettingsCard
             icon={<Clock color={COLORS.mainOrange} size={20} />}
             title="Regras de agendamento"
             action={
               <ActionButton
                 label="Adicionar"
                 icon={<Plus size={14} color="#fff" />}
-                onPress={() => setNewRule(true)}
+                onPress={() => setEditingRule(null)}
               />
             }
           >
@@ -329,6 +369,23 @@ export default function AdminSettings() {
                     {ruleDescription(rule)}
                   </Text>
                   <Pill label="Ativa" tone="success" />
+                  <TouchableOpacity onPress={() => setEditingRule(rule)} style={styles.edit}>
+                    <Pencil size={17} color={COLORS.mutedForeground} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    disabled={isDeletingRule}
+                    onPress={async () => {
+                      try {
+                        await deleteRule(rule.id);
+                        toast({ title: "Regra excluída!" });
+                      } catch {
+                        toast({ title: "Não foi possível excluir a regra.", variant: "destructive" });
+                      }
+                    }}
+                    style={styles.edit}
+                  >
+                    <Trash2 size={17} color={COLORS.destructive} />
+                  </TouchableOpacity>
                 </View>
               ))
             )}
@@ -477,19 +534,40 @@ export default function AdminSettings() {
         </AdminScreen>
       </ScrollView>
       <RuleModal
-        visible={newRule}
-        saving={isCreatingRule}
-        onClose={() => setNewRule(false)}
+        rule={editingRule}
+        visible={editingRule !== undefined}
+        saving={isCreatingRule || isUpdatingRule}
+        onClose={() => setEditingRule(undefined)}
         onSave={async (rule) => {
           try {
-            await createRule(rule);
-            setNewRule(false);
-            toast({ title: "Regra de agendamento criada!" });
+            if (editingRule) await updateRule({ id: editingRule.id, rule });
+            else await createRule(rule);
+            setEditingRule(undefined);
+            toast({ title: editingRule ? "Regra atualizada!" : "Regra de agendamento criada!" });
           } catch {
             toast({
-              title: "Não foi possível criar a regra.",
+              title: editingRule ? "Não foi possível atualizar a regra." : "Não foi possível criar a regra.",
               variant: "destructive",
             });
+          }
+        }}
+      />
+      <CategoryModal
+        category={editingCategory}
+        visible={editingCategory !== undefined}
+        saving={isSavingCategory}
+        onClose={() => setEditingCategory(undefined)}
+        onSave={async (data) => {
+          try {
+            if (editingCategory) await updateCategory({ id: editingCategory.id, data });
+            else {
+              const { isActive: _isActive, ...createData } = data;
+              await createCategory(createData);
+            }
+            setEditingCategory(undefined);
+            toast({ title: editingCategory ? "Modalidade atualizada!" : "Modalidade criada!" });
+          } catch {
+            toast({ title: "Não foi possível salvar a modalidade.", variant: "destructive" });
           }
         }}
       />
@@ -498,11 +576,13 @@ export default function AdminSettings() {
 }
 
 function RuleModal({
+  rule,
   visible,
   saving,
   onClose,
   onSave,
 }: {
+  rule: SchedulingRuleType | null | undefined;
   visible: boolean;
   saving: boolean;
   onClose: () => void;
@@ -512,15 +592,26 @@ function RuleModal({
   const [targetOffset, setTargetOffset] = useState("");
   const [targetHours, setTargetHours] = useState("");
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [errors, setErrors] = useState({ days: false, releaseTime: false, targetOffset: false });
+  useEffect(() => {
+    if (!visible) return;
+    setReleaseTime(rule?.releaseTime?.slice(0, 5) ?? "");
+    setTargetOffset(rule ? String(rule.targetOffset) : "");
+    setTargetHours(rule?.targetHours?.join(", ") ?? "");
+    setSelectedDays(rule?.daysOfWeek ?? []);
+    setErrors({ days: false, releaseTime: false, targetOffset: false });
+  }, [rule, visible]);
   const submit = () => {
     const offset = Number(targetOffset);
-    if (
-      !/^\d{2}:\d{2}$/.test(releaseTime) ||
-      !Number.isInteger(offset) ||
-      offset < 0 ||
-      selectedDays.length === 0
-    )
+    const nextErrors = {
+      days: selectedDays.length === 0,
+      releaseTime: !/^\d{2}:\d{2}$/.test(releaseTime),
+      targetOffset: !Number.isInteger(offset) || offset < 0,
+    };
+    if (Object.values(nextErrors).some(Boolean)) {
+      setErrors(nextErrors);
       return;
+    }
     onSave({
       releaseTime,
       targetOffset: offset,
@@ -541,7 +632,7 @@ function RuleModal({
       <View style={styles.backdrop}>
         <View style={styles.modal}>
           <View style={styles.header}>
-            <SectionTitle>Nova regra</SectionTitle>
+            <SectionTitle>{rule ? "Editar regra" : "Nova regra"}</SectionTitle>
             <TouchableOpacity onPress={onClose}>
               <X color={COLORS.foreground} />
             </TouchableOpacity>
@@ -551,13 +642,14 @@ function RuleModal({
             {days.map((day, index) => (
               <TouchableOpacity
                 key={day}
-                onPress={() =>
+                onPress={() => {
                   setSelectedDays((current) =>
                     current.includes(index)
                       ? current.filter((value) => value !== index)
                       : [...current, index],
-                  )
-                }
+                  );
+                  setErrors((current) => ({ ...current, days: false }));
+                }}
                 style={[
                   styles.dayOption,
                   selectedDays.includes(index) && styles.dayOptionActive,
@@ -574,22 +666,31 @@ function RuleModal({
               </TouchableOpacity>
             ))}
           </View>
+          {errors.days ? <Text style={styles.fieldError}>Selecione pelo menos um dia.</Text> : null}
           <Text style={styles.fieldLabel}>Liberar às</Text>
           <TextInput
             value={releaseTime}
-            onChangeText={setReleaseTime}
+            onChangeText={(value) => {
+              setReleaseTime(value);
+              setErrors((current) => ({ ...current, releaseTime: false }));
+            }}
             placeholder="08:00"
             maxLength={5}
-            style={styles.fullInput}
+            style={[styles.fullInput, errors.releaseTime && styles.inputError]}
           />
+          {errors.releaseTime ? <Text style={styles.fieldError}>Informe um horário no formato HH:MM.</Text> : null}
           <Text style={styles.fieldLabel}>Antecedência em dias</Text>
           <TextInput
             value={targetOffset}
-            onChangeText={setTargetOffset}
+            onChangeText={(value) => {
+              setTargetOffset(value);
+              setErrors((current) => ({ ...current, targetOffset: false }));
+            }}
             placeholder="7"
             keyboardType="number-pad"
-            style={styles.fullInput}
+            style={[styles.fullInput, errors.targetOffset && styles.inputError]}
           />
+          {errors.targetOffset ? <Text style={styles.fieldError}>Informe uma quantidade de dias válida.</Text> : null}
           <Text style={styles.fieldLabel}>Horários das aulas (opcional)</Text>
           <TextInput
             value={targetHours}
@@ -598,9 +699,74 @@ function RuleModal({
             style={styles.fullInput}
           />
           <ActionButton
-            label={saving ? "Criando..." : "Criar regra"}
+            label={saving ? "Salvando..." : rule ? "Salvar alterações" : "Criar regra"}
             onPress={submit}
           />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function CategoryModal({
+  category,
+  visible,
+  saving,
+  onClose,
+  onSave,
+}: {
+  category: Category | null | undefined;
+  visible: boolean;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (data: { name: string | null; description: string | null; defaultCapacity: number; isActive: boolean }) => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [capacity, setCapacity] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!visible) return;
+    setName(category?.name ?? "");
+    setDescription(category?.description ?? "");
+    setCapacity(category ? String(category.defaultCapacity) : "");
+    setIsActive(category?.isActive ?? true);
+    setError("");
+  }, [category, visible]);
+
+  const submit = () => {
+    const defaultCapacity = Number(capacity);
+    if (!name.trim() || !Number.isInteger(defaultCapacity) || defaultCapacity <= 0) {
+      setError(!name.trim() ? "Informe o nome da modalidade." : "Informe uma capacidade padrão válida.");
+      return;
+    }
+    onSave({ name: name.trim(), description: description.trim() || null, defaultCapacity, isActive });
+  };
+
+  return (
+    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <View style={styles.modal}>
+          <View style={styles.header}>
+            <SectionTitle>{category ? "Editar modalidade" : "Nova modalidade"}</SectionTitle>
+            <TouchableOpacity onPress={onClose}><X color={COLORS.foreground} /></TouchableOpacity>
+          </View>
+          {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+          <Text style={styles.fieldLabel}>Nome *</Text>
+          <TextInput value={name} onChangeText={(value) => { setName(value); setError(""); }} style={styles.fullInput} />
+          <Text style={styles.fieldLabel}>Descrição</Text>
+          <TextInput value={description} onChangeText={setDescription} style={[styles.fullInput, styles.textarea]} multiline />
+          <Text style={styles.fieldLabel}>Capacidade padrão *</Text>
+          <TextInput value={capacity} onChangeText={(value) => { setCapacity(value); setError(""); }} keyboardType="number-pad" style={styles.fullInput} />
+          {category ? (
+            <View style={styles.rule}>
+              <Text style={[styles.itemTitle, styles.grow]}>Modalidade ativa</Text>
+              <Switch value={isActive} onValueChange={setIsActive} trackColor={{ true: COLORS.mainOrange }} />
+            </View>
+          ) : null}
+          <ActionButton label={saving ? "Salvando..." : category ? "Salvar alterações" : "Criar modalidade"} onPress={submit} />
         </View>
       </View>
     </Modal>
@@ -767,6 +933,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
   },
+  inputError: { borderColor: COLORS.destructive },
+  fieldError: { color: COLORS.destructive, fontSize: 11, fontWeight: "600" },
   textarea: { minHeight: 90, paddingTop: 10, textAlignVertical: "top" },
   profileModalities: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   dayOptions: { flexDirection: "row", flexWrap: "wrap", gap: 6 },

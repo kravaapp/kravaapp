@@ -8,6 +8,12 @@ export class SettingsRoutes {
   async createSchedulingRule(rule: CreateSchedulingRuleType) {
     return api.post("/tenant/scheduling-rules", { json: rule }).json<SchedulingRuleType>();
   }
+  async updateSchedulingRule(id: string, rule: CreateSchedulingRuleType) {
+    return api.put(`/tenant/scheduling-rules/${id}`, { json: rule }).json<SchedulingRuleType>();
+  }
+  async deleteSchedulingRule(id: string) {
+    await api.delete(`/tenant/scheduling-rules/${id}`);
+  }
   async getAvulsoConfigs() {
     return api.get("/financial/avulso-config").json<AvulsoConfigType[]>();
   }

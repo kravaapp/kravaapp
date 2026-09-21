@@ -53,6 +53,17 @@ export function useSettingsActions() {
     onSuccess: () =>
       client.invalidateQueries({ queryKey: ["scheduling-rules"] }),
   });
+  const updateRule = useMutation({
+    mutationFn: ({ id, rule }: { id: string; rule: CreateSchedulingRuleType }) =>
+      new SettingsRoutes().updateSchedulingRule(id, rule),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: ["scheduling-rules"] }),
+  });
+  const deleteRule = useMutation({
+    mutationFn: (id: string) => new SettingsRoutes().deleteSchedulingRule(id),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: ["scheduling-rules"] }),
+  });
   const updateAvulso = useMutation({
     mutationFn: ({
       modalidadeId,
@@ -77,10 +88,14 @@ export function useSettingsActions() {
   });
   return {
     createRule: createRule.mutateAsync,
+    updateRule: updateRule.mutateAsync,
+    deleteRule: deleteRule.mutateAsync,
     updateAvulso: updateAvulso.mutateAsync,
     updateTenant: updateTenant.mutateAsync,
     updateCatalogProfile: updateCatalogProfile.mutateAsync,
     isCreatingRule: createRule.isPending,
+    isUpdatingRule: updateRule.isPending,
+    isDeletingRule: deleteRule.isPending,
     isUpdatingAvulso: updateAvulso.isPending,
     isUpdatingTenant: updateTenant.isPending,
     isUpdatingCatalogProfile: updateCatalogProfile.isPending,

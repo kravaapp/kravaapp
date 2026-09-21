@@ -634,6 +634,7 @@ function InviteModal({
   const { toast } = useToast();
   const { createInvitation, isLoading } = useCreateInvitation();
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
   const submit = async () => {
     if (isLoading) return;
     const invitation = createInvitationSchema.safeParse({
@@ -641,7 +642,7 @@ function InviteModal({
       role: "Aluno",
     });
     if (!invitation.success) {
-      toast({ title: "Informe um e-mail válido.", variant: "destructive" });
+      setEmailError("Informe um e-mail válido.");
       return;
     }
     try {
@@ -673,10 +674,14 @@ function InviteModal({
             <Field
               label="E-mail do aluno *"
               value={email}
-              onChange={setEmail}
+              onChange={(value) => {
+                setEmail(value);
+                setEmailError("");
+              }}
               placeholder="aluno@exemplo.com"
               keyboardType="email-address"
               autoCapitalize="none"
+              error={emailError}
             />
             <ActionButton
               label={isLoading ? "Enviando..." : "Enviar convite"}
@@ -713,6 +718,7 @@ function Field({
   multiline,
   keyboardType,
   autoCapitalize,
+  error,
 }: {
   label: string;
   value: string;
@@ -721,6 +727,7 @@ function Field({
   multiline?: boolean;
   keyboardType?: "default" | "email-address";
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  error?: string;
 }) {
   return (
     <View style={styles.field}>
@@ -733,8 +740,9 @@ function Field({
         multiline={multiline}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
-        style={[styles.input, multiline && styles.textarea]}
+        style={[styles.input, multiline && styles.textarea, error && styles.inputError]}
       />
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 }
@@ -928,6 +936,8 @@ const styles = StyleSheet.create({
     color: COLORS.foreground,
     backgroundColor: "#fff",
   },
+  inputError: { borderColor: COLORS.destructive },
+  fieldError: { color: COLORS.destructive, fontSize: 11, fontWeight: "600" },
   textarea: { minHeight: 84, paddingTop: 10, textAlignVertical: "top" },
   choiceRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   choice: {

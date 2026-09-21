@@ -202,6 +202,21 @@ export function useCreateSchedule() {
     };
 }
 
+export function useDeleteSchedule() {
+    const queryClient = useQueryClient();
+    const mutation = useMutation({
+        mutationFn: (bookingId: string) => new ScheduleRoutes().deleteSchedule(bookingId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["schedule"] });
+            queryClient.invalidateQueries({ queryKey: ["user-next-class"] });
+            queryClient.invalidateQueries({ queryKey: ["user-week-classes"] });
+            queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+        },
+    });
+
+    return { deleteSchedule: mutation.mutateAsync, isLoading: mutation.isPending };
+}
+
 export function useBookingUserHistory(params: GetBookingUserHistoryRequestSchema) {
     const query = useQuery({
         queryKey: ["booking-user-history", params],

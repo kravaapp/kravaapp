@@ -11,8 +11,9 @@ import {
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { ConfirmBookingModal } from "@/components/ConfirmBookingModal";
 import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
+import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/auth.hooks";
-import { useCreateSchedule, useSchedule, useUserNextClass, useUserWeekClasses } from "@/hooks/schedule.hooks";
+import { useCreateSchedule, useDeleteSchedule, useSchedule, useUserNextClass, useUserWeekClasses } from "@/hooks/schedule.hooks";
 import { Token } from "@/types/auth.types";
 import { ScheduleOccurrenceType } from "@/types/schedules.types";
 import { Clock3, Dumbbell } from "lucide-react-native";
@@ -159,6 +160,8 @@ const UserProfile = ({ user }: { user: Token | null }) => {
 const NextClassCard = () => {
 
     const { userNextClass, isLoading, error } = useUserNextClass();
+    const { deleteSchedule, isLoading: isCancelling } = useDeleteSchedule();
+    const { toast } = useToast();
 
     if (isLoading) {
         return (
@@ -224,8 +227,19 @@ const NextClassCard = () => {
                     </View>
                 </View>
 
-                <TouchableOpacity style={styles.cancelButton}>
-                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <TouchableOpacity
+                    disabled={isCancelling}
+                    style={[styles.cancelButton, isCancelling && { opacity: 0.6 }]}
+                    onPress={async () => {
+                        try {
+                            await deleteSchedule(userNextClass.bookingId);
+                            toast({ title: "Agendamento cancelado." });
+                        } catch {
+                            toast({ title: "Não foi possível cancelar o agendamento.", variant: "destructive" });
+                        }
+                    }}
+                >
+                    <Text style={styles.cancelButtonText}>{isCancelling ? "Cancelando..." : "Cancelar"}</Text>
                 </TouchableOpacity>
             </View>
         </View>

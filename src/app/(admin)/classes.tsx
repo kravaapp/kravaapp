@@ -46,11 +46,46 @@ const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const audienceLabel = (value?: string | null): Audience | null => {
   const normalized = value?.toLocaleLowerCase("pt-BR");
-  if (normalized === "mista" || normalized === "misto") return "Mista";
-  if (normalized === "masculina" || normalized === "masculino")
+  if (normalized === "mixed" || normalized === "mista" || normalized === "misto")
+    return "Mista";
+  if (normalized === "m" || normalized === "masculina" || normalized === "masculino")
     return "Masculina";
-  if (normalized === "feminina" || normalized === "feminino") return "Feminina";
+  if (normalized === "f" || normalized === "feminina" || normalized === "feminino")
+    return "Feminina";
   return null;
+};
+
+const publicGenderValue = (audience: Audience | null) => {
+  if (audience === "Feminina") return "F";
+  if (audience === "Masculina") return "M";
+  if (audience === "Mista") return "Mixed";
+  return null;
+};
+
+const missingClassFields = ({
+  modalidadeId,
+  professorId,
+  dayOfWeek,
+  startTime,
+  endTime,
+  capacity,
+}: {
+  modalidadeId: string;
+  professorId: string;
+  dayOfWeek: number | null;
+  startTime: string;
+  endTime: string;
+  capacity: string;
+}) => {
+  const maxCapacity = Number(capacity);
+  return [
+    !modalidadeId && "Modalidade",
+    !professorId && "Professor",
+    dayOfWeek === null && "Dia da semana",
+    !/^\d{2}:\d{2}$/.test(startTime) && "Horário de início",
+    !/^\d{2}:\d{2}$/.test(endTime) && "Horário de fim",
+    (!Number.isInteger(maxCapacity) || maxCapacity <= 0) && "Capacidade",
+  ].filter(Boolean) as string[];
 };
 
 const statusTone = (status: string) => {
@@ -318,19 +353,17 @@ function NewClassModal({
   const [capacity, setCapacity] = useState("");
   const [publicGender, setPublicGender] = useState<Audience | null>(null);
   const [allowTrial, setAllowTrial] = useState(true);
+  const [validationMessage, setValidationMessage] = useState("");
+
+  useEffect(() => {
+    setValidationMessage("");
+  }, [modalidadeId, professorId, dayOfWeek, startTime, endTime, capacity]);
 
   const submit = async () => {
     const maxCapacity = Number(capacity);
-    if (
-      !modalidadeId ||
-      !professorId ||
-      dayOfWeek === null ||
-      !/^\d{2}:\d{2}$/.test(startTime) ||
-      !/^\d{2}:\d{2}$/.test(endTime) ||
-      !Number.isInteger(maxCapacity) ||
-      maxCapacity <= 0
-    ) {
-      onError("Preencha modalidade, professor, dia, horários e capacidade.");
+    const missingFields = missingClassFields({ modalidadeId, professorId, dayOfWeek, startTime, endTime, capacity });
+    if (missingFields.length) {
+      setValidationMessage(`Preencha: ${missingFields.join(", ")}.`);
       return;
     }
     try {
@@ -338,13 +371,13 @@ function NewClassModal({
         modalidadeId,
         professorId,
         name: name.trim() || null,
-        dayOfWeek,
+        dayOfWeek: dayOfWeek!,
         startTime,
         endTime,
         maxCapacity,
         allowTrial,
         minLevel: null,
-        publicGender,
+        publicGender: publicGenderValue(publicGender),
         waitlistTimeoutMinutes: null,
       });
       onSuccess();
@@ -381,6 +414,7 @@ function NewClassModal({
               </Text>
             ) : (
               <View style={styles.form}>
+                {validationMessage ? <Text style={styles.validationError}>{validationMessage}</Text> : null}
                 <OptionField
                   label="Modalidade"
                   options={modalidades.map((item) => ({
@@ -499,6 +533,7 @@ function EditClassModal({
   const [capacity, setCapacity] = useState("");
   const [publicGender, setPublicGender] = useState<Audience | null>(null);
   const [allowTrial, setAllowTrial] = useState(true);
+  const [validationMessage, setValidationMessage] = useState("");
 
   useEffect(() => {
     if (!item) return;
@@ -513,60 +548,51 @@ function EditClassModal({
     setAllowTrial(item.allowTrial);
   }, [item]);
 
+  useEffect(() => {
+    setValidationMessage("");
+  }, [modalidadeId, professorId, dayOfWeek, startTime, endTime, capacity]);
+
   if (!item) return null;
 
-  const submit = () => {
+  const save = async () => {
     const maxCapacity = Number(capacity);
-    if (
-      !modalidadeId ||
-      !professorId ||
-      dayOfWeek === null ||
-      !/^\d{2}:\d{2}$/.test(startTime) ||
-      !/^\d{2}:\d{2}$/.test(endTime) ||
-      !Number.isInteger(maxCapacity) ||
-      maxCapacity <= 0
-    ) {
-      onError("Preencha modalidade, professor, dia, horários e capacidade.");
+    try {
+      await updateAula({
+        id: item.id,
+        params: {
+          modalidadeId,
+          professorId,
+          name: name.trim() || null,
+          dayOfWeek: dayOfWeek!,
+          startTime,
+          endTime,
+          maxCapacity,
+          allowTrial,
+          minLevel: item.minLevel,
+          publicGender: publicGenderValue(publicGender),
+          waitlistTimeoutMinutes: item.waitlistTimeoutMinutes,
+        },
+      });
+      onSuccess();
+    } catch (requestError) {
+      onError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Não foi possível atualizar a aula.",
+      );
+    }
+  };
+
+  const submit = () => {
+    if (isUpdating) return;
+    const maxCapacity = Number(capacity);
+    const missingFields = missingClassFields({ modalidadeId, professorId, dayOfWeek, startTime, endTime, capacity });
+    if (missingFields.length) {
+      setValidationMessage(`Preencha: ${missingFields.join(", ")}.`);
       return;
     }
 
-    Alert.alert(
-      "Salvar alterações?",
-      "As alterações serão aplicadas às próximas ocorrências desta aula.",
-      [
-        { text: "Continuar editando", style: "cancel" },
-        {
-          text: "Salvar alterações",
-          onPress: async () => {
-            try {
-              await updateAula({
-                id: item.id,
-                params: {
-                  modalidadeId,
-                  professorId,
-                  name: name.trim() || null,
-                  dayOfWeek,
-                  startTime,
-                  endTime,
-                  maxCapacity,
-                  allowTrial,
-                  minLevel: item.minLevel,
-                  publicGender,
-                  waitlistTimeoutMinutes: item.waitlistTimeoutMinutes,
-                },
-              });
-              onSuccess();
-            } catch (requestError) {
-              onError(
-                requestError instanceof Error
-                  ? requestError.message
-                  : "Não foi possível atualizar a aula.",
-              );
-            }
-          },
-        },
-      ],
-    );
+    void save();
   };
 
   return (
@@ -588,6 +614,7 @@ function EditClassModal({
               </Text>
             ) : (
               <View style={styles.form}>
+                {validationMessage ? <Text style={styles.validationError}>{validationMessage}</Text> : null}
                 <OptionField
                   label="Modalidade"
                   options={modalidades.map((option) => ({
@@ -895,6 +922,14 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: "#15803d", fontSize: 10, fontWeight: "800" },
   empty: { textAlign: "center", color: COLORS.mutedForeground, padding: 24 },
+  validationError: {
+    color: COLORS.destructive,
+    backgroundColor: "#fee2e2",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   form: { gap: 12 },
   label: {
     fontSize: 12,
