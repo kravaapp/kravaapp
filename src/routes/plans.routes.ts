@@ -6,7 +6,7 @@ export class PlansRoutes {
 
     async getPlans() {
         const result = await api.get("/membership/planos", {searchParams: { activeOnly: true }}).json<PaginatedPlanType>();
-        return result.items.map((plan) => ({ ...plan, price: plan.price ?? plan.basePrice ?? 0 }));
+        return result.items.map((plan) => ({ ...plan, price: plan.price ?? 0 }));
     }
 
     async getCurrentPlan() {
@@ -14,7 +14,7 @@ export class PlansRoutes {
     }
 
     async getAdminPlans(page = 1, pageSize = 20, activeOnly = false) {
-        return api.get("/membership/planos", { searchParams: { page, pageSize, activeOnly } }).json<PaginatedAdminPlans>();
+        return api.get("/membership/planos", { searchParams: { page, pageSize } }).json<PaginatedAdminPlans>();
     }
 
     async createPlan(plan: CreateAdminPlanType) {

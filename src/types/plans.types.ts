@@ -11,14 +11,12 @@ export type PlanType = {
     allowsAllModalidades: boolean;
     isActive: boolean;
     modalidadeIds: string[] | null;
-    basePrice?: number;
 }
 
 export type AdminPlanType = {
     id: string;
     name: string | null;
     description: string | null;
-    basePrice?: number;
     price?: number;
     durationDays: number;
     maxClassesPerWeek?: number | null;
@@ -31,7 +29,7 @@ export type AdminPlanType = {
 export type CreateAdminPlanType = {
     name: string;
     description: string | null;
-    basePrice: number;
+    price: number;
     durationDays: number;
     maxClassesPerWeek?: number | null;
     maxClassesPerDay?: number | null;

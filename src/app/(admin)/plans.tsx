@@ -79,7 +79,7 @@ export default function AdminPlans() {
                       {plan.name || "Plano sem nome"}
                     </Text>
                     <Text style={styles.price}>
-                      {currency(plan.basePrice ?? plan.price ?? 0)}
+                      {currency(plan.price ?? 0)}
                     </Text>
                   </View>
                   <Pill
@@ -159,7 +159,7 @@ function PlanModal({
     useAdminPlanActions();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [basePrice, setBasePrice] = useState("");
+  const [price, setPrice] = useState("");
   const [durationDays, setDurationDays] = useState("");
   const [maxClassesPerWeek, setMaxClassesPerWeek] = useState("0");
   const [maxClassesPerDay, setMaxClassesPerDay] = useState("0");
@@ -173,7 +173,7 @@ function PlanModal({
     if (!visible) return;
     setName(plan?.name ?? "");
     setDescription(plan?.description ?? "");
-    setBasePrice(String(plan?.basePrice ?? plan?.price ?? ""));
+    setPrice(String(plan?.price ?? ""));
     setDurationDays(String(plan?.durationDays ?? ""));
     setMaxClassesPerWeek(String(plan?.maxClassesPerWeek ?? 0));
     setMaxClassesPerDay(String(plan?.maxClassesPerDay ?? 0));
@@ -188,7 +188,7 @@ function PlanModal({
     setValidationMessage("");
   }, [
     name,
-    basePrice,
+    price,
     durationDays,
     maxClassesPerWeek,
     maxClassesPerDay,
@@ -198,13 +198,13 @@ function PlanModal({
 
   const save = async () => {
     if (isSaving) return;
-    const price = Number(basePrice.replace(",", "."));
+    const parsedPrice = Number(price.replace(",", "."));
     const duration = Number(durationDays);
     const weeklyLimit = Number(maxClassesPerWeek);
     const dailyLimit = Number(maxClassesPerDay);
     const missingFields = [
       !name.trim() && "Nome",
-      (!Number.isFinite(price) || price < 0) && "Preço base",
+      (!Number.isFinite(parsedPrice) || parsedPrice < 0) && "Preço base",
       (!Number.isInteger(duration) || duration <= 0) && "Duração em dias",
       (!Number.isInteger(weeklyLimit) || weeklyLimit < 0) && "Limite semanal",
       (!Number.isInteger(dailyLimit) || dailyLimit < 0) && "Limite diário",
@@ -217,7 +217,7 @@ function PlanModal({
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
-      basePrice: price,
+      price: parsedPrice,
       durationDays: duration,
       maxClassesPerWeek: weeklyLimit,
       maxClassesPerDay: dailyLimit,
@@ -289,8 +289,8 @@ function PlanModal({
               <View style={styles.grow}>
                 <Field
                   label="Preço base *"
-                  value={basePrice}
-                  onChange={setBasePrice}
+                  value={price}
+                  onChange={setPrice}
                   placeholder="150,00"
                   numeric
                 />
