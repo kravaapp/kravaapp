@@ -44,6 +44,19 @@ const filters: ("Todos" | Audience)[] = [
 ];
 const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
+type LevelOption = { label: string; value: string | null };
+
+/*
+ * label: exibido para o usuário · value: enviado na rota.
+ * value null ("Nenhum") significa que a aula não restringe nível.
+ */
+const minLevelOptions: LevelOption[] = [
+  { label: "Nenhum", value: null },
+  { label: "Iniciante", value: "iniciante" },
+  { label: "Intermediário", value: "intermediario" },
+  { label: "Avançado", value: "avancado" },
+];
+
 const audienceLabel = (value?: string | null): Audience | null => {
   const normalized = value?.toLocaleLowerCase("pt-BR");
   if (normalized === "mixed" || normalized === "mista" || normalized === "misto")
@@ -54,6 +67,22 @@ const audienceLabel = (value?: string | null): Audience | null => {
     return "Feminina";
   return null;
 };
+
+/*
+ * Converte o nível vindo da API para o `value` de `minLevelOptions`.
+ * Aceita a grafia com ou sem acento ("Intermediário" → "intermediario").
+ * Qualquer valor desconhecido cai em null, que é o "Nenhum".
+ */
+const LEVEL_ALIASES: Record<string, string> = {
+  iniciante: "iniciante",
+  intermediario: "intermediario",
+  "intermediário": "intermediario",
+  avancado: "avancado",
+  "avançado": "avancado",
+};
+
+const levelValue = (value?: string | null): string | null =>
+  LEVEL_ALIASES[value?.trim().toLocaleLowerCase("pt-BR") ?? ""] ?? null;
 
 const publicGenderValue = (audience: Audience | null) => {
   if (audience === "Feminina") return "F";
@@ -352,6 +381,7 @@ function NewClassModal({
   const [endTime, setEndTime] = useState("");
   const [capacity, setCapacity] = useState("");
   const [publicGender, setPublicGender] = useState<Audience | null>(null);
+  const [minLevel, setMinLevel] = useState<string | null>(null);
   const [allowTrial, setAllowTrial] = useState(true);
   const [validationMessage, setValidationMessage] = useState("");
 
@@ -376,7 +406,7 @@ function NewClassModal({
         endTime,
         maxCapacity,
         allowTrial,
-        minLevel: null,
+        minLevel,
         publicGender: publicGenderValue(publicGender),
         waitlistTimeoutMinutes: null,
       });
@@ -494,6 +524,17 @@ function NewClassModal({
                     />
                   ))}
                 </View>
+                <Text style={styles.label}>Nível mínimo</Text>
+                <View style={styles.options}>
+                  {minLevelOptions.map((option) => (
+                    <Option
+                      key={option.label}
+                      label={option.label}
+                      active={minLevel === option.value}
+                      onPress={() => setMinLevel(option.value)}
+                    />
+                  ))}
+                </View>
                 <View style={styles.rowBetween}>
                   <Text style={styles.label}>Permitir aula experimental</Text>
                   <Switch value={allowTrial} onValueChange={setAllowTrial} />
@@ -532,6 +573,7 @@ function EditClassModal({
   const [endTime, setEndTime] = useState("");
   const [capacity, setCapacity] = useState("");
   const [publicGender, setPublicGender] = useState<Audience | null>(null);
+  const [minLevel, setMinLevel] = useState<string | null>(null);
   const [allowTrial, setAllowTrial] = useState(true);
   const [validationMessage, setValidationMessage] = useState("");
 
@@ -545,6 +587,7 @@ function EditClassModal({
     setEndTime(item.endTime?.slice(0, 5) || "");
     setCapacity(String(item.maxCapacity));
     setPublicGender(audienceLabel(item.publicGender));
+    setMinLevel(levelValue(item.minLevel));
     setAllowTrial(item.allowTrial);
   }, [item]);
 
@@ -568,7 +611,7 @@ function EditClassModal({
           endTime,
           maxCapacity,
           allowTrial,
-          minLevel: item.minLevel,
+          minLevel,
           publicGender: publicGenderValue(publicGender),
           waitlistTimeoutMinutes: item.waitlistTimeoutMinutes,
         },
@@ -659,6 +702,17 @@ function EditClassModal({
                 <View style={styles.options}>
                   {filters.slice(1).map((option) => (
                     <Option key={option} label={option} active={publicGender === option} onPress={() => setPublicGender(option as Audience)} />
+                  ))}
+                </View>
+                <Text style={styles.label}>Nível mínimo</Text>
+                <View style={styles.options}>
+                  {minLevelOptions.map((option) => (
+                    <Option
+                      key={option.label}
+                      label={option.label}
+                      active={minLevel === option.value}
+                      onPress={() => setMinLevel(option.value)}
+                    />
                   ))}
                 </View>
                 <View style={styles.rowBetween}>
