@@ -43,9 +43,37 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const levels = ["Todos", "Iniciante", "Intermediário", "Avançado", "Elite"];
-const statuses = ["Todos", "Ativo", "Inativo", "Suspenso"];
-const paymentMethods = ["Mensalista", "Gympass", "Totalpass"];
+type Option = { label: string; value: string };
+
+/* label: exibido para o usuário · value: enviado na rota */
+const levels: Option[] = [
+  { label: "Iniciante", value: "Iniciante" },
+  { label: "Intermediário", value: "Intermediario" },
+  { label: "Avançado", value: "Avançado" },
+];
+const statuses: Option[] = [
+  { label: "Ativo", value: "Ativo" },
+  { label: "Inativo", value: "Inativo" },
+  { label: "Trial", value: "Trial" },
+  { label: "Suspenso", value: "Suspenso" },
+  { label: "Bloqueado", value: "Bloqueado" },
+];
+const paymentMethods: Option[] = [
+  { label: "Pix", value: "Pix" },
+  { label: "Cartão de Crédito", value: "CartaoCredito" },
+  { label: "Boleto", value: "Boleto" },
+  { label: "Gympass", value: "Gympass" },
+  { label: "Totalpass", value: "Totalpass" },
+  { label: "Dinheiro", value: "Dinheiro" },
+  { label: "Avulso", value: "Avulto" },
+  { label: "Patrocínio", value: "Partner" },
+];
+const sexes: Option[] = [
+  { label: "Masculino", value: "M" },
+  { label: "Feminino", value: "F" },
+];
+/* Opção "Todos": value vazio significa "sem filtro" na rota. */
+const ALL: Option = { label: "Todos", value: "" };
 const nullable = (value: string) => value.trim() || null;
 const tone = (value?: string | null) =>
   value?.toLowerCase() === "ativo"
@@ -56,9 +84,9 @@ const tone = (value?: string | null) =>
 
 export default function AdminStudents() {
   const [search, setSearch] = useState("");
-  const [level, setLevel] = useState("Todos");
-  const [status, setStatus] = useState("Todos");
-  const [payment, setPayment] = useState("Todos");
+  const [level, setLevel] = useState("");
+  const [status, setStatus] = useState("");
+  const [payment, setPayment] = useState("");
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedMethods, setSelectedMethods] = useState<string[]>([]);
@@ -79,9 +107,9 @@ export default function AdminStudents() {
   } = useJoinRequestActions();
   const { alunos, isLoading, error } = useAlunos({
     search: search || undefined,
-    level: level === "Todos" ? undefined : level,
-    status: status === "Todos" ? undefined : status,
-    paymentMethod: payment === "Todos" ? undefined : payment,
+    level: level || undefined,
+    status: status || undefined,
+    paymentMethod: payment || undefined,
     page,
     pageSize: 20,
     sortBy: "userName",
@@ -215,19 +243,19 @@ export default function AdminStudents() {
           </View>
           <Filter
             label="Status"
-            values={statuses}
+            options={[ALL, ...statuses]}
             selected={status}
             onSelect={setStatus}
           />
           <Filter
             label="Nível"
-            values={levels}
+            options={[ALL, ...levels]}
             selected={level}
             onSelect={setLevel}
           />
           <Filter
             label="Pagamento"
-            values={["Todos", ...paymentMethods]}
+            options={[ALL, ...paymentMethods]}
             selected={payment}
             onSelect={setPayment}
           />
@@ -321,12 +349,12 @@ export default function AdminStudents() {
 
 function Filter({
   label,
-  values,
+  options,
   selected,
   onSelect,
 }: {
   label: string;
-  values: string[];
+  options: Option[];
   selected: string;
   onSelect: (value: string) => void;
 }) {
@@ -338,22 +366,22 @@ function Filter({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filters}
       >
-        {values.map((value) => (
-          <TouchableOpacity
-            key={value}
-            onPress={() => onSelect(value)}
-            style={[styles.filter, selected === value && styles.filterActive]}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selected === value && styles.filterTextActive,
-              ]}
+        {options.map((option) => {
+          const active = selected === option.value;
+          return (
+            <TouchableOpacity
+              key={option.value}
+              onPress={() => onSelect(option.value)}
+              style={[styles.filter, active && styles.filterActive]}
             >
-              {value}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[styles.filterText, active && styles.filterTextActive]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -406,7 +434,9 @@ function StudentModal({
   const [form, setForm] = useState<AlunoType | null>(null);
   const [methods, setMethods] = useState<string[]>([]);
   const [planId, setPlanId] = useState("");
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [isPaidLocally, setIsPaidLocally] = useState(false);
   const [contractError, setContractError] = useState("");
   useEffect(() => {
@@ -564,19 +594,19 @@ function StudentModal({
                 />
                 <Choice
                   label="Sexo"
-                  values={["Masculino", "Feminino", "Prefiro não informar"]}
+                  options={sexes}
                   selected={form.sex}
                   onSelect={(value) => setForm({ ...form, sex: value })}
                 />
                 <Choice
                   label="Nível"
-                  values={levels.slice(1)}
+                  options={levels}
                   selected={form.level}
                   onSelect={(value) => setForm({ ...form, level: value })}
                 />
                 <Choice
                   label="Status"
-                  values={statuses.slice(1)}
+                  options={statuses}
                   selected={form.status}
                   onSelect={(value) => setForm({ ...form, status: value })}
                 />
@@ -606,7 +636,9 @@ function StudentModal({
                 <Text style={styles.secondary}>
                   Selecione o plano que será ativado para este aluno.
                 </Text>
-                {contractError ? <Text style={styles.fieldError}>{contractError}</Text> : null}
+                {contractError ? (
+                  <Text style={styles.fieldError}>{contractError}</Text>
+                ) : null}
                 {plansLoading ? (
                   <AdminSkeleton height={54} />
                 ) : (
@@ -620,9 +652,17 @@ function StudentModal({
                             setPlanId(plan.id);
                             setContractError("");
                           }}
-                          style={[styles.choice, selected && styles.choiceActive]}
+                          style={[
+                            styles.choice,
+                            selected && styles.choiceActive,
+                          ]}
                         >
-                          <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>
+                          <Text
+                            style={[
+                              styles.choiceText,
+                              selected && styles.choiceTextActive,
+                            ]}
+                          >
                             {plan.name}
                           </Text>
                         </TouchableOpacity>
@@ -641,27 +681,37 @@ function StudentModal({
                 />
                 <View style={styles.switchRow}>
                   <View style={styles.grow}>
-                    <Text style={styles.fieldLabel}>Pagamento realizado no local</Text>
-                    <Text style={styles.secondary}>Marca a primeira cobrança como paga.</Text>
+                    <Text style={styles.fieldLabel}>
+                      Pagamento realizado no local
+                    </Text>
+                    <Text style={styles.secondary}>
+                      Marca a primeira cobrança como paga.
+                    </Text>
                   </View>
-                  <Switch value={isPaidLocally} onValueChange={setIsPaidLocally} trackColor={{ true: COLORS.mainOrange }} />
+                  <Switch
+                    value={isPaidLocally}
+                    onValueChange={setIsPaidLocally}
+                    trackColor={{ true: COLORS.mainOrange }}
+                  />
                 </View>
                 <ActionButton
-                  label={isCreatingContract ? "Vinculando..." : "Vincular plano"}
+                  label={
+                    isCreatingContract ? "Vinculando..." : "Vincular plano"
+                  }
                   onPress={createPlanContract}
                 />
                 <Text style={styles.sectionTitle}>Métodos de pagamento</Text>
                 <View style={styles.choiceRow}>
                   {paymentMethods.map((method) => {
-                    const active = methods.includes(method);
+                    const active = methods.includes(method.value);
                     return (
                       <TouchableOpacity
-                        key={method}
+                        key={method.value}
                         onPress={() =>
                           setMethods(
                             active
-                              ? methods.filter((item) => item !== method)
-                              : [...methods, method],
+                              ? methods.filter((item) => item !== method.value)
+                              : [...methods, method.value],
                           )
                         }
                         style={[styles.choice, active && styles.choiceActive]}
@@ -672,7 +722,7 @@ function StudentModal({
                             active && styles.choiceTextActive,
                           ]}
                         >
-                          {method}
+                          {method.label}
                         </Text>
                       </TouchableOpacity>
                     );
@@ -831,7 +881,11 @@ function Field({
         multiline={multiline}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
-        style={[styles.input, multiline && styles.textarea, error && styles.inputError]}
+        style={[
+          styles.input,
+          multiline && styles.textarea,
+          error && styles.inputError,
+        ]}
       />
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
@@ -839,12 +893,12 @@ function Field({
 }
 function Choice({
   label,
-  values,
+  options,
   selected,
   onSelect,
 }: {
   label: string;
-  values: string[];
+  options: Option[];
   selected: string | null;
   onSelect: (value: string) => void;
 }) {
@@ -852,22 +906,22 @@ function Choice({
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <View style={styles.choiceRow}>
-        {values.map((value) => (
-          <TouchableOpacity
-            key={value}
-            onPress={() => onSelect(value)}
-            style={[styles.choice, selected === value && styles.choiceActive]}
-          >
-            <Text
-              style={[
-                styles.choiceText,
-                selected === value && styles.choiceTextActive,
-              ]}
+        {options.map((option) => {
+          const active = selected === option.value;
+          return (
+            <TouchableOpacity
+              key={option.value}
+              onPress={() => onSelect(option.value)}
+              style={[styles.choice, active && styles.choiceActive]}
             >
-              {value}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[styles.choiceText, active && styles.choiceTextActive]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
