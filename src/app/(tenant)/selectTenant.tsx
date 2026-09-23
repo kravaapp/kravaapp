@@ -16,6 +16,7 @@ import {
   useSelectTenant,
 } from "@/hooks/auth.hooks";
 import { CatalogTenantType } from "@/types/auth.types";
+import { publicImageUrl } from "@/utils/apiUrl";
 import { Redirect } from "expo-router";
 import {
   ArrowLeft,
@@ -358,7 +359,10 @@ function CatalogCard({
     <TouchableOpacity onPress={onPress} activeOpacity={0.75}>
       <AdminCard style={styles.catalogCard}>
         {tenant.logoUrl ? (
-          <Image source={{ uri: tenant.logoUrl }} style={styles.logo} />
+          <Image
+            source={{ uri: publicImageUrl(tenant.logoUrl) ?? undefined }}
+            style={styles.logo}
+          />
         ) : (
           <View style={styles.logoFallback}>
             <Text style={styles.logoText}>{initials(tenant.name)}</Text>
@@ -437,7 +441,7 @@ function CatalogDetails({
             <View style={styles.tenantHero}>
               {tenant.bannerUrl ? (
                 <Image
-                  source={{ uri: tenant.bannerUrl }}
+                  source={{ uri: publicImageUrl(tenant.bannerUrl) ?? undefined }}
                   style={styles.banner}
                   resizeMode="cover"
                 />
@@ -447,7 +451,7 @@ function CatalogDetails({
               <View style={styles.tenantIdentity}>
                 {tenant.logoUrl ? (
                   <Image
-                    source={{ uri: tenant.logoUrl }}
+                    source={{ uri: publicImageUrl(tenant.logoUrl) ?? undefined }}
                     style={styles.detailLogo}
                   />
                 ) : (

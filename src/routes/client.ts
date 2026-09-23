@@ -1,15 +1,12 @@
 import { AUTH_STORAGE_KEY } from "@/contexts/authContext";
 import { Token } from "@/types/auth.types";
+import { apiBaseUrl } from "@/utils/apiUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import ky from "ky";
 
-const baseUrl =
-  process.env.EXPO_PUBLIC_API_URL?.trim() ||
-  "https://api.kravaapp.com.br/api";
-
 const api = ky.create({
-  prefix: baseUrl,
+  prefix: apiBaseUrl,
   timeout: false,
 
   hooks: {

@@ -32,6 +32,7 @@ function firstString(...values: unknown[]) {
 /**
  * O `code` do erro não vem na raiz do corpo: a API o envia dentro de `errors`,
  * por exemplo `{ detail: "...", errors: [{ code: "Auth.UserNotFound", ... }] }`.
+ * Os erros de upload, por outro lado, vêm como `{ message: "..." }`.
  */
 function firstErrorEntry(data: Record<string, unknown>) {
   if (!Array.isArray(data.errors)) return null;
@@ -61,7 +62,12 @@ export function normalizeApiError(
       return {
         code: firstString(data.code, entry?.code),
         description:
-          firstString(data.description, data.detail, entry?.description) ??
+          firstString(
+            data.message,
+            data.description,
+            data.detail,
+            entry?.description,
+          ) ??
           FRIENDLY_BY_STATUS[error.response.status] ??
           fallback,
       };

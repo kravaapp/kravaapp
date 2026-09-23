@@ -1,4 +1,8 @@
 import { TenantRoutes } from "@/routes/tenant.routes";
+import {
+  ImageUploadCategoryType,
+  PickedImageType,
+} from "@/types/upload.types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const joinRequestsKey = ["tenant-join-requests"];
@@ -40,4 +44,23 @@ export function useJoinRequestActions() {
     rejectJoinRequest: reject.mutateAsync,
     isSaving: approve.isPending || reject.isPending,
   };
+}
+
+/**
+ * Envia a imagem e devolve a URL pública. Sem invalidação de query: quem
+ * persiste a URL nova é o formulário da tela, no salvar dele — o upload sozinho
+ * não muda a configuração do tenant.
+ */
+export function useUploadTenantImage() {
+  const upload = useMutation({
+    mutationFn: ({
+      file,
+      category,
+    }: {
+      file: PickedImageType;
+      category: ImageUploadCategoryType;
+    }) => new TenantRoutes().uploadImage(file, category),
+  });
+
+  return { uploadImage: upload.mutateAsync, isUploading: upload.isPending };
 }

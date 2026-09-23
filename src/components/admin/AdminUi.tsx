@@ -48,16 +48,19 @@ export const ActionButton = ({
   onPress,
   outline = false,
   icon,
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
   outline?: boolean;
   icon?: ReactNode;
+  disabled?: boolean;
 }) => (
   <TouchableOpacity
     activeOpacity={0.75}
     onPress={onPress}
-    style={[styles.button, outline && styles.buttonOutline]}
+    disabled={disabled}
+    style={[styles.button, outline && styles.buttonOutline, disabled && styles.disabled]}
   >
     {icon}
     <Text style={[styles.buttonText, outline && styles.buttonOutlineText]}>
@@ -172,6 +175,7 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: COLORS.white, fontSize: 12, fontWeight: "700" },
   buttonOutlineText: { color: COLORS.foreground },
+  disabled: { opacity: 0.5 },
   track: {
     height: 7,
     backgroundColor: "#f3f4f6",

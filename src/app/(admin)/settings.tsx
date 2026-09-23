@@ -8,6 +8,7 @@ import {
   Pill,
   SectionTitle,
 } from "@/components/admin/AdminUi";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { useCategories, useCategoryActions } from "@/hooks/categories.hooks";
 import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
 import { AvulsoConfigType, SchedulingRuleType } from "@/types/settings.types";
@@ -261,16 +262,13 @@ export default function AdminSettings() {
                   multiline
                   style={[styles.fullInput, styles.textarea]}
                 />
-                <Text style={styles.fieldLabel}>URL do banner</Text>
-                <TextInput
-                  value={profile.bannerUrl}
-                  onChangeText={(bannerUrl) =>
+                <ImageUploadField
+                  label="Banner do catálogo"
+                  value={profile.bannerUrl || null}
+                  category="banner"
+                  onChange={(bannerUrl) =>
                     setProfile((current) => ({ ...current, bannerUrl }))
                   }
-                  placeholder="https://..."
-                  autoCapitalize="none"
-                  keyboardType="url"
-                  style={styles.fullInput}
                 />
                 <Text style={styles.fieldLabel}>Modalidades exibidas</Text>
                 {categoriesLoading ? (

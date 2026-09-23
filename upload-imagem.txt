@@ -1,0 +1,482 @@
+## Implementar upload de imagem via API
+
+### Objetivo
+
+Substituir a configuração manual de **URL da imagem** pelo upload direto do arquivo para a API.
+
+A implementação deve funcionar corretamente em **dispositivos desktop e mobile**, permitindo ao usuário selecionar uma imagem a partir da **galeria/fotos** ou da **área de arquivos/gerenciador de arquivos** do dispositivo, solicitando as permissões necessárias quando aplicável.
+
+Após o upload bem-sucedido, a URL retornada pela API deve ser utilizada automaticamente na configuração da imagem.
+
+---
+
+## Endpoint
+
+### `POST /api/tenant/upload-image`
+
+Permite o upload de arquivos de imagem diretamente para a API.
+
+A API valida:
+
+* formato do arquivo;
+* tamanho máximo;
+* integridade/conteúdo binário;
+* e disponibiliza o arquivo em uma URL pública estática.
+
+### Autenticação
+
+A requisição deve enviar:
+
+```http
+Authorization: Bearer <token>
+Tenant-Id: <id-do-tenant>
+```
+
+### Headers
+
+```http
+Content-Type: multipart/form-data
+```
+
+O `Content-Type` deve ser gerenciado corretamente pelo cliente ao utilizar `FormData`, permitindo que o boundary seja definido automaticamente pelo runtime.
+
+### Query Params
+
+Parâmetro opcional:
+
+```text
+category
+```
+
+Valor padrão:
+
+```text
+logo
+```
+
+Exemplos:
+
+```text
+?category=logo
+?category=banner
+```
+
+A categoria deve ser definida de acordo com o contexto da imagem que está sendo enviada.
+
+---
+
+## Request Body
+
+O corpo da requisição deve ser enviado como `FormData`:
+
+```text
+file: <arquivo>
+```
+
+Formatos permitidos:
+
+* `.png`
+* `.jpg`
+* `.jpeg`
+* `.webp`
+
+Tamanho máximo:
+
+**5 MB**
+
+---
+
+## Response
+
+Em caso de sucesso, a API retorna:
+
+```json
+{
+  "url": "/uploads/3fa85f64-5717-4562-b3fc-2c963f66afa6/logo/01920ee8-5d2b-7c3d-986c-0e9e995f73d1.png"
+}
+```
+
+A URL retornada deve substituir automaticamente a URL/configuração anterior da imagem.
+
+Caso a API retorne uma URL relativa, ela deve ser tratada de acordo com a configuração/base URL já utilizada pelo projeto para recursos públicos.
+
+---
+
+# Requisitos da implementação
+
+## 1. Substituir a entrada de URL
+
+Remover/substituir o fluxo atual em que o usuário precisa informar manualmente a URL da imagem.
+
+No lugar da entrada de URL, disponibilizar um componente de seleção/upload de imagem.
+
+O usuário deve conseguir:
+
+1. visualizar a imagem atualmente configurada, quando existir;
+2. selecionar uma nova imagem;
+3. iniciar o upload;
+4. acompanhar o estado do upload;
+5. receber feedback de erro ou sucesso;
+6. visualizar a nova imagem após o upload;
+7. substituir a imagem anteriormente configurada.
+
+Não deve ser necessário copiar ou informar manualmente uma URL.
+
+---
+
+## 2. Suporte a desktop e dispositivos móveis
+
+A solução deve ser compatível com:
+
+* navegadores desktop;
+* Android;
+* iOS;
+* diferentes tamanhos de tela.
+
+No mobile, a interação deve permitir que o usuário escolha a origem da imagem de acordo com as capacidades do dispositivo.
+
+Exemplos:
+
+* **Galeria/Fotos** — selecionar uma imagem existente;
+* **Arquivos** — selecionar uma imagem através do gerenciador de arquivos;
+* **Câmera**, caso o componente/biblioteca utilizada pelo projeto suporte essa opção e isso seja apropriado para o fluxo.
+
+Não implementar uma solução exclusivamente baseada em comportamento de desktop.
+
+---
+
+## 3. Permissões no dispositivo
+
+Quando o sistema operacional exigir permissão para acessar fotos, arquivos ou câmera, o fluxo deve respeitar o mecanismo nativo de permissões da plataforma.
+
+A aplicação deve:
+
+* solicitar a permissão somente quando necessária;
+* tratar o caso em que o usuário concede a permissão;
+* tratar o caso em que o usuário nega a permissão;
+* apresentar uma mensagem clara ao usuário quando o acesso for negado;
+* não quebrar o fluxo da tela caso a permissão seja recusada.
+
+Não solicitar permissões desnecessárias antecipadamente apenas para exibir a tela.
+
+---
+
+## 4. Validação antes do upload
+
+O cliente deve realizar validações básicas antes de enviar o arquivo para evitar requisições desnecessárias.
+
+Validar:
+
+### Formato
+
+Permitir somente:
+
+```text
+PNG
+JPG
+JPEG
+WEBP
+```
+
+### Tamanho
+
+Limite máximo:
+
+```text
+5 MB
+```
+
+Arquivos maiores devem ser rejeitados no cliente antes do envio.
+
+A validação do cliente não substitui a validação da API.
+
+A API continua sendo a fonte final de validação.
+
+---
+
+## 5. Integridade do arquivo
+
+O cliente não deve assumir que a extensão do arquivo garante que o conteúdo seja válido.
+
+A API já realiza a validação da integridade binária.
+
+Caso a API retorne:
+
+```json
+{
+  "message": "O conteúdo do arquivo não corresponde a uma imagem válida."
+}
+```
+
+o erro deve ser apresentado de forma clara ao usuário.
+
+---
+
+# Estados da interface
+
+O componente deve possuir estados explícitos para evitar que o usuário tenha dúvidas sobre o que está acontecendo.
+
+### Estado inicial
+
+Exibir:
+
+* imagem atual, caso exista;
+* botão/área para selecionar imagem;
+* indicação dos formatos permitidos;
+* indicação do limite de 5 MB.
+
+Exemplo de informação:
+
+```text
+PNG, JPG, JPEG ou WEBP — máximo 5 MB
+```
+
+### Arquivo selecionado
+
+Após selecionar o arquivo:
+
+* exibir preview;
+* exibir nome/tamanho quando apropriado;
+* permitir cancelar a seleção;
+* permitir iniciar o upload, caso o fluxo utilize confirmação antes do envio.
+
+### Upload em andamento
+
+Enquanto o upload estiver sendo realizado:
+
+* exibir estado de carregamento;
+* impedir múltiplos uploads simultâneos;
+* evitar que o usuário dispare várias requisições acidentalmente;
+* informar que o arquivo está sendo enviado.
+
+Exemplo:
+
+```text
+Enviando imagem...
+```
+
+### Upload concluído
+
+Após receber:
+
+```json
+{
+  "url": "..."
+}
+```
+
+a aplicação deve:
+
+1. armazenar a URL retornada;
+2. atualizar o estado da imagem;
+3. atualizar o preview;
+4. persistir a configuração conforme o fluxo existente da tela;
+5. remover/substituir a URL anterior quando aplicável.
+
+### Erro
+
+Em caso de erro, manter a imagem/configuração anterior intacta.
+
+Apresentar a mensagem retornada pela API quando ela for adequada para exibição.
+
+---
+
+# Tratamento dos erros da API
+
+Tratar especificamente os erros conhecidos:
+
+### Formato inválido
+
+```json
+{
+  "message": "Formato de imagem inválido. Formatos permitidos: JPG, JPEG, PNG, WEBP."
+}
+```
+
+### Arquivo maior que 5 MB
+
+```json
+{
+  "message": "O tamanho da imagem não pode ultrapassar 5 MB."
+}
+```
+
+### Conteúdo inválido
+
+```json
+{
+  "message": "O conteúdo do arquivo não corresponde a uma imagem válida."
+}
+```
+
+Caso a API retorne outro erro, utilizar o mecanismo de normalização de erros já existente no projeto, evitando criar um segundo padrão de tratamento.
+
+---
+
+# Autenticação
+
+A requisição deve utilizar o mecanismo de autenticação já existente no projeto.
+
+Enviar:
+
+```http
+Authorization: Bearer <token>
+Tenant-Id: <id-do-tenant>
+```
+
+Não duplicar a lógica de obtenção ou armazenamento do token caso já exista um cliente HTTP/interceptor responsável por isso.
+
+O `Tenant-Id` também deve seguir o padrão já utilizado pelas demais requisições autenticadas da aplicação.
+
+---
+
+# Arquitetura
+
+A implementação deve seguir os padrões existentes no projeto.
+
+Preferencialmente separar:
+
+### API/service
+
+Responsável pela chamada:
+
+```text
+POST /api/tenant/upload-image
+```
+
+### Hook
+
+Caso o projeto utilize React Query, criar/utilizar uma mutation específica para o upload.
+
+Responsabilidades:
+
+* executar upload;
+* controlar `isPending`;
+* tratar sucesso;
+* tratar erro;
+* invalidar/atualizar queries quando necessário.
+
+### Componente de UI
+
+Responsável por:
+
+* seleção do arquivo;
+* preview;
+* interação mobile;
+* estados visuais;
+* feedback para o usuário.
+
+Evitar colocar toda a lógica de upload diretamente na tela.
+
+---
+
+# FormData
+
+A requisição deve ser construída utilizando `FormData`:
+
+```text
+FormData
+└── file: <arquivo>
+```
+
+Não converter a imagem para Base64 para enviar à API.
+
+Não enviar JSON contendo a imagem.
+
+Não enviar a URL local do arquivo como substituto do upload.
+
+---
+
+# Compatibilidade mobile
+
+A solução deve considerar que o objeto de arquivo retornado pelo mecanismo de seleção pode variar entre:
+
+* navegador desktop;
+* Safari/iOS;
+* Chrome/Android;
+* diferentes mecanismos de seleção de arquivos.
+
+Não assumir que o arquivo sempre possuirá todos os metadados disponíveis no desktop.
+
+A implementação deve utilizar o mecanismo de seleção de arquivos compatível com a stack atual do projeto.
+
+---
+
+# Preview
+
+O preview deve utilizar o arquivo local somente para visualização enquanto o upload está pendente.
+
+Após o upload concluído, a imagem deve passar a utilizar a URL retornada pela API.
+
+Ou seja:
+
+```text
+Arquivo local
+     ↓
+Preview temporário
+     ↓
+Upload
+     ↓
+API retorna URL
+     ↓
+URL da API
+     ↓
+Imagem persistida
+```
+
+Não persistir `blob:` ou `data:` URL como URL definitiva da imagem.
+
+---
+
+# Segurança e consistência
+
+* Não confiar somente na validação do frontend.
+* Não permitir upload de arquivos acima de 5 MB pelo fluxo normal da interface.
+* Não permitir extensões diferentes das suportadas.
+* Não expor token de autenticação na interface.
+* Não armazenar o arquivo local como configuração permanente.
+* Não substituir a imagem atual caso o upload falhe.
+* Não disparar uploads duplicados por múltiplos cliques.
+* Utilizar o cliente HTTP/autenticação existente sempre que possível.
+
+---
+
+# Critérios de aceite
+
+### Desktop
+
+* [ ] Usuário consegue selecionar uma imagem pelo explorador de arquivos.
+* [ ] PNG, JPG, JPEG e WEBP são aceitos.
+* [ ] Arquivos maiores que 5 MB são rejeitados antes do upload.
+* [ ] O preview é exibido corretamente.
+* [ ] O upload é enviado como `multipart/form-data`.
+* [ ] `Authorization` e `Tenant-Id` são enviados corretamente.
+* [ ] A URL retornada pela API substitui a URL anterior.
+* [ ] A imagem atual é preservada quando o upload falha.
+
+### Mobile
+
+* [ ] O fluxo funciona em Android.
+* [ ] O fluxo funciona em iOS.
+* [ ] O usuário consegue acessar a galeria/fotos.
+* [ ] O usuário consegue acessar a área de arquivos/gerenciador de arquivos.
+* [ ] As permissões necessárias são solicitadas somente quando aplicável.
+* [ ] A recusa de permissão é tratada sem quebrar a tela.
+* [ ] O componente não depende de interações exclusivas de desktop.
+
+### API
+
+* [ ] Upload utiliza `POST /api/tenant/upload-image`.
+* [ ] O campo enviado é `file`.
+* [ ] A categoria correta é enviada via `category`.
+* [ ] O limite de 5 MB é respeitado.
+* [ ] Erros da API são exibidos adequadamente.
+* [ ] A URL retornada pela API é utilizada como URL definitiva da imagem.
+
+### UX
+
+* [ ] Existe estado visual de upload.
+* [ ] O usuário não consegue disparar uploads simultâneos acidentalmente.
+* [ ] Existe feedback de sucesso/erro.
+* [ ] O preview é atualizado após o upload.
+* [ ] Não é necessário informar manualmente a URL da imagem.

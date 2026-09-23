@@ -41,7 +41,14 @@
       ],
       "expo-font",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Krava precisa acessar suas fotos para você escolher a imagem do CT.",
+          "cameraPermission": "O Krava precisa acessar a câmera para você tirar a foto do CT."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
