@@ -1,4 +1,6 @@
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import KeyboardAvoider from "@/components/KeyboardAvoider";
+import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -52,7 +54,7 @@ export default function AdminPlans() {
   return (
     <SafeAreaView style={styles.safe}>
       <ClientHeader />
-      <ScrollView>
+      <ScreenScrollView>
         <AdminScreen>
           <View style={styles.header}>
             <View>
@@ -140,7 +142,7 @@ export default function AdminPlans() {
             </View>
           )}
         </AdminScreen>
-      </ScrollView>
+      </ScreenScrollView>
       <PlanModal
         plan={editing}
         visible={editing !== undefined}
@@ -261,164 +263,166 @@ function PlanModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
-              {plan ? "Editar plano" : "Novo plano"}
-            </Text>
-            <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-              <X size={20} color={COLORS.foreground} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            contentContainerStyle={styles.form}
-            keyboardShouldPersistTaps="handled"
-          >
-            {validationMessage ? (
-              <Text style={styles.validationError}>{validationMessage}</Text>
-            ) : null}
-            <Field
-              label="Nome *"
-              value={name}
-              onChange={setName}
-              placeholder="Plano trimestral"
-            />
-            <Field
-              label="Descrição"
-              value={description}
-              onChange={setDescription}
-              placeholder="Descreva os benefícios"
-              multiline
-            />
-            <View style={styles.fieldsRow}>
-              <View style={styles.grow}>
-                <Field
-                  label="Preço base *"
-                  value={price}
-                  onChange={setPrice}
-                  placeholder="150,00"
-                  numeric
-                  mask={maskCurrency}
-                />
-              </View>
-              <View style={styles.grow}>
-                <Field
-                  label="Duração em dias *"
-                  value={durationDays}
-                  onChange={setDurationDays}
-                  placeholder="30"
-                  numeric
-                  mask={maskInteger}
-                />
-              </View>
+      <KeyboardAvoider>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {plan ? "Editar plano" : "Novo plano"}
+              </Text>
+              <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+                <X size={20} color={COLORS.foreground} />
+              </TouchableOpacity>
             </View>
-            <View style={styles.fieldsRow}>
-              <View style={styles.grow}>
-                <Field
-                  label="Checkin's Máximo por semana *"
-                  value={maxClassesPerWeek}
-                  onChange={setMaxClassesPerWeek}
-                  placeholder="0"
-                  numeric
-                  mask={maskInteger}
-                />
-              </View>
-              <View style={styles.grow}>
-                <Field
-                  label="Checkin's Máximo por dia *"
-                  value={maxClassesPerDay}
-                  onChange={setMaxClassesPerDay}
-                  placeholder="0"
-                  numeric
-                  mask={maskInteger}
-                />
-              </View>
-            </View>
-            <Text style={styles.muted}>
-              Use 0 para não limitar o número de aulas.
-            </Text>
-            <View style={styles.switchRow}>
-              <View style={styles.grow}>
-                <Text style={styles.label}>Todas as modalidades</Text>
-                <Text style={styles.muted}>
-                  O plano dá acesso a qualquer modalidade.
-                </Text>
-              </View>
-              <Switch
-                value={allowsAll}
-                onValueChange={(value) => {
-                  setAllowsAll(value);
-                  setModalitiesDirty(true);
-                }}
-                trackColor={{ true: COLORS.mainOrange }}
+            <ScrollView
+              contentContainerStyle={styles.form}
+              keyboardShouldPersistTaps="handled"
+            >
+              {validationMessage ? (
+                <Text style={styles.validationError}>{validationMessage}</Text>
+              ) : null}
+              <Field
+                label="Nome *"
+                value={name}
+                onChange={setName}
+                placeholder="Plano trimestral"
               />
-            </View>
-            {!allowsAll && (
-              <View style={styles.field}>
-                <Text style={styles.label}>Modalidades permitidas *</Text>
-                {loadingCategories ? (
-                  <AdminSkeleton height={60} />
-                ) : (
-                  <View style={styles.choices}>
-                    {(categories ?? [])
-                      .filter((item) => item.isActive)
-                      .map((item) => {
-                        const selected = modalidadeIds.includes(item.id);
-                        return (
-                          <TouchableOpacity
-                            key={item.id}
-                            onPress={() => {
-                              setModalidadeIds(
-                                selected
-                                  ? modalidadeIds.filter((id) => id !== item.id)
-                                  : [...modalidadeIds, item.id],
-                              );
-                              setModalitiesDirty(true);
-                            }}
-                            style={[
-                              styles.choice,
-                              selected && styles.choiceActive,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.choiceText,
-                                selected && styles.choiceTextActive,
-                              ]}
-                            >
-                              {item.name}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                  </View>
-                )}
+              <Field
+                label="Descrição"
+                value={description}
+                onChange={setDescription}
+                placeholder="Descreva os benefícios"
+                multiline
+              />
+              <View style={styles.fieldsRow}>
+                <View style={styles.grow}>
+                  <Field
+                    label="Preço base *"
+                    value={price}
+                    onChange={setPrice}
+                    placeholder="150,00"
+                    numeric
+                    mask={maskCurrency}
+                  />
+                </View>
+                <View style={styles.grow}>
+                  <Field
+                    label="Duração em dias *"
+                    value={durationDays}
+                    onChange={setDurationDays}
+                    placeholder="30"
+                    numeric
+                    mask={maskInteger}
+                  />
+                </View>
               </View>
-            )}
-            {plan && (
+              <View style={styles.fieldsRow}>
+                <View style={styles.grow}>
+                  <Field
+                    label="Checkin's Máximo por semana *"
+                    value={maxClassesPerWeek}
+                    onChange={setMaxClassesPerWeek}
+                    placeholder="0"
+                    numeric
+                    mask={maskInteger}
+                  />
+                </View>
+                <View style={styles.grow}>
+                  <Field
+                    label="Checkin's Máximo por dia *"
+                    value={maxClassesPerDay}
+                    onChange={setMaxClassesPerDay}
+                    placeholder="0"
+                    numeric
+                    mask={maskInteger}
+                  />
+                </View>
+              </View>
+              <Text style={styles.muted}>
+                Use 0 para não limitar o número de aulas.
+              </Text>
               <View style={styles.switchRow}>
                 <View style={styles.grow}>
-                  <Text style={styles.label}>Plano ativo</Text>
+                  <Text style={styles.label}>Todas as modalidades</Text>
                   <Text style={styles.muted}>
-                    Planos inativos não ficam disponíveis para novas adesões.
+                    O plano dá acesso a qualquer modalidade.
                   </Text>
                 </View>
                 <Switch
-                  value={active}
-                  onValueChange={setActive}
+                  value={allowsAll}
+                  onValueChange={(value) => {
+                    setAllowsAll(value);
+                    setModalitiesDirty(true);
+                  }}
                   trackColor={{ true: COLORS.mainOrange }}
                 />
               </View>
-            )}
-            <ActionButton
-              label={isSaving ? "Salvando..." : "Salvar plano"}
-              icon={<Check size={15} color="#fff" />}
-              onPress={save}
-            />
-          </ScrollView>
+              {!allowsAll && (
+                <View style={styles.field}>
+                  <Text style={styles.label}>Modalidades permitidas *</Text>
+                  {loadingCategories ? (
+                    <AdminSkeleton height={60} />
+                  ) : (
+                    <View style={styles.choices}>
+                      {(categories ?? [])
+                        .filter((item) => item.isActive)
+                        .map((item) => {
+                          const selected = modalidadeIds.includes(item.id);
+                          return (
+                            <TouchableOpacity
+                              key={item.id}
+                              onPress={() => {
+                                setModalidadeIds(
+                                  selected
+                                    ? modalidadeIds.filter((id) => id !== item.id)
+                                    : [...modalidadeIds, item.id],
+                                );
+                                setModalitiesDirty(true);
+                              }}
+                              style={[
+                                styles.choice,
+                                selected && styles.choiceActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.choiceText,
+                                  selected && styles.choiceTextActive,
+                                ]}
+                              >
+                                {item.name}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                    </View>
+                  )}
+                </View>
+              )}
+              {plan && (
+                <View style={styles.switchRow}>
+                  <View style={styles.grow}>
+                    <Text style={styles.label}>Plano ativo</Text>
+                    <Text style={styles.muted}>
+                      Planos inativos não ficam disponíveis para novas adesões.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={active}
+                    onValueChange={setActive}
+                    trackColor={{ true: COLORS.mainOrange }}
+                  />
+                </View>
+              )}
+              <ActionButton
+                label={isSaving ? "Salvando..." : "Salvar plano"}
+                icon={<Check size={15} color="#fff" />}
+                onPress={save}
+              />
+            </ScrollView>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }

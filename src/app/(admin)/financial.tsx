@@ -1,4 +1,5 @@
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -173,7 +174,7 @@ export default function AdminFinancial() {
   return (
     <SafeAreaView style={styles.safe}>
       <ClientHeader />
-      <ScrollView>
+      <ScreenScrollView>
         <AdminScreen>
           {hasError && (
             <Text style={styles.error}>
@@ -327,7 +328,7 @@ export default function AdminFinancial() {
             )}
           </AdminCard>
         </AdminScreen>
-      </ScrollView>
+      </ScreenScrollView>
     </SafeAreaView>
   );
 }

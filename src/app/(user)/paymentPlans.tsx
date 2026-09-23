@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import KeyboardAvoider from "@/components/KeyboardAvoider";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useCurrentPlan, usePlans } from "@/hooks/plans.hooks";
 import { CurrentPlanType, PlanType } from "@/types/plans.types";
@@ -301,7 +302,7 @@ export default function PaymentPlans() {
       </ScrollView>
 
       <Modal visible={partnerModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoider style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
               Solicitar vinculação com parceiro
@@ -375,7 +376,7 @@ export default function PaymentPlans() {
               <Text style={styles.btnSolidText}>Enviar solicitação</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoider>
       </Modal>
     </SafeAreaView>
   );

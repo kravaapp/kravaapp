@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Badge, BadgeVariant } from "@/components/Badge";
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { Progress } from "@/components/Progress";
+import ScreenScrollView from "@/components/ScreenScrollView";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
 import { alunos } from "@/data/mockData";
@@ -575,7 +576,7 @@ export default function AulaAoVivo() {
                 )}
 
                 {tab === "adicionar" && (
-                    <ScrollView
+                    <ScreenScrollView
                         style={{ flex: 1 }}
                         contentContainerStyle={styles.tabContent}
                         showsVerticalScrollIndicator={false}
@@ -707,7 +708,7 @@ export default function AulaAoVivo() {
                                 <Text style={styles.solidButtonText}>Adicionar à chamada</Text>
                             </TouchableOpacity>
                         </View>
-                    </ScrollView>
+                    </ScreenScrollView>
                 )}
             </View>
 

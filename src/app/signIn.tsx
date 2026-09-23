@@ -1,5 +1,6 @@
 import { COLORS } from "@/components/ClientHeader";
 import KravaLogo from "@/components/KravaLogo";
+import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import { useLogin, useSelfRegister } from "@/hooks/auth.hooks";
 import { normalizeApiError } from "@/routes/apiError";
@@ -98,110 +99,115 @@ export default function Login() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.card}>
-        <View style={styles.logoContainer}>
-          <KravaLogo size={64} />
+      <ScreenScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          <View style={styles.logoContainer}>
+            <KravaLogo size={64} />
 
-          <Text style={styles.title}>krava</Text>
-          <Text style={styles.subtitle}>
-            {mode === "login"
-              ? "Gestão esportiva inteligente"
-              : "Crie sua conta para encontrar um CT"}
-          </Text>
-        </View>
+            <Text style={styles.title}>krava</Text>
+            <Text style={styles.subtitle}>
+              {mode === "login"
+                ? "Gestão esportiva inteligente"
+                : "Crie sua conta para encontrar um CT"}
+            </Text>
+          </View>
 
-        <View style={styles.form}>
-          {mode === "register" && (
+          <View style={styles.form}>
+            {mode === "register" && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nome completo</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Seu nome"
+                  autoCapitalize="words"
+                  value={name}
+                  onChangeText={setName}
+                />
+              </View>
+            )}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Nome completo</Text>
+              <Text style={styles.label}>E-mail</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Seu nome"
-                autoCapitalize="words"
-                value={name}
-                onChangeText={setName}
+                placeholder="seu@email.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
               />
             </View>
-          )}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>E-mail</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="seu@email.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Senha</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              secureTextEntry
-              value={senha}
-              onChangeText={setSenha}
-            />
-          </View>
-
-          {mode === "register" && (
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirmar senha</Text>
+              <Text style={styles.label}>Senha</Text>
               <TextInput
                 style={styles.input}
                 placeholder="••••••••"
                 secureTextEntry
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                value={senha}
+                onChangeText={setSenha}
               />
             </View>
-          )}
 
-          {(mode === "login" ? error : registerError) && (
-            <Text style={styles.errorText}>
-              {mode === "login" ? error : registerError}
-            </Text>
-          )}
+            {mode === "register" && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Confirmar senha</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="••••••••"
+                  secureTextEntry
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                />
+              </View>
+            )}
 
-          <TouchableOpacity
-            style={[styles.button, busy && { opacity: 0.7 }]}
-            onPress={mode === "login" ? handleLogin : handleRegister}
-            disabled={busy}
-          >
-            {busy ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>
-                {mode === "login" ? "Entrar" : "Criar conta"}
+            {(mode === "login" ? error : registerError) && (
+              <Text style={styles.errorText}>
+                {mode === "login" ? error : registerError}
               </Text>
             )}
+
+            <TouchableOpacity
+              style={[styles.button, busy && { opacity: 0.7 }]}
+              onPress={mode === "login" ? handleLogin : handleRegister}
+              disabled={busy}
+            >
+              {busy ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>
+                  {mode === "login" ? "Entrar" : "Criar conta"}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {mode === "login" && (
+            <TouchableOpacity
+              style={styles.forgotButton}
+              onPress={() => router.push("/forgotPassword")}
+            >
+              <Text style={styles.registerText}>Esqueci minha senha</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.registerButton}
+            onPress={() => {
+              setMode((current) => (current === "login" ? "register" : "login"));
+              setSenha("");
+              setConfirmPassword("");
+            }}
+          >
+            <Text style={styles.registerText}>
+              {mode === "login" ? "Criar conta" : "Já tenho uma conta"}
+            </Text>
           </TouchableOpacity>
         </View>
-
-        {mode === "login" && (
-          <TouchableOpacity
-            style={styles.forgotButton}
-            onPress={() => router.push("/forgotPassword")}
-          >
-            <Text style={styles.registerText}>Esqueci minha senha</Text>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={styles.registerButton}
-          onPress={() => {
-            setMode((current) => (current === "login" ? "register" : "login"));
-            setSenha("");
-            setConfirmPassword("");
-          }}
-        >
-          <Text style={styles.registerText}>
-            {mode === "login" ? "Criar conta" : "Já tenho uma conta"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      </ScreenScrollView>
     </SafeAreaView>
   );
 }
@@ -210,6 +216,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+
+  // O card centraliza na área livre; com o teclado aberto o ScrollView rola
+  // até o campo focado em vez de deixá-lo escondido atrás dele.
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 16,

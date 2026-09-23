@@ -1,5 +1,6 @@
 import { COLORS } from "@/components/ClientHeader";
 import KravaLogo from "@/components/KravaLogo";
+import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   useConfirmEmail,
@@ -15,7 +16,6 @@ import { ArrowLeft } from "lucide-react-native";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -141,7 +141,7 @@ export default function ConfirmEmail() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView
+      <ScreenScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -266,7 +266,7 @@ export default function ConfirmEmail() {
             )}
           </View>
         </View>
-      </ScrollView>
+      </ScreenScrollView>
     </SafeAreaView>
   );
 }

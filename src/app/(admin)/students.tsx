@@ -1,4 +1,6 @@
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import KeyboardAvoider from "@/components/KeyboardAvoider";
+import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -153,7 +155,7 @@ export default function AdminStudents() {
   return (
     <SafeAreaView style={styles.safe}>
       <ClientHeader />
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <ScreenScrollView keyboardShouldPersistTaps="handled">
         <AdminScreen>
           <View style={styles.toolbar}>
             <View style={styles.searchBox}>
@@ -344,7 +346,7 @@ export default function AdminStudents() {
             </View>
           )}
         </AdminScreen>
-      </ScrollView>
+      </ScreenScrollView>
       <StudentModal
         id={selectedId}
         initialMethods={selectedMethods}
@@ -548,7 +550,7 @@ function StudentModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoider style={styles.overlay}>
         <View style={styles.sheet}>
           <ModalHeader
             title={aluno?.userName || "Detalhes do aluno"}
@@ -791,7 +793,7 @@ function StudentModal({
             )}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }
@@ -836,7 +838,7 @@ function InviteModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoider style={styles.overlay}>
         <View style={styles.sheet}>
           <ModalHeader title="Convidar aluno" onClose={onClose} />
           <ScrollView
@@ -861,7 +863,7 @@ function InviteModal({
             />
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }

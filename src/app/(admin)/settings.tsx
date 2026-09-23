@@ -1,4 +1,6 @@
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import KeyboardAvoider from "@/components/KeyboardAvoider";
+import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -222,7 +224,7 @@ export default function AdminSettings() {
   return (
     <SafeAreaView style={styles.safe}>
       <ClientHeader />
-      <ScrollView>
+      <ScreenScrollView>
         <AdminScreen>
           {hasError && (
             <Text style={styles.error}>
@@ -544,7 +546,7 @@ export default function AdminSettings() {
             </Text>
           </SettingsCard>
         </AdminScreen>
-      </ScrollView>
+      </ScreenScrollView>
       <RuleModal
         rule={editingRule}
         visible={editingRule !== undefined}
@@ -641,82 +643,90 @@ function RuleModal({
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.modal}>
-          <View style={styles.header}>
-            <SectionTitle>{rule ? "Editar regra" : "Nova regra"}</SectionTitle>
-            <TouchableOpacity onPress={onClose}>
-              <X color={COLORS.foreground} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.fieldLabel}>Dias das aulas</Text>
-          <View style={styles.dayOptions}>
-            {days.map((day, index) => (
-              <TouchableOpacity
-                key={day}
-                onPress={() => {
-                  setSelectedDays((current) =>
-                    current.includes(index)
-                      ? current.filter((value) => value !== index)
-                      : [...current, index],
-                  );
-                  setErrors((current) => ({ ...current, days: false }));
+      <KeyboardAvoider>
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <ScrollView
+              contentContainerStyle={styles.modalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.header}>
+                <SectionTitle>{rule ? "Editar regra" : "Nova regra"}</SectionTitle>
+                <TouchableOpacity onPress={onClose}>
+                  <X color={COLORS.foreground} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.fieldLabel}>Dias das aulas</Text>
+              <View style={styles.dayOptions}>
+                {days.map((day, index) => (
+                  <TouchableOpacity
+                    key={day}
+                    onPress={() => {
+                      setSelectedDays((current) =>
+                        current.includes(index)
+                          ? current.filter((value) => value !== index)
+                          : [...current, index],
+                      );
+                      setErrors((current) => ({ ...current, days: false }));
+                    }}
+                    style={[
+                      styles.dayOption,
+                      selectedDays.includes(index) && styles.dayOptionActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dayText,
+                        selectedDays.includes(index) && styles.dayTextActive,
+                      ]}
+                    >
+                      {day}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {errors.days ? <Text style={styles.fieldError}>Selecione pelo menos um dia.</Text> : null}
+              <Text style={styles.fieldLabel}>Liberar às</Text>
+              <TextInput
+                value={releaseTime}
+                onChangeText={(value) => {
+                  setReleaseTime(maskTime(value));
+                  setErrors((current) => ({ ...current, releaseTime: false }));
                 }}
-                style={[
-                  styles.dayOption,
-                  selectedDays.includes(index) && styles.dayOptionActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.dayText,
-                    selectedDays.includes(index) && styles.dayTextActive,
-                  ]}
-                >
-                  {day}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                placeholder="08:00"
+                keyboardType="number-pad"
+                style={[styles.fullInput, errors.releaseTime && styles.inputError]}
+              />
+              {errors.releaseTime ? <Text style={styles.fieldError}>Informe um horário no formato HH:MM.</Text> : null}
+              <Text style={styles.fieldLabel}>Antecedência em dias</Text>
+              <TextInput
+                value={targetOffset}
+                onChangeText={(value) => {
+                  setTargetOffset(maskInteger(value));
+                  setErrors((current) => ({ ...current, targetOffset: false }));
+                }}
+                placeholder="7"
+                keyboardType="number-pad"
+                style={[styles.fullInput, errors.targetOffset && styles.inputError]}
+              />
+              {errors.targetOffset ? <Text style={styles.fieldError}>Informe uma quantidade de dias válida.</Text> : null}
+              <Text style={styles.fieldLabel}>Horários das aulas (opcional)</Text>
+              <TextInput
+                value={targetHours}
+                onChangeText={(value) => setTargetHours(maskTimeList(value))}
+                placeholder="18:00, 19:00"
+                keyboardType="number-pad"
+                style={styles.fullInput}
+              />
+              <ActionButton
+                label={saving ? "Salvando..." : rule ? "Salvar alterações" : "Criar regra"}
+                onPress={submit}
+              />
+            </ScrollView>
           </View>
-          {errors.days ? <Text style={styles.fieldError}>Selecione pelo menos um dia.</Text> : null}
-          <Text style={styles.fieldLabel}>Liberar às</Text>
-          <TextInput
-            value={releaseTime}
-            onChangeText={(value) => {
-              setReleaseTime(maskTime(value));
-              setErrors((current) => ({ ...current, releaseTime: false }));
-            }}
-            placeholder="08:00"
-            keyboardType="number-pad"
-            style={[styles.fullInput, errors.releaseTime && styles.inputError]}
-          />
-          {errors.releaseTime ? <Text style={styles.fieldError}>Informe um horário no formato HH:MM.</Text> : null}
-          <Text style={styles.fieldLabel}>Antecedência em dias</Text>
-          <TextInput
-            value={targetOffset}
-            onChangeText={(value) => {
-              setTargetOffset(maskInteger(value));
-              setErrors((current) => ({ ...current, targetOffset: false }));
-            }}
-            placeholder="7"
-            keyboardType="number-pad"
-            style={[styles.fullInput, errors.targetOffset && styles.inputError]}
-          />
-          {errors.targetOffset ? <Text style={styles.fieldError}>Informe uma quantidade de dias válida.</Text> : null}
-          <Text style={styles.fieldLabel}>Horários das aulas (opcional)</Text>
-          <TextInput
-            value={targetHours}
-            onChangeText={(value) => setTargetHours(maskTimeList(value))}
-            placeholder="18:00, 19:00"
-            keyboardType="number-pad"
-            style={styles.fullInput}
-          />
-          <ActionButton
-            label={saving ? "Salvando..." : rule ? "Salvar alterações" : "Criar regra"}
-            onPress={submit}
-          />
         </View>
-      </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }
@@ -760,28 +770,36 @@ function CategoryModal({
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.modal}>
-          <View style={styles.header}>
-            <SectionTitle>{category ? "Editar modalidade" : "Nova modalidade"}</SectionTitle>
-            <TouchableOpacity onPress={onClose}><X color={COLORS.foreground} /></TouchableOpacity>
+      <KeyboardAvoider>
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <ScrollView
+              contentContainerStyle={styles.modalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.header}>
+                <SectionTitle>{category ? "Editar modalidade" : "Nova modalidade"}</SectionTitle>
+                <TouchableOpacity onPress={onClose}><X color={COLORS.foreground} /></TouchableOpacity>
+              </View>
+              {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+              <Text style={styles.fieldLabel}>Nome *</Text>
+              <TextInput value={name} onChangeText={(value) => { setName(value); setError(""); }} style={styles.fullInput} />
+              <Text style={styles.fieldLabel}>Descrição</Text>
+              <TextInput value={description} onChangeText={setDescription} style={[styles.fullInput, styles.textarea]} multiline />
+              <Text style={styles.fieldLabel}>Capacidade padrão *</Text>
+              <TextInput value={capacity} onChangeText={(value) => { setCapacity(maskInteger(value)); setError(""); }} keyboardType="number-pad" style={styles.fullInput} />
+              {category ? (
+                <View style={styles.rule}>
+                  <Text style={[styles.itemTitle, styles.grow]}>Modalidade ativa</Text>
+                  <Switch value={isActive} onValueChange={setIsActive} trackColor={{ true: COLORS.mainOrange }} />
+                </View>
+              ) : null}
+              <ActionButton label={saving ? "Salvando..." : category ? "Salvar alterações" : "Criar modalidade"} onPress={submit} />
+            </ScrollView>
           </View>
-          {error ? <Text style={styles.fieldError}>{error}</Text> : null}
-          <Text style={styles.fieldLabel}>Nome *</Text>
-          <TextInput value={name} onChangeText={(value) => { setName(value); setError(""); }} style={styles.fullInput} />
-          <Text style={styles.fieldLabel}>Descrição</Text>
-          <TextInput value={description} onChangeText={setDescription} style={[styles.fullInput, styles.textarea]} multiline />
-          <Text style={styles.fieldLabel}>Capacidade padrão *</Text>
-          <TextInput value={capacity} onChangeText={(value) => { setCapacity(maskInteger(value)); setError(""); }} keyboardType="number-pad" style={styles.fullInput} />
-          {category ? (
-            <View style={styles.rule}>
-              <Text style={[styles.itemTitle, styles.grow]}>Modalidade ativa</Text>
-              <Switch value={isActive} onValueChange={setIsActive} trackColor={{ true: COLORS.mainOrange }} />
-            </View>
-          ) : null}
-          <ActionButton label={saving ? "Salvando..." : category ? "Salvar alterações" : "Criar modalidade"} onPress={submit} />
         </View>
-      </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }
@@ -937,6 +955,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    // Teto para o sheet poder encolher quando o teclado sobe; o padding foi
+    // para o contentContainer da ScrollView, que é quem rola agora — daí o
+    // overflow, para o conteúdo não passar por cima dos cantos arredondados.
+    maxHeight: "92%",
+    overflow: "hidden",
+  },
+  modalContent: {
     padding: 20,
     gap: 12,
   },

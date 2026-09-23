@@ -1,4 +1,6 @@
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import KeyboardAvoider from "@/components/KeyboardAvoider";
+import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -151,7 +153,7 @@ export default function AdminClasses() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ClientHeader />
-      <ScrollView>
+      <ScreenScrollView>
         <AdminScreen>
           <View style={styles.segment}>
             <TouchableOpacity
@@ -334,7 +336,7 @@ export default function AdminClasses() {
             </AdminCard>
           )}
         </AdminScreen>
-      </ScrollView>
+      </ScreenScrollView>
       <TouchableOpacity style={styles.fab} onPress={() => setNewClass(true)}>
         <Plus size={25} color="#fff" />
       </TouchableOpacity>
@@ -428,127 +430,132 @@ function NewClassModal({
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.modal}>
-          <View style={styles.rowBetween}>
-            <SectionTitle>Nova aula</SectionTitle>
-            <TouchableOpacity onPress={onClose}>
-              <X color={COLORS.foreground} />
-            </TouchableOpacity>
+      <KeyboardAvoider>
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <View style={styles.rowBetween}>
+              <SectionTitle>Nova aula</SectionTitle>
+              <TouchableOpacity onPress={onClose}>
+                <X color={COLORS.foreground} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {isLoading ? (
+                <AdminSkeleton width="100%" height={260} radius={12} />
+              ) : error ? (
+                <Text style={styles.empty}>
+                  Não foi possível carregar modalidades e professores.
+                </Text>
+              ) : (
+                <View style={styles.form}>
+                  {validationMessage ? <Text style={styles.validationError}>{validationMessage}</Text> : null}
+                  <OptionField
+                    label="Modalidade"
+                    options={modalidades.map((item) => ({
+                      id: item.id,
+                      label: item.name || "Modalidade",
+                    }))}
+                    value={modalidadeId}
+                    onChange={setModalidadeId}
+                  />
+                  <OptionField
+                    label="Professor"
+                    options={professors.map((item) => ({
+                      id: item.userId,
+                      label: item.name || item.email || "Professor",
+                    }))}
+                    value={professorId}
+                    onChange={setProfessorId}
+                  />
+                  <Text style={styles.label}>Nome da aula (opcional)</Text>
+                  <TextInput
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Ex.: Treino avançado"
+                    style={styles.input}
+                  />
+                  <Text style={styles.label}>Dia da semana</Text>
+                  <View style={styles.options}>
+                    {dayLabels.map((day, index) => (
+                      <Option
+                        key={day}
+                        label={day}
+                        active={dayOfWeek === index}
+                        onPress={() => setDayOfWeek(index)}
+                      />
+                    ))}
+                  </View>
+                  <View style={styles.fieldsRow}>
+                    <View style={styles.grow}>
+                      <Text style={styles.label}>Início</Text>
+                      <TextInput
+                        value={startTime}
+                        onChangeText={(value) => setStartTime(maskTime(value))}
+                        placeholder="18:00"
+                        style={styles.input}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+                    <View style={styles.grow}>
+                      <Text style={styles.label}>Fim</Text>
+                      <TextInput
+                        value={endTime}
+                        onChangeText={(value) => setEndTime(maskTime(value))}
+                        placeholder="19:00"
+                        style={styles.input}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+                    <View style={styles.grow}>
+                      <Text style={styles.label}>Capacidade</Text>
+                      <TextInput
+                        value={capacity}
+                        onChangeText={(value) => setCapacity(maskInteger(value))}
+                        placeholder="14"
+                        style={styles.input}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+                  </View>
+                  <Text style={styles.label}>Público</Text>
+                  <View style={styles.options}>
+                    {filters.slice(1).map((item) => (
+                      <Option
+                        key={item}
+                        label={item}
+                        active={publicGender === item}
+                        onPress={() => setPublicGender(item as Audience)}
+                      />
+                    ))}
+                  </View>
+                  <Text style={styles.label}>Nível mínimo</Text>
+                  <View style={styles.options}>
+                    {minLevelOptions.map((option) => (
+                      <Option
+                        key={option.label}
+                        label={option.label}
+                        active={minLevel === option.value}
+                        onPress={() => setMinLevel(option.value)}
+                      />
+                    ))}
+                  </View>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.label}>Permitir aula experimental</Text>
+                    <Switch value={allowTrial} onValueChange={setAllowTrial} />
+                  </View>
+                  <ActionButton
+                    label={isCreating ? "Criando..." : "Criar aula"}
+                    onPress={submit}
+                  />
+                </View>
+              )}
+            </ScrollView>
           </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {isLoading ? (
-              <AdminSkeleton width="100%" height={260} radius={12} />
-            ) : error ? (
-              <Text style={styles.empty}>
-                Não foi possível carregar modalidades e professores.
-              </Text>
-            ) : (
-              <View style={styles.form}>
-                {validationMessage ? <Text style={styles.validationError}>{validationMessage}</Text> : null}
-                <OptionField
-                  label="Modalidade"
-                  options={modalidades.map((item) => ({
-                    id: item.id,
-                    label: item.name || "Modalidade",
-                  }))}
-                  value={modalidadeId}
-                  onChange={setModalidadeId}
-                />
-                <OptionField
-                  label="Professor"
-                  options={professors.map((item) => ({
-                    id: item.userId,
-                    label: item.name || item.email || "Professor",
-                  }))}
-                  value={professorId}
-                  onChange={setProfessorId}
-                />
-                <Text style={styles.label}>Nome da aula (opcional)</Text>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Ex.: Treino avançado"
-                  style={styles.input}
-                />
-                <Text style={styles.label}>Dia da semana</Text>
-                <View style={styles.options}>
-                  {dayLabels.map((day, index) => (
-                    <Option
-                      key={day}
-                      label={day}
-                      active={dayOfWeek === index}
-                      onPress={() => setDayOfWeek(index)}
-                    />
-                  ))}
-                </View>
-                <View style={styles.fieldsRow}>
-                  <View style={styles.grow}>
-                    <Text style={styles.label}>Início</Text>
-                    <TextInput
-                      value={startTime}
-                      onChangeText={(value) => setStartTime(maskTime(value))}
-                      placeholder="18:00"
-                      style={styles.input}
-                      keyboardType="number-pad"
-                    />
-                  </View>
-                  <View style={styles.grow}>
-                    <Text style={styles.label}>Fim</Text>
-                    <TextInput
-                      value={endTime}
-                      onChangeText={(value) => setEndTime(maskTime(value))}
-                      placeholder="19:00"
-                      style={styles.input}
-                      keyboardType="number-pad"
-                    />
-                  </View>
-                  <View style={styles.grow}>
-                    <Text style={styles.label}>Capacidade</Text>
-                    <TextInput
-                      value={capacity}
-                      onChangeText={(value) => setCapacity(maskInteger(value))}
-                      placeholder="14"
-                      style={styles.input}
-                      keyboardType="number-pad"
-                    />
-                  </View>
-                </View>
-                <Text style={styles.label}>Público</Text>
-                <View style={styles.options}>
-                  {filters.slice(1).map((item) => (
-                    <Option
-                      key={item}
-                      label={item}
-                      active={publicGender === item}
-                      onPress={() => setPublicGender(item as Audience)}
-                    />
-                  ))}
-                </View>
-                <Text style={styles.label}>Nível mínimo</Text>
-                <View style={styles.options}>
-                  {minLevelOptions.map((option) => (
-                    <Option
-                      key={option.label}
-                      label={option.label}
-                      active={minLevel === option.value}
-                      onPress={() => setMinLevel(option.value)}
-                    />
-                  ))}
-                </View>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.label}>Permitir aula experimental</Text>
-                  <Switch value={allowTrial} onValueChange={setAllowTrial} />
-                </View>
-                <ActionButton
-                  label={isCreating ? "Criando..." : "Criar aula"}
-                  onPress={submit}
-                />
-              </View>
-            )}
-          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }
@@ -641,106 +648,111 @@ function EditClassModal({
 
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.modal}>
-          <View style={styles.rowBetween}>
-            <SectionTitle>Editar aula</SectionTitle>
-            <TouchableOpacity onPress={onClose}>
-              <X color={COLORS.foreground} />
-            </TouchableOpacity>
+      <KeyboardAvoider>
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <View style={styles.rowBetween}>
+              <SectionTitle>Editar aula</SectionTitle>
+              <TouchableOpacity onPress={onClose}>
+                <X color={COLORS.foreground} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {isLoading ? (
+                <AdminSkeleton width="100%" height={260} radius={12} />
+              ) : error ? (
+                <Text style={styles.empty}>
+                  Não foi possível carregar modalidades e professores.
+                </Text>
+              ) : (
+                <View style={styles.form}>
+                  {validationMessage ? <Text style={styles.validationError}>{validationMessage}</Text> : null}
+                  <OptionField
+                    label="Modalidade"
+                    options={modalidades.map((option) => ({
+                      id: option.id,
+                      label: option.name || "Modalidade",
+                    }))}
+                    value={modalidadeId}
+                    onChange={setModalidadeId}
+                  />
+                  <OptionField
+                    label="Professor"
+                    options={professors.map((option) => ({
+                      id: option.userId,
+                      label: option.name || option.email || "Professor",
+                    }))}
+                    value={professorId}
+                    onChange={setProfessorId}
+                  />
+                  <Text style={styles.label}>Nome da aula (opcional)</Text>
+                  <TextInput value={name} onChangeText={setName} style={styles.input} />
+                  <Text style={styles.label}>Dia da semana</Text>
+                  <View style={styles.options}>
+                    {dayLabels.map((day, index) => (
+                      <Option key={day} label={day} active={dayOfWeek === index} onPress={() => setDayOfWeek(index)} />
+                    ))}
+                  </View>
+                  <View style={styles.fieldsRow}>
+                    <View style={styles.grow}>
+                      <Text style={styles.label}>Início</Text>
+                      <TextInput
+                        value={startTime}
+                        onChangeText={(value) => setStartTime(maskTime(value))}
+                        style={styles.input}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+                    <View style={styles.grow}>
+                      <Text style={styles.label}>Fim</Text>
+                      <TextInput
+                        value={endTime}
+                        onChangeText={(value) => setEndTime(maskTime(value))}
+                        style={styles.input}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+                    <View style={styles.grow}>
+                      <Text style={styles.label}>Capacidade</Text>
+                      <TextInput
+                        value={capacity}
+                        onChangeText={(value) => setCapacity(maskInteger(value))}
+                        style={styles.input}
+                        keyboardType="number-pad"
+                      />
+                    </View>
+                  </View>
+                  <Text style={styles.label}>Público</Text>
+                  <View style={styles.options}>
+                    {filters.slice(1).map((option) => (
+                      <Option key={option} label={option} active={publicGender === option} onPress={() => setPublicGender(option as Audience)} />
+                    ))}
+                  </View>
+                  <Text style={styles.label}>Nível mínimo</Text>
+                  <View style={styles.options}>
+                    {minLevelOptions.map((option) => (
+                      <Option
+                        key={option.label}
+                        label={option.label}
+                        active={minLevel === option.value}
+                        onPress={() => setMinLevel(option.value)}
+                      />
+                    ))}
+                  </View>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.label}>Permitir aula experimental</Text>
+                    <Switch value={allowTrial} onValueChange={setAllowTrial} />
+                  </View>
+                  <ActionButton label={isUpdating ? "Salvando..." : "Salvar alterações"} onPress={submit} />
+                </View>
+              )}
+            </ScrollView>
           </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {isLoading ? (
-              <AdminSkeleton width="100%" height={260} radius={12} />
-            ) : error ? (
-              <Text style={styles.empty}>
-                Não foi possível carregar modalidades e professores.
-              </Text>
-            ) : (
-              <View style={styles.form}>
-                {validationMessage ? <Text style={styles.validationError}>{validationMessage}</Text> : null}
-                <OptionField
-                  label="Modalidade"
-                  options={modalidades.map((option) => ({
-                    id: option.id,
-                    label: option.name || "Modalidade",
-                  }))}
-                  value={modalidadeId}
-                  onChange={setModalidadeId}
-                />
-                <OptionField
-                  label="Professor"
-                  options={professors.map((option) => ({
-                    id: option.userId,
-                    label: option.name || option.email || "Professor",
-                  }))}
-                  value={professorId}
-                  onChange={setProfessorId}
-                />
-                <Text style={styles.label}>Nome da aula (opcional)</Text>
-                <TextInput value={name} onChangeText={setName} style={styles.input} />
-                <Text style={styles.label}>Dia da semana</Text>
-                <View style={styles.options}>
-                  {dayLabels.map((day, index) => (
-                    <Option key={day} label={day} active={dayOfWeek === index} onPress={() => setDayOfWeek(index)} />
-                  ))}
-                </View>
-                <View style={styles.fieldsRow}>
-                  <View style={styles.grow}>
-                    <Text style={styles.label}>Início</Text>
-                    <TextInput
-                      value={startTime}
-                      onChangeText={(value) => setStartTime(maskTime(value))}
-                      style={styles.input}
-                      keyboardType="number-pad"
-                    />
-                  </View>
-                  <View style={styles.grow}>
-                    <Text style={styles.label}>Fim</Text>
-                    <TextInput
-                      value={endTime}
-                      onChangeText={(value) => setEndTime(maskTime(value))}
-                      style={styles.input}
-                      keyboardType="number-pad"
-                    />
-                  </View>
-                  <View style={styles.grow}>
-                    <Text style={styles.label}>Capacidade</Text>
-                    <TextInput
-                      value={capacity}
-                      onChangeText={(value) => setCapacity(maskInteger(value))}
-                      style={styles.input}
-                      keyboardType="number-pad"
-                    />
-                  </View>
-                </View>
-                <Text style={styles.label}>Público</Text>
-                <View style={styles.options}>
-                  {filters.slice(1).map((option) => (
-                    <Option key={option} label={option} active={publicGender === option} onPress={() => setPublicGender(option as Audience)} />
-                  ))}
-                </View>
-                <Text style={styles.label}>Nível mínimo</Text>
-                <View style={styles.options}>
-                  {minLevelOptions.map((option) => (
-                    <Option
-                      key={option.label}
-                      label={option.label}
-                      active={minLevel === option.value}
-                      onPress={() => setMinLevel(option.value)}
-                    />
-                  ))}
-                </View>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.label}>Permitir aula experimental</Text>
-                  <Switch value={allowTrial} onValueChange={setAllowTrial} />
-                </View>
-                <ActionButton label={isUpdating ? "Salvando..." : "Salvar alterações"} onPress={submit} />
-              </View>
-            )}
-          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoider>
     </Modal>
   );
 }

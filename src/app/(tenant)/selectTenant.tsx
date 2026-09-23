@@ -6,6 +6,7 @@ import {
   initials,
 } from "@/components/admin/AdminUi";
 import { COLORS } from "@/components/ClientHeader";
+import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   useAuth,
@@ -159,7 +160,7 @@ export default function SelectTenant() {
           onPress={() => setActiveTab("catalog")}
         />
       </View>
-      <ScrollView
+      <ScreenScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
@@ -302,7 +303,7 @@ export default function SelectTenant() {
             )}
           </Section>
         )}
-      </ScrollView>
+      </ScreenScrollView>
     </SafeAreaView>
   );
 }
