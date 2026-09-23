@@ -3,6 +3,7 @@ import KravaLogo from "@/components/KravaLogo";
 import { useToast } from "@/components/Toast";
 import { useLogin, useSelfRegister } from "@/hooks/auth.hooks";
 import { selfRegisterSchema } from "@/schemas/auth.schemas";
+import { router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -149,6 +150,15 @@ export default function Login() {
           </TouchableOpacity>
         </View>
 
+        {mode === "login" && (
+          <TouchableOpacity
+            style={styles.forgotButton}
+            onPress={() => router.push("/forgotPassword")}
+          >
+            <Text style={styles.registerText}>Esqueci minha senha</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={styles.registerButton}
           onPress={() => {
@@ -238,6 +248,11 @@ const styles = StyleSheet.create({
 
   registerButton: {
     marginTop: 24,
+    alignItems: "center",
+  },
+
+  forgotButton: {
+    marginTop: 16,
     alignItems: "center",
   },
 

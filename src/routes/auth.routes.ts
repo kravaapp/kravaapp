@@ -1,9 +1,12 @@
 import {
   CreateInvitationRequest,
+  ForgotPasswordRequest,
   JoinCatalogRequest,
   LoginRequest,
+  ResetPasswordRequest,
   SelectTenantRequest,
   SelfRegisterRequest,
+  VerifyResetCodeRequest,
 } from "@/schemas/auth.schemas";
 import {
   CatalogTenantDetailsType,
@@ -25,6 +28,18 @@ export class AuthRoutes {
 
   async selfRegister(request: SelfRegisterRequest) {
     await api.post("/auth/self-register", { json: request });
+  }
+
+  async forgotPassword(request: ForgotPasswordRequest) {
+    await api.post("/auth/forgot-password", { json: request });
+  }
+
+  async verifyResetCode(request: VerifyResetCodeRequest) {
+    await api.post("/auth/verify-reset-code", { json: request });
+  }
+
+  async resetPassword(request: ResetPasswordRequest) {
+    await api.post("/auth/reset-password", { json: request });
   }
 
   async selectTenant(request: SelectTenantRequest) {

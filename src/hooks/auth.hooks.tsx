@@ -2,9 +2,12 @@ import { AuthContext } from "@/contexts/authContext";
 import { AuthRoutes } from "@/routes/auth.routes";
 import {
   CreateInvitationRequest,
+  ForgotPasswordRequest,
   LoginRequest,
+  ResetPasswordRequest,
   SelectTenantRequest,
   SelfRegisterRequest,
+  VerifyResetCodeRequest,
 } from "@/schemas/auth.schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useContext } from "react";
@@ -74,6 +77,48 @@ export function useSelfRegister() {
         mutation.error.message ||
         "Erro ao criar conta"
       : null,
+  };
+}
+
+/**
+ * Recuperação de senha. Sem `error` exposto de propósito: a tela precisa do
+ * `code` (WeakPassword vs InvalidOrExpiredResetCode) para decidir o fluxo, e o
+ * `mutation.error` do React Query só atualiza no render seguinte — a tela
+ * inspeciona o erro lançado por `mutateAsync` com `normalizeApiError`.
+ */
+export function useForgotPassword() {
+  const mutation = useMutation({
+    mutationFn: (request: ForgotPasswordRequest) =>
+      new AuthRoutes().forgotPassword(request),
+  });
+
+  return {
+    forgotPassword: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+  };
+}
+
+export function useVerifyResetCode() {
+  const mutation = useMutation({
+    mutationFn: (request: VerifyResetCodeRequest) =>
+      new AuthRoutes().verifyResetCode(request),
+  });
+
+  return {
+    verifyResetCode: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+  };
+}
+
+export function useResetPassword() {
+  const mutation = useMutation({
+    mutationFn: (request: ResetPasswordRequest) =>
+      new AuthRoutes().resetPassword(request),
+  });
+
+  return {
+    resetPassword: mutation.mutateAsync,
+    isLoading: mutation.isPending,
   };
 }
 
