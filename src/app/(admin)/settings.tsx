@@ -13,6 +13,14 @@ import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
 import { AvulsoConfigType, SchedulingRuleType } from "@/types/settings.types";
 import { Category } from "@/types/categories.types";
 import {
+  maskCurrency,
+  maskInteger,
+  maskTime,
+  maskTimeList,
+  parseCurrency,
+  toCurrencyInput,
+} from "@/utils/masks";
+import {
   Check,
   Clock,
   DollarSign,
@@ -95,7 +103,10 @@ export default function AdminSettings() {
   useEffect(() => {
     setPrices(
       Object.fromEntries(
-        avulsoConfigs.map((item) => [item.modalidadeId, String(item.price)]),
+        avulsoConfigs.map((item) => [
+          item.modalidadeId,
+          toCurrencyInput(item.price),
+        ]),
       ),
     );
   }, [avulsoConfigs]);
@@ -103,11 +114,13 @@ export default function AdminSettings() {
   useEffect(() => {
     if (!tenantSettings) return;
     setTenantValues({
-      cancellationTimeoutMinutes: String(
-        tenantSettings.cancellationTimeoutMinutes,
+      cancellationTimeoutMinutes: maskInteger(
+        String(tenantSettings.cancellationTimeoutMinutes ?? ""),
       ),
-      noShowPenaltyFee: String(tenantSettings.noShowPenaltyFee),
-      partnerCheckInLimit: String(tenantSettings.partnerCheckInLimit),
+      noShowPenaltyFee: toCurrencyInput(tenantSettings.noShowPenaltyFee),
+      partnerCheckInLimit: maskInteger(
+        String(tenantSettings.partnerCheckInLimit ?? ""),
+      ),
     });
   }, [tenantSettings]);
 
@@ -144,9 +157,7 @@ export default function AdminSettings() {
     const cancellationTimeoutMinutes = Number(
       tenantValues.cancellationTimeoutMinutes,
     );
-    const noShowPenaltyFee = Number(
-      tenantValues.noShowPenaltyFee.replace(",", "."),
-    );
+    const noShowPenaltyFee = parseCurrency(tenantValues.noShowPenaltyFee);
     const partnerCheckInLimit = Number(tenantValues.partnerCheckInLimit);
     if (
       !Number.isInteger(cancellationTimeoutMinutes) ||
@@ -187,7 +198,7 @@ export default function AdminSettings() {
   };
 
   const saveAvulso = async (item: AvulsoConfigType, active = item.active) => {
-    const price = Number((prices[item.modalidadeId] ?? "").replace(",", "."));
+    const price = parseCurrency(prices[item.modalidadeId] ?? "");
     if (!Number.isFinite(price) || price < 0) {
       toast({ title: "Informe um preço válido.", variant: "destructive" });
       return;
@@ -418,10 +429,10 @@ export default function AdminSettings() {
                           onChangeText={(value) =>
                             setPrices((current) => ({
                               ...current,
-                              [item.modalidadeId]: value,
+                              [item.modalidadeId]: maskCurrency(value),
                             }))
                           }
-                          keyboardType="decimal-pad"
+                          keyboardType="number-pad"
                           style={styles.input}
                         />
                         <Text style={styles.muted}>por aula</Text>
@@ -481,6 +492,7 @@ export default function AdminSettings() {
                   }
                   onSave={saveTenant}
                   saving={isUpdatingTenant}
+                  mask={maskInteger}
                 />
                 <EditableRow
                   label="Multa por falta não cancelada"
@@ -496,6 +508,7 @@ export default function AdminSettings() {
                   }
                   onSave={saveTenant}
                   saving={isUpdatingTenant}
+                  mask={maskCurrency}
                 />
               </>
             ) : (
@@ -523,6 +536,7 @@ export default function AdminSettings() {
                 }
                 onSave={saveTenant}
                 saving={isUpdatingTenant}
+                mask={maskInteger}
               />
             ) : (
               <Text style={styles.empty}>Configurações indisponíveis.</Text>
@@ -671,11 +685,11 @@ function RuleModal({
           <TextInput
             value={releaseTime}
             onChangeText={(value) => {
-              setReleaseTime(value);
+              setReleaseTime(maskTime(value));
               setErrors((current) => ({ ...current, releaseTime: false }));
             }}
             placeholder="08:00"
-            maxLength={5}
+            keyboardType="number-pad"
             style={[styles.fullInput, errors.releaseTime && styles.inputError]}
           />
           {errors.releaseTime ? <Text style={styles.fieldError}>Informe um horário no formato HH:MM.</Text> : null}
@@ -683,7 +697,7 @@ function RuleModal({
           <TextInput
             value={targetOffset}
             onChangeText={(value) => {
-              setTargetOffset(value);
+              setTargetOffset(maskInteger(value));
               setErrors((current) => ({ ...current, targetOffset: false }));
             }}
             placeholder="7"
@@ -694,8 +708,9 @@ function RuleModal({
           <Text style={styles.fieldLabel}>Horários das aulas (opcional)</Text>
           <TextInput
             value={targetHours}
-            onChangeText={setTargetHours}
+            onChangeText={(value) => setTargetHours(maskTimeList(value))}
             placeholder="18:00, 19:00"
+            keyboardType="number-pad"
             style={styles.fullInput}
           />
           <ActionButton
@@ -759,7 +774,7 @@ function CategoryModal({
           <Text style={styles.fieldLabel}>Descrição</Text>
           <TextInput value={description} onChangeText={setDescription} style={[styles.fullInput, styles.textarea]} multiline />
           <Text style={styles.fieldLabel}>Capacidade padrão *</Text>
-          <TextInput value={capacity} onChangeText={(value) => { setCapacity(value); setError(""); }} keyboardType="number-pad" style={styles.fullInput} />
+          <TextInput value={capacity} onChangeText={(value) => { setCapacity(maskInteger(value)); setError(""); }} keyboardType="number-pad" style={styles.fullInput} />
           {category ? (
             <View style={styles.rule}>
               <Text style={[styles.itemTitle, styles.grow]}>Modalidade ativa</Text>
@@ -807,6 +822,7 @@ function EditableRow({
   onChange,
   onSave,
   saving = false,
+  mask,
 }: {
   label: string;
   value: string;
@@ -816,6 +832,7 @@ function EditableRow({
   onChange: (value: string) => void;
   onSave: () => void;
   saving?: boolean;
+  mask: (value: string) => string;
 }) {
   return (
     <View style={styles.rule}>
@@ -825,8 +842,8 @@ function EditableRow({
           <View style={styles.inputRow}>
             <TextInput
               value={value}
-              onChangeText={onChange}
-              keyboardType="numeric"
+              onChangeText={(next) => onChange(mask(next))}
+              keyboardType="number-pad"
               style={styles.input}
             />
             <Text style={styles.muted}>{suffix}</Text>

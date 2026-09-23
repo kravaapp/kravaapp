@@ -23,6 +23,14 @@ import {
 import { createInvitationSchema } from "@/schemas/auth.schemas";
 import { AlunoType } from "@/types/alunos.types";
 import {
+  maskCpf,
+  maskDate,
+  maskPhone,
+  toDateInput,
+  toIsoDate,
+  todayInput,
+} from "@/utils/masks";
+import {
   Check,
   ChevronLeft,
   ChevronRight,
@@ -434,25 +442,34 @@ function StudentModal({
   const [form, setForm] = useState<AlunoType | null>(null);
   const [methods, setMethods] = useState<string[]>([]);
   const [planId, setPlanId] = useState("");
-  const [startDate, setStartDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [startDate, setStartDate] = useState(todayInput);
   const [isPaidLocally, setIsPaidLocally] = useState(false);
   const [contractError, setContractError] = useState("");
   useEffect(() => {
     if (aluno) {
-      setForm(aluno);
+      // O formulário trabalha com a data no formato do campo (DD/MM/AAAA);
+      // a volta para AAAA-MM-DD acontece no save.
+      setForm({ ...aluno, birthDate: toDateInput(aluno.birthDate) });
       setMethods(initialMethods);
     }
   }, [aluno, initialMethods]);
   const save = async () => {
     if (!id || !form) return;
+    const birthDate = toIsoDate(form.birthDate ?? "");
+    // Sem isso uma data pela metade viraria `null` e apagaria o valor em silêncio.
+    if (form.birthDate && !birthDate) {
+      toast({
+        title: "Informe a data de nascimento no formato DD/MM/AAAA.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       await updateAluno({
         id,
         data: {
           cpf: form.cpf,
-          birthDate: form.birthDate,
+          birthDate,
           phone: form.phone,
           emergencyContact: form.emergencyContact,
           emergencyPhone: form.emergencyPhone,
@@ -490,11 +507,12 @@ function StudentModal({
   };
   const createPlanContract = async () => {
     if (!id) return;
-    if (!planId || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+    const startDateIso = toIsoDate(startDate);
+    if (!planId || !startDateIso) {
       setContractError(
         !planId
           ? "Selecione um plano para o aluno."
-          : "Informe a data de início no formato AAAA-MM-DD.",
+          : "Informe a data de início no formato DD/MM/AAAA.",
       );
       return;
     }
@@ -502,7 +520,7 @@ function StudentModal({
       await createContract({
         alunoId: id,
         planoId: planId,
-        startDate,
+        startDate: startDateIso,
         endDate: null,
         autoRenew: false,
         priceOverride: null,
@@ -551,6 +569,9 @@ function StudentModal({
                 <Field
                   label="CPF"
                   value={form.cpf ?? ""}
+                  placeholder="000.000.000-00"
+                  keyboardType="number-pad"
+                  mask={maskCpf}
                   onChange={(value) =>
                     setForm({ ...form, cpf: nullable(value) })
                   }
@@ -558,7 +579,9 @@ function StudentModal({
                 <Field
                   label="Data de nascimento"
                   value={form.birthDate ?? ""}
-                  placeholder="AAAA-MM-DD"
+                  placeholder="DD/MM/AAAA"
+                  keyboardType="number-pad"
+                  mask={maskDate}
                   onChange={(value) =>
                     setForm({ ...form, birthDate: nullable(value) })
                   }
@@ -566,6 +589,9 @@ function StudentModal({
                 <Field
                   label="Telefone"
                   value={form.phone ?? ""}
+                  placeholder="(19) 99999-9999"
+                  keyboardType="number-pad"
+                  mask={maskPhone}
                   onChange={(value) =>
                     setForm({ ...form, phone: nullable(value) })
                   }
@@ -580,6 +606,9 @@ function StudentModal({
                 <Field
                   label="Telefone de emergência"
                   value={form.emergencyPhone ?? ""}
+                  placeholder="(19) 99999-9999"
+                  keyboardType="number-pad"
+                  mask={maskPhone}
                   onChange={(value) =>
                     setForm({ ...form, emergencyPhone: nullable(value) })
                   }
@@ -673,7 +702,9 @@ function StudentModal({
                 <Field
                   label="Data de início *"
                   value={startDate}
-                  placeholder="AAAA-MM-DD"
+                  placeholder="DD/MM/AAAA"
+                  keyboardType="number-pad"
+                  mask={maskDate}
                   onChange={(value) => {
                     setStartDate(value);
                     setContractError("");
@@ -860,22 +891,24 @@ function Field({
   keyboardType,
   autoCapitalize,
   error,
+  mask,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: "default" | "email-address";
+  keyboardType?: "default" | "email-address" | "number-pad";
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
   error?: string;
+  mask?: (value: string) => string;
 }) {
   return (
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
         value={value}
-        onChangeText={onChange}
+        onChangeText={mask ? (next) => onChange(mask(next)) : onChange}
         placeholder={placeholder}
         placeholderTextColor={COLORS.mutedForeground}
         multiline={multiline}

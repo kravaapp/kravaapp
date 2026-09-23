@@ -13,6 +13,11 @@ import {
   useFinancialScreen,
   useUpdateFinancialSettings,
 } from "@/hooks/financial.hooks";
+import {
+  maskCurrency,
+  parseCurrency,
+  toCurrencyInput,
+} from "@/utils/masks";
 import { format } from "date-fns";
 import {
   CreditCard,
@@ -70,8 +75,8 @@ export default function AdminFinancial() {
 
   useEffect(() => {
     if (!settings) return;
-    setGympass(String(settings.gympassRepasse));
-    setTotalpass(String(settings.totalpassRepasse));
+    setGympass(toCurrencyInput(settings.gympassRepasse));
+    setTotalpass(toCurrencyInput(settings.totalpassRepasse));
   }, [settings]);
 
   const plansById = useMemo(
@@ -125,8 +130,8 @@ export default function AdminFinancial() {
 
   const saveTransfer = async (field: "gympass" | "totalpass") => {
     if (!settings) return;
-    const gympassRepasse = Number(gympass.replace(",", "."));
-    const totalpassRepasse = Number(totalpass.replace(",", "."));
+    const gympassRepasse = parseCurrency(gympass);
+    const totalpassRepasse = parseCurrency(totalpass);
     if (
       !Number.isFinite(gympassRepasse) ||
       gympassRepasse < 0 ||
@@ -353,15 +358,15 @@ function EditableTransfer({
             <Text>R$</Text>
             <TextInput
               value={value}
-              onChangeText={setValue}
-              keyboardType="decimal-pad"
+              onChangeText={(next) => setValue(maskCurrency(next))}
+              keyboardType="number-pad"
               style={styles.input}
             />
             <Text style={styles.muted}>por check-in</Text>
           </View>
         ) : (
           <Text style={styles.muted}>
-            {currency(Number(value) || 0)} por check-in
+            {currency(parseCurrency(value) || 0)} por check-in
           </Text>
         )}
       </View>
@@ -412,7 +417,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 8,
-    width: 75,
+    // Cabe "1.500,00" — largura antiga (75) cortava valores mascarados.
+    width: 100,
     height: 34,
     paddingHorizontal: 8,
   },

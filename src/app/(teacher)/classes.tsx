@@ -18,6 +18,7 @@ import { Progress } from "@/components/Progress";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
 import { alunos } from "@/data/mockData";
+import { maskPhone } from "@/utils/masks";
 import { consumePendingOcorrenciaId } from "@/hooks/attendanceSelection";
 import { useFocusEffect } from "expo-router";
 import {
@@ -670,9 +671,9 @@ export default function AulaAoVivo() {
                                     style={styles.input}
                                     placeholder="(19) 99999-9999"
                                     placeholderTextColor="#9ca3af"
-                                    keyboardType="phone-pad"
+                                    keyboardType="number-pad"
                                     value={expTel}
-                                    onChangeText={setExpTel}
+                                    onChangeText={(next) => setExpTel(maskPhone(next))}
                                 />
                             </View>
 

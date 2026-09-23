@@ -12,6 +12,12 @@ import { useCategories } from "@/hooks/categories.hooks";
 import { useAdminPlanActions, useAdminPlans } from "@/hooks/plans.hooks";
 import { AdminPlanType } from "@/types/plans.types";
 import {
+  maskCurrency,
+  maskInteger,
+  parseCurrency,
+  toCurrencyInput,
+} from "@/utils/masks";
+import {
   Check,
   ChevronLeft,
   ChevronRight,
@@ -173,7 +179,7 @@ function PlanModal({
     if (!visible) return;
     setName(plan?.name ?? "");
     setDescription(plan?.description ?? "");
-    setPrice(String(plan?.price ?? ""));
+    setPrice(toCurrencyInput(plan?.price));
     setDurationDays(String(plan?.durationDays ?? ""));
     setMaxClassesPerWeek(String(plan?.maxClassesPerWeek ?? 0));
     setMaxClassesPerDay(String(plan?.maxClassesPerDay ?? 0));
@@ -198,7 +204,7 @@ function PlanModal({
 
   const save = async () => {
     if (isSaving) return;
-    const parsedPrice = Number(price.replace(",", "."));
+    const parsedPrice = parseCurrency(price);
     const duration = Number(durationDays);
     const weeklyLimit = Number(maxClassesPerWeek);
     const dailyLimit = Number(maxClassesPerDay);
@@ -293,6 +299,7 @@ function PlanModal({
                   onChange={setPrice}
                   placeholder="150,00"
                   numeric
+                  mask={maskCurrency}
                 />
               </View>
               <View style={styles.grow}>
@@ -302,6 +309,7 @@ function PlanModal({
                   onChange={setDurationDays}
                   placeholder="30"
                   numeric
+                  mask={maskInteger}
                 />
               </View>
             </View>
@@ -313,6 +321,7 @@ function PlanModal({
                   onChange={setMaxClassesPerWeek}
                   placeholder="0"
                   numeric
+                  mask={maskInteger}
                 />
               </View>
               <View style={styles.grow}>
@@ -322,6 +331,7 @@ function PlanModal({
                   onChange={setMaxClassesPerDay}
                   placeholder="0"
                   numeric
+                  mask={maskInteger}
                 />
               </View>
             </View>
@@ -420,6 +430,7 @@ function Field({
   placeholder,
   multiline,
   numeric,
+  mask,
 }: {
   label: string;
   value: string;
@@ -427,17 +438,18 @@ function Field({
   placeholder?: string;
   multiline?: boolean;
   numeric?: boolean;
+  mask?: (value: string) => string;
 }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         value={value}
-        onChangeText={onChange}
+        onChangeText={mask ? (next) => onChange(mask(next)) : onChange}
         placeholder={placeholder}
         placeholderTextColor={COLORS.mutedForeground}
         multiline={multiline}
-        keyboardType={numeric ? "decimal-pad" : "default"}
+        keyboardType={numeric ? "number-pad" : "default"}
         style={[styles.input, multiline && styles.textarea]}
       />
     </View>

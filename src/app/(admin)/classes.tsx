@@ -20,6 +20,7 @@ import {
   useUpdateAula,
 } from "@/hooks/schedule.hooks";
 import { AulaType, TodayOccurrenceType } from "@/types/schedules.types";
+import { maskInteger, maskTime } from "@/utils/masks";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -486,27 +487,27 @@ function NewClassModal({
                     <Text style={styles.label}>Início</Text>
                     <TextInput
                       value={startTime}
-                      onChangeText={setStartTime}
+                      onChangeText={(value) => setStartTime(maskTime(value))}
                       placeholder="18:00"
                       style={styles.input}
-                      maxLength={5}
+                      keyboardType="number-pad"
                     />
                   </View>
                   <View style={styles.grow}>
                     <Text style={styles.label}>Fim</Text>
                     <TextInput
                       value={endTime}
-                      onChangeText={setEndTime}
+                      onChangeText={(value) => setEndTime(maskTime(value))}
                       placeholder="19:00"
                       style={styles.input}
-                      maxLength={5}
+                      keyboardType="number-pad"
                     />
                   </View>
                   <View style={styles.grow}>
                     <Text style={styles.label}>Capacidade</Text>
                     <TextInput
                       value={capacity}
-                      onChangeText={setCapacity}
+                      onChangeText={(value) => setCapacity(maskInteger(value))}
                       placeholder="14"
                       style={styles.input}
                       keyboardType="number-pad"
@@ -687,15 +688,30 @@ function EditClassModal({
                 <View style={styles.fieldsRow}>
                   <View style={styles.grow}>
                     <Text style={styles.label}>Início</Text>
-                    <TextInput value={startTime} onChangeText={setStartTime} style={styles.input} maxLength={5} />
+                    <TextInput
+                      value={startTime}
+                      onChangeText={(value) => setStartTime(maskTime(value))}
+                      style={styles.input}
+                      keyboardType="number-pad"
+                    />
                   </View>
                   <View style={styles.grow}>
                     <Text style={styles.label}>Fim</Text>
-                    <TextInput value={endTime} onChangeText={setEndTime} style={styles.input} maxLength={5} />
+                    <TextInput
+                      value={endTime}
+                      onChangeText={(value) => setEndTime(maskTime(value))}
+                      style={styles.input}
+                      keyboardType="number-pad"
+                    />
                   </View>
                   <View style={styles.grow}>
                     <Text style={styles.label}>Capacidade</Text>
-                    <TextInput value={capacity} onChangeText={setCapacity} style={styles.input} keyboardType="number-pad" />
+                    <TextInput
+                      value={capacity}
+                      onChangeText={(value) => setCapacity(maskInteger(value))}
+                      style={styles.input}
+                      keyboardType="number-pad"
+                    />
                   </View>
                 </View>
                 <Text style={styles.label}>Público</Text>
