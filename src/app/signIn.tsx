@@ -2,6 +2,7 @@ import { COLORS } from "@/components/ClientHeader";
 import KravaLogo from "@/components/KravaLogo";
 import { useToast } from "@/components/Toast";
 import { useLogin, useSelfRegister } from "@/hooks/auth.hooks";
+import { normalizeApiError } from "@/routes/apiError";
 import { selfRegisterSchema } from "@/schemas/auth.schemas";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -14,6 +15,17 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const EMAIL_NOT_CONFIRMED = "Auth.EmailNotConfirmed";
+
+/** Login bloqueado por e-mail ainda não confirmado — leva para o código OTP. */
+function isEmailNotConfirmed(error: unknown) {
+  const info = normalizeApiError(error, "");
+  return (
+    info.code === EMAIL_NOT_CONFIRMED ||
+    info.description.includes("confirmado")
+  );
+}
 
 export default function Login() {
   const { toast } = useToast();
@@ -32,8 +44,18 @@ export default function Login() {
   const busy = isLoading || isRegistering;
 
   const handleLogin = async () => {
-    if (!email || !senha) return;
-    await login({ email, password: senha });
+    if (busy || !email || !senha) return;
+    try {
+      await login({ email, password: senha });
+    } catch (error) {
+      if (isEmailNotConfirmed(error)) {
+        router.push({
+          pathname: "/confirmEmail",
+          params: { email: email.trim() },
+        });
+      }
+      // Os demais erros continuam sendo exibidos abaixo do formulário.
+    }
   };
 
   const handleRegister = async () => {
@@ -60,7 +82,15 @@ export default function Login() {
       setName("");
       setSenha("");
       setConfirmPassword("");
-      toast({ title: "Conta criada! Entre para escolher seu CT." });
+      toast({
+        title: "Conta criada!",
+        description:
+          "Enviamos um código de 6 dígitos para confirmar seu e-mail.",
+      });
+      router.push({
+        pathname: "/confirmEmail",
+        params: { email: request.data.email },
+      });
     } catch {
       // O erro detalhado da API é exibido abaixo do formulário.
     }

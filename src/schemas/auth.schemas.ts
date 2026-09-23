@@ -54,6 +54,17 @@ export const resetPasswordFormSchema = resetPasswordSchema
     message: "As senhas não coincidem.",
   });
 
+/** Valida o código de 6 dígitos enviado ao e-mail cadastrado. */
+export const confirmEmailSchema = z.object({
+  email: z.string().trim().email("Informe um e-mail válido."),
+  code: z.string().trim().regex(/^\d{6}$/, "Informe os 6 dígitos do código."),
+});
+
+/** Reenvio do código de confirmação — mesmo contrato de `forgotPasswordSchema`. */
+export const resendConfirmationCodeSchema = z.object({
+  email: z.string().trim().email("Informe um e-mail válido."),
+});
+
 export type LoginRequest = z.infer<typeof loginSchema>;
 export type SelfRegisterRequest = z.infer<typeof selfRegisterSchema>;
 export type SelectTenantRequest = z.infer<typeof selectTenantSchema>;
@@ -64,4 +75,8 @@ export type VerifyResetCodeRequest = z.infer<typeof verifyResetCodeSchema>;
 export type ResetPasswordRequest = z.infer<typeof resetPasswordSchema>;
 export type ResetPasswordFormValues = z.infer<
   typeof resetPasswordFormSchema
+>;
+export type ConfirmEmailRequest = z.infer<typeof confirmEmailSchema>;
+export type ResendConfirmationCodeRequest = z.infer<
+  typeof resendConfirmationCodeSchema
 >;

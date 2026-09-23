@@ -1,8 +1,10 @@
 import {
+  ConfirmEmailRequest,
   CreateInvitationRequest,
   ForgotPasswordRequest,
   JoinCatalogRequest,
   LoginRequest,
+  ResendConfirmationCodeRequest,
   ResetPasswordRequest,
   SelectTenantRequest,
   SelfRegisterRequest,
@@ -40,6 +42,14 @@ export class AuthRoutes {
 
   async resetPassword(request: ResetPasswordRequest) {
     await api.post("/auth/reset-password", { json: request });
+  }
+
+  async confirmEmail(request: ConfirmEmailRequest) {
+    await api.post("/auth/confirm-email", { json: request });
+  }
+
+  async resendConfirmationCode(request: ResendConfirmationCodeRequest) {
+    await api.post("/auth/resend-confirmation-code", { json: request });
   }
 
   async selectTenant(request: SelectTenantRequest) {

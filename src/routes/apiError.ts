@@ -30,6 +30,18 @@ function firstString(...values: unknown[]) {
 }
 
 /**
+ * O `code` do erro não vem na raiz do corpo: a API o envia dentro de `errors`,
+ * por exemplo `{ detail: "...", errors: [{ code: "Auth.UserNotFound", ... }] }`.
+ */
+function firstErrorEntry(data: Record<string, unknown>) {
+  if (!Array.isArray(data.errors)) return null;
+  for (const entry of data.errors) {
+    if (isRecord(entry)) return entry;
+  }
+  return null;
+}
+
+/**
  * Normaliza o erro lançado pelo ky para o envelope `{ code, description }` desta API.
  *
  * É síncrono de propósito: o ky popula `error.data` com o corpo já parseado antes de
@@ -44,10 +56,12 @@ export function normalizeApiError(
     const { data } = error;
 
     if (isRecord(data)) {
+      const entry = firstErrorEntry(data);
+
       return {
-        code: firstString(data.code),
+        code: firstString(data.code, entry?.code),
         description:
-          firstString(data.description, data.detail) ??
+          firstString(data.description, data.detail, entry?.description) ??
           FRIENDLY_BY_STATUS[error.response.status] ??
           fallback,
       };

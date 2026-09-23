@@ -1,9 +1,11 @@
 import { AuthContext } from "@/contexts/authContext";
 import { AuthRoutes } from "@/routes/auth.routes";
 import {
+  ConfirmEmailRequest,
   CreateInvitationRequest,
   ForgotPasswordRequest,
   LoginRequest,
+  ResendConfirmationCodeRequest,
   ResetPasswordRequest,
   SelectTenantRequest,
   SelfRegisterRequest,
@@ -118,6 +120,37 @@ export function useResetPassword() {
 
   return {
     resetPassword: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+  };
+}
+
+/**
+ * Confirmação de e-mail pós-cadastro. Sem `error` exposto pelo mesmo motivo de
+ * `useForgotPassword`: a tela precisa do `code` (Auth.UserNotFound vs
+ * Auth.InvalidOrExpiredConfirmationCode) e o `mutation.error` do React Query só
+ * atualiza no render seguinte — a tela inspeciona o erro lançado por
+ * `mutateAsync` com `normalizeApiError`.
+ */
+export function useConfirmEmail() {
+  const mutation = useMutation({
+    mutationFn: (request: ConfirmEmailRequest) =>
+      new AuthRoutes().confirmEmail(request),
+  });
+
+  return {
+    confirmEmail: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+  };
+}
+
+export function useResendConfirmationCode() {
+  const mutation = useMutation({
+    mutationFn: (request: ResendConfirmationCodeRequest) =>
+      new AuthRoutes().resendConfirmationCode(request),
+  });
+
+  return {
+    resendConfirmationCode: mutation.mutateAsync,
     isLoading: mutation.isPending,
   };
 }
