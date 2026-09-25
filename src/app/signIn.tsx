@@ -35,8 +35,9 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
 
-  const { login, isLoading, error } = useLogin();
+  const { login, isLoading } = useLogin();
   const {
     selfRegister,
     isLoading: isRegistering,
@@ -45,17 +46,26 @@ export default function Login() {
   const busy = isLoading || isRegistering;
 
   const handleLogin = async () => {
-    if (busy || !email || !senha) return;
+    if (busy) return;
+    if (!email.trim() || !senha) {
+      setLoginError("Preencha o e-mail e a senha.");
+      return;
+    }
+    setLoginError("");
     try {
       await login({ email, password: senha });
-    } catch (error) {
-      if (isEmailNotConfirmed(error)) {
+    } catch (requestError) {
+      if (isEmailNotConfirmed(requestError)) {
         router.push({
           pathname: "/confirmEmail",
           params: { email: email.trim() },
         });
+        return;
       }
-      // Os demais erros continuam sendo exibidos abaixo do formulário.
+      setLoginError(
+        normalizeApiError(requestError, "Não foi possível realizar o login.")
+          .description,
+      );
     }
   };
 
@@ -136,7 +146,10 @@ export default function Login() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  setLoginError("");
+                }}
               />
             </View>
 
@@ -147,7 +160,10 @@ export default function Login() {
                 placeholder="••••••••"
                 secureTextEntry
                 value={senha}
-                onChangeText={setSenha}
+                onChangeText={(value) => {
+                  setSenha(value);
+                  setLoginError("");
+                }}
               />
             </View>
 
@@ -164,9 +180,9 @@ export default function Login() {
               </View>
             )}
 
-            {(mode === "login" ? error : registerError) && (
+            {(mode === "login" ? loginError : registerError) && (
               <Text style={styles.errorText}>
-                {mode === "login" ? error : registerError}
+                {mode === "login" ? loginError : registerError}
               </Text>
             )}
 

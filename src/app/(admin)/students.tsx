@@ -18,6 +18,7 @@ import {
 import { useCreateInvitation } from "@/hooks/auth.hooks";
 import { useCreateContract } from "@/hooks/contracts.hooks";
 import { usePlans } from "@/hooks/plans.hooks";
+import { normalizeApiError } from "@/routes/apiError";
 import {
   useJoinRequestActions,
   usePendingJoinRequests,
@@ -484,10 +485,15 @@ function StudentModal({
       });
       await updateLevel({ id, value: form.level });
       await updateStatus({ id, value: form.status });
+      onClose();
       toast({ title: "Aluno atualizado!" });
-    } catch {
+    } catch (requestError) {
+      onClose();
       toast({
-        title: "Não foi possível atualizar o aluno.",
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível atualizar o aluno.",
+        ).description,
         variant: "destructive",
       });
     }
@@ -499,10 +505,15 @@ function StudentModal({
         id,
         data: { paymentMethods: methods, partnerNote: null },
       });
+      onClose();
       toast({ title: "Métodos de pagamento atualizados!" });
-    } catch {
+    } catch (requestError) {
+      onClose();
       toast({
-        title: "Não foi possível atualizar os métodos.",
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível atualizar os métodos.",
+        ).description,
         variant: "destructive",
       });
     }
@@ -532,13 +543,15 @@ function StudentModal({
       });
       setPlanId("");
       setContractError("");
+      onClose();
       toast({ title: "Plano vinculado ao aluno!" });
     } catch (requestError) {
+      onClose();
       toast({
-        title:
-          requestError instanceof Error
-            ? requestError.message
-            : "Não foi possível vincular o plano.",
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível vincular o plano.",
+        ).description,
         variant: "destructive",
       });
     }
@@ -824,9 +837,13 @@ function InviteModal({
       setEmail("");
       onClose();
       toast({ title: "Convite enviado ao aluno!" });
-    } catch {
+    } catch (requestError) {
+      onClose();
       toast({
-        title: "Não foi possível enviar o convite.",
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível enviar o convite.",
+        ).description,
         variant: "destructive",
       });
     }

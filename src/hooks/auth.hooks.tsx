@@ -1,5 +1,6 @@
 import { AuthContext } from "@/contexts/authContext";
 import { AuthRoutes } from "@/routes/auth.routes";
+import { normalizeApiError } from "@/routes/apiError";
 import {
   ConfirmEmailRequest,
   CreateInvitationRequest,
@@ -58,9 +59,8 @@ export function useLogin() {
     login: loginMutation.mutateAsync,
     isLoading: loginMutation.isPending,
     error: loginMutation.error
-      ? (loginMutation.error as any).data?.detail ||
-        loginMutation.error.message ||
-        "Erro ao realizar login"
+      ? normalizeApiError(loginMutation.error, "Erro ao realizar login")
+          .description
       : null,
   };
 }

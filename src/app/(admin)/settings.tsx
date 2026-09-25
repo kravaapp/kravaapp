@@ -13,6 +13,7 @@ import {
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { useCategories, useCategoryActions } from "@/hooks/categories.hooks";
 import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
+import { normalizeApiError } from "@/routes/apiError";
 import { AvulsoConfigType, SchedulingRuleType } from "@/types/settings.types";
 import { Category } from "@/types/categories.types";
 import {
@@ -389,8 +390,14 @@ export default function AdminSettings() {
                       try {
                         await deleteRule(rule.id);
                         toast({ title: "Regra excluída!" });
-                      } catch {
-                        toast({ title: "Não foi possível excluir a regra.", variant: "destructive" });
+                      } catch (requestError) {
+                        toast({
+                          title: normalizeApiError(
+                            requestError,
+                            "Não foi possível excluir a regra.",
+                          ).description,
+                          variant: "destructive",
+                        });
                       }
                     }}
                     style={styles.edit}
@@ -558,9 +565,15 @@ export default function AdminSettings() {
             else await createRule(rule);
             setEditingRule(undefined);
             toast({ title: editingRule ? "Regra atualizada!" : "Regra de agendamento criada!" });
-          } catch {
+          } catch (requestError) {
+            setEditingRule(undefined);
             toast({
-              title: editingRule ? "Não foi possível atualizar a regra." : "Não foi possível criar a regra.",
+              title: normalizeApiError(
+                requestError,
+                editingRule
+                  ? "Não foi possível atualizar a regra."
+                  : "Não foi possível criar a regra.",
+              ).description,
               variant: "destructive",
             });
           }
@@ -580,8 +593,15 @@ export default function AdminSettings() {
             }
             setEditingCategory(undefined);
             toast({ title: editingCategory ? "Modalidade atualizada!" : "Modalidade criada!" });
-          } catch {
-            toast({ title: "Não foi possível salvar a modalidade.", variant: "destructive" });
+          } catch (requestError) {
+            setEditingCategory(undefined);
+            toast({
+              title: normalizeApiError(
+                requestError,
+                "Não foi possível salvar a modalidade.",
+              ).description,
+              variant: "destructive",
+            });
           }
         }}
       />

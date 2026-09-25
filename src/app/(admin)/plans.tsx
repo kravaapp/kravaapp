@@ -12,6 +12,7 @@ import {
 } from "@/components/admin/AdminUi";
 import { useCategories } from "@/hooks/categories.hooks";
 import { useAdminPlanActions, useAdminPlans } from "@/hooks/plans.hooks";
+import { normalizeApiError } from "@/routes/apiError";
 import { AdminPlanType } from "@/types/plans.types";
 import {
   maskCurrency,
@@ -248,9 +249,13 @@ function PlanModal({
       }
       onClose();
       toast({ title: plan ? "Plano atualizado!" : "Plano criado!" });
-    } catch {
+    } catch (requestError) {
+      onClose();
       toast({
-        title: "Não foi possível salvar o plano.",
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível salvar o plano.",
+        ).description,
         variant: "destructive",
       });
     }

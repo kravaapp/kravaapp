@@ -21,6 +21,7 @@ import {
   useTodayOccurrences,
   useUpdateAula,
 } from "@/hooks/schedule.hooks";
+import { normalizeApiError } from "@/routes/apiError";
 import { AulaType, TodayOccurrenceType } from "@/types/schedules.types";
 import { maskInteger, maskTime } from "@/utils/masks";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react-native";
@@ -316,7 +317,10 @@ export default function AdminClasses() {
                                           toast({ title: "Aula excluída com sucesso!" });
                                         } catch (requestError) {
                                           toast({
-                                            title: requestError instanceof Error ? requestError.message : "Não foi possível excluir a aula.",
+                                            title: normalizeApiError(
+                                              requestError,
+                                              "Não foi possível excluir a aula.",
+                                            ).description,
                                             variant: "destructive",
                                           });
                                         }
@@ -348,7 +352,10 @@ export default function AdminClasses() {
           setNewClass(false);
           toast({ title: "Aula criada com sucesso!" });
         }}
-        onError={(message) => toast({ title: message, variant: "destructive" })}
+        onError={(message) => {
+          setNewClass(false);
+          toast({ title: message, variant: "destructive" });
+        }}
       />
       <EditClassModal
         item={editingClass}
@@ -357,7 +364,10 @@ export default function AdminClasses() {
           setEditingClass(null);
           toast({ title: "Aula atualizada com sucesso!" });
         }}
-        onError={(message) => toast({ title: message, variant: "destructive" })}
+        onError={(message) => {
+          setEditingClass(null);
+          toast({ title: message, variant: "destructive" });
+        }}
       />
     </SafeAreaView>
   );
@@ -415,11 +425,10 @@ function NewClassModal({
       });
       onSuccess();
     } catch (requestError) {
-      const message =
-        requestError instanceof Error
-          ? requestError.message
-          : "Não foi possível criar a aula.";
-      onError(message);
+      onError(
+        normalizeApiError(requestError, "Não foi possível criar a aula.")
+          .description,
+      );
     }
   };
 
@@ -627,9 +636,8 @@ function EditClassModal({
       onSuccess();
     } catch (requestError) {
       onError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Não foi possível atualizar a aula.",
+        normalizeApiError(requestError, "Não foi possível atualizar a aula.")
+          .description,
       );
     }
   };

@@ -38,8 +38,17 @@ const api = ky.create({
     afterResponse: [
       async ({ request, response }) => {
         if (response.status === 401) {
-          await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
-          router.replace("/signIn");
+          const authState = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+          const isLoginRequest = new URL(request.url).pathname.endsWith(
+            "/auth/login",
+          );
+
+          // Credenciais inválidas no login também retornam 401. A tela deve
+          // permanecer montada para conseguir exibir o detalhe retornado.
+          if (authState && !isLoginRequest) {
+            await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+            router.replace("/signIn");
+          }
         }
 
         return response;

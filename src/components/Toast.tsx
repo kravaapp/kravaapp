@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from './ClientHeader';
 
@@ -64,7 +64,37 @@ export function ToastProvider({ children }: PropsWithChildren) {
     <ToastContext.Provider value={{ toast }}>
       {children}
 
-      {current && (
+      <Modal
+        visible={!!current && Platform.OS !== 'web'}
+        transparent
+        animationType="none"
+        presentationStyle="overFullScreen"
+        statusBarTranslucent
+        onRequestClose={() => setCurrent(null)}
+      >
+        <View style={styles.modalLayer} pointerEvents="none">
+          {current && (
+            <View
+              style={[styles.container, { bottom: insets.bottom + 80 }]}
+            >
+              <Animated.View
+                style={[
+                  styles.toast,
+                  current.variant === 'destructive' && styles.toastDestructive,
+                  { opacity },
+                ]}
+              >
+                <Text style={styles.title}>{current.title}</Text>
+                {current.description && (
+                  <Text style={styles.description}>{current.description}</Text>
+                )}
+              </Animated.View>
+            </View>
+          )}
+        </View>
+      </Modal>
+
+      {current && Platform.OS === 'web' && (
         <View
           style={[styles.container, { bottom: insets.bottom + 80 }]}
           pointerEvents="none"
@@ -88,11 +118,13 @@ export function ToastProvider({ children }: PropsWithChildren) {
 }
 
 const styles = StyleSheet.create({
+  modalLayer: { flex: 1 },
   container: {
     position: 'absolute',
     left: 16,
     right: 16,
     alignItems: 'center',
+    zIndex: 9999,
   },
   toast: {
     width: '100%',
