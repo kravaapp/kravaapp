@@ -5,6 +5,7 @@ import { useToast } from "@/components/Toast";
 import { useLogin, useSelfRegister } from "@/hooks/auth.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import { selfRegisterSchema } from "@/schemas/auth.schemas";
+import { maskCpf, maskDate, onlyDigits, toIsoDate } from "@/utils/masks";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -32,17 +33,17 @@ export default function Login() {
   const { toast } = useToast();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [sex, setSex] = useState<"M" | "F" | "prefer_not" | null>(null);
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [registrationError, setRegistrationError] = useState("");
 
   const { login, isLoading } = useLogin();
-  const {
-    selfRegister,
-    isLoading: isRegistering,
-    error: registerError,
-  } = useSelfRegister();
+  const { selfRegister, isLoading: isRegistering } = useSelfRegister();
   const busy = isLoading || isRegistering;
 
   const handleLogin = async () => {
@@ -71,26 +72,43 @@ export default function Login() {
 
   const handleRegister = async () => {
     if (busy) return;
+    const isoBirthDate = toIsoDate(birthDate);
     const request = selfRegisterSchema.safeParse({
       name,
       email,
       password: senha,
+      cpf: onlyDigits(cpf),
+      birthDate: isoBirthDate,
+      sex: sex === "prefer_not" ? null : sex,
     });
     if (!request.success) {
-      toast({
-        title: "Preencha nome, e-mail e senha corretamente.",
-        variant: "destructive",
-      });
+      const invalidFields = [
+        !name.trim() && "nome",
+        onlyDigits(cpf).length !== 11 && "CPF",
+        !isoBirthDate && "data de nascimento",
+        !sex && "sexo",
+        !email.trim() && "e-mail",
+        !senha && "senha",
+      ].filter(Boolean);
+      setRegistrationError(
+        invalidFields.length
+          ? `Preencha corretamente: ${invalidFields.join(", ")}.`
+          : "Verifique os dados informados.",
+      );
       return;
     }
     if (senha !== confirmPassword) {
-      toast({ title: "As senhas não coincidem.", variant: "destructive" });
+      setRegistrationError("As senhas não coincidem.");
       return;
     }
+    setRegistrationError("");
     try {
       await selfRegister(request.data);
       setMode("login");
       setName("");
+      setCpf("");
+      setBirthDate("");
+      setSex(null);
       setSenha("");
       setConfirmPassword("");
       toast({
@@ -102,8 +120,11 @@ export default function Login() {
         pathname: "/confirmEmail",
         params: { email: request.data.email },
       });
-    } catch {
-      // O erro detalhado da API é exibido abaixo do formulário.
+    } catch (requestError) {
+      setRegistrationError(
+        normalizeApiError(requestError, "Não foi possível criar a conta.")
+          .description,
+      );
     }
   };
 
@@ -127,16 +148,87 @@ export default function Login() {
 
           <View style={styles.form}>
             {mode === "register" && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Nome completo</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Seu nome"
-                  autoCapitalize="words"
-                  value={name}
-                  onChangeText={setName}
-                />
-              </View>
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Nome completo</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Seu nome"
+                    autoCapitalize="words"
+                    value={name}
+                    onChangeText={(value) => {
+                      setName(value);
+                      setRegistrationError("");
+                    }}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>CPF</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="000.000.000-00"
+                    keyboardType="number-pad"
+                    value={cpf}
+                    maxLength={14}
+                    onChangeText={(value) => {
+                      setCpf(maskCpf(value));
+                      setRegistrationError("");
+                    }}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Data de nascimento</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="DD/MM/AAAA"
+                    keyboardType="number-pad"
+                    value={birthDate}
+                    maxLength={10}
+                    onChangeText={(value) => {
+                      setBirthDate(maskDate(value));
+                      setRegistrationError("");
+                    }}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Sexo</Text>
+                  <View style={styles.options}>
+                    {[
+                      { label: "Masculino", value: "M" as const },
+                      { label: "Feminino", value: "F" as const },
+                      {
+                        label: "Prefiro não responder",
+                        value: "prefer_not" as const,
+                      },
+                    ].map((option) => (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[
+                          styles.option,
+                          sex === option.value && styles.optionActive,
+                        ]}
+                        onPress={() => {
+                          setSex(option.value);
+                          setRegistrationError("");
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.optionText,
+                            sex === option.value && styles.optionTextActive,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+              </>
             )}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>E-mail</Text>
@@ -149,6 +241,7 @@ export default function Login() {
                 onChangeText={(value) => {
                   setEmail(value);
                   setLoginError("");
+                  setRegistrationError("");
                 }}
               />
             </View>
@@ -163,6 +256,7 @@ export default function Login() {
                 onChangeText={(value) => {
                   setSenha(value);
                   setLoginError("");
+                  setRegistrationError("");
                 }}
               />
             </View>
@@ -175,14 +269,17 @@ export default function Login() {
                   placeholder="••••••••"
                   secureTextEntry
                   value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  onChangeText={(value) => {
+                    setConfirmPassword(value);
+                    setRegistrationError("");
+                  }}
                 />
               </View>
             )}
 
-            {(mode === "login" ? loginError : registerError) && (
+            {(mode === "login" ? loginError : registrationError) && (
               <Text style={styles.errorText}>
-                {mode === "login" ? loginError : registerError}
+                {mode === "login" ? loginError : registrationError}
               </Text>
             )}
 
@@ -216,6 +313,8 @@ export default function Login() {
               setMode((current) => (current === "login" ? "register" : "login"));
               setSenha("");
               setConfirmPassword("");
+              setLoginError("");
+              setRegistrationError("");
             }}
           >
             <Text style={styles.registerText}>
@@ -288,6 +387,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 14,
     fontSize: 16,
+  },
+
+  options: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
+  option: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  optionActive: {
+    borderColor: COLORS.mainOrange,
+    backgroundColor: COLORS.mainOrange,
+  },
+
+  optionText: {
+    color: "#333",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  optionTextActive: {
+    color: "#fff",
   },
 
   button: {
