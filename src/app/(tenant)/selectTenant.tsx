@@ -106,6 +106,17 @@ export default function SelectTenant() {
       signIn(selectTenantState.currentToken);
       return;
     }
+
+    const hasPermanentToken = !!(
+      user?.accessToken ?? selectTenantState.currentToken?.accessToken
+    );
+    if (hasPermanentToken) {
+      // O cliente HTTP acrescenta automaticamente o Bearer do usuário salvo.
+      // O preAuthToken só vale antes da primeira seleção de CT.
+      selectTenant({ preAuthToken: null, tenantId });
+      return;
+    }
+
     if (!selectTenantState.preAuthToken) {
       toast({
         title: "Não foi possível acessar este vínculo. Entre novamente.",

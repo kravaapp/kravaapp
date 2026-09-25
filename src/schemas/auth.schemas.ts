@@ -6,8 +6,10 @@ export const loginSchema = z.object({
 });
 
 export const selectTenantSchema = z.object({
-  preAuthToken: z.string(),
-  tenantId: z.string(),
+  // Só existe no primeiro acesso, antes de a API emitir a sessão permanente.
+  // Nas trocas seguintes, a autorização vem do Bearer access token.
+  preAuthToken: z.string().nullable(),
+  tenantId: z.string().uuid(),
 });
 
 export const selfRegisterSchema = z.object({

@@ -28,6 +28,13 @@ const tokenHasTenant = (token: Token) =>
   token.tenantId !== EMPTY_TENANT_ID &&
   !!token.tenantName?.trim();
 
+const tenantFromToken = (token: Token): AvailableTenant => ({
+  tenantId: token.tenantId,
+  tenantName: token.tenantName,
+  role: token.role,
+  isActive: true,
+});
+
 export function getHomeRoute(role: string): Href {
   if (role === USER_ROLES.professor || role === USER_ROLES.instructor)
     return "/(teacher)";
@@ -59,6 +66,25 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setUser(data);
     setIsAuthenticated(true);
     storageState(data);
+    setSelectTenantState((current) => {
+      const currentTenant = tokenHasTenant(data) ? tenantFromToken(data) : null;
+      const availableTenants = currentTenant
+        ? [
+            ...(current?.availableTenants ?? []).filter(
+              (tenant) => tenant.tenantId !== currentTenant.tenantId,
+            ),
+            currentTenant,
+          ]
+        : (current?.availableTenants ?? []);
+      const next: SelectTenantState = {
+        // Depois que o JWT foi emitido, nunca reutilizar o token temporário.
+        preAuthToken: null,
+        currentToken: data,
+        availableTenants,
+      };
+      AsyncStorage.setItem(TENANT_SELECTION_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
     router.replace(getHomeRoute(data.role));
   };
 
@@ -102,19 +128,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
         );
         const data = storageState ? JSON.parse(storageState) : null;
         if (storedSelection) {
-          setSelectTenantState(JSON.parse(storedSelection));
+          const selection: SelectTenantState = JSON.parse(storedSelection);
+          // Uma sessão persistente torna qualquer preAuthToken antigo obsoleto.
+          // Isso também migra instalações que salvaram ambos os tokens antes.
+          const restoredSelection = data
+            ? {
+                ...selection,
+                preAuthToken: null,
+                currentToken: data,
+              }
+            : selection;
+          setSelectTenantState(restoredSelection);
+          if (data) {
+            await AsyncStorage.setItem(
+              TENANT_SELECTION_STORAGE_KEY,
+              JSON.stringify(restoredSelection),
+            );
+          }
         } else if (data) {
           const restoredSelection: SelectTenantState = {
             preAuthToken: null,
             currentToken: data,
             availableTenants: tokenHasTenant(data)
               ? [
-                  {
-                    tenantId: data.tenantId,
-                    tenantName: data.tenantName,
-                    role: data.role,
-                    isActive: true,
-                  },
+                  tenantFromToken(data),
                 ]
               : [],
           };

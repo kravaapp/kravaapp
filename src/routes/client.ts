@@ -18,6 +18,8 @@ const api = ky.create({
           if (!authState) return;
 
           const user: Token = JSON.parse(authState);
+          const requestPath = new URL(request.url).pathname;
+          const isSelectingTenant = requestPath.endsWith("/auth/select-tenant");
 
           if (user?.accessToken && !request.headers.has("Authorization")) {
             request.headers.set(
@@ -26,7 +28,13 @@ const api = ky.create({
             );
           }
 
-          if (user?.tenantId && !request.headers.has("Tenant-Id")) {
+          // A troca de CT é autorizada pelo JWT, mas não pode carregar o
+          // Tenant-Id anterior, pois ele é justamente o contexto a ser mudado.
+          if (
+            user?.tenantId &&
+            !isSelectingTenant &&
+            !request.headers.has("Tenant-Id")
+          ) {
             request.headers.set("Tenant-Id", user.tenantId);
           }
         } catch (err) {
