@@ -19,6 +19,7 @@ export const selfRegisterSchema = z.object({
   cpf: z.string().regex(/^\d{11}$/),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   sex: z.enum(["M", "F"]).nullable(),
+  phone: z.string().regex(/^\d{10,11}$/),
 });
 
 export const createInvitationSchema = z.object({

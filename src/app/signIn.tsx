@@ -5,7 +5,13 @@ import { useToast } from "@/components/Toast";
 import { useLogin, useSelfRegister } from "@/hooks/auth.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import { selfRegisterSchema } from "@/schemas/auth.schemas";
-import { maskCpf, maskDate, onlyDigits, toIsoDate } from "@/utils/masks";
+import {
+  maskCpf,
+  maskDate,
+  maskPhone,
+  onlyDigits,
+  toIsoDate,
+} from "@/utils/masks";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -16,6 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Eye, EyeOff } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const EMAIL_NOT_CONFIRMED = "Auth.EmailNotConfirmed";
@@ -36,9 +43,12 @@ export default function Login() {
   const [cpf, setCpf] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [sex, setSex] = useState<"M" | "F" | "prefer_not" | null>(null);
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [registrationError, setRegistrationError] = useState("");
 
@@ -80,6 +90,7 @@ export default function Login() {
       cpf: onlyDigits(cpf),
       birthDate: isoBirthDate,
       sex: sex === "prefer_not" ? null : sex,
+      phone: onlyDigits(phone),
     });
     if (!request.success) {
       const invalidFields = [
@@ -87,6 +98,7 @@ export default function Login() {
         onlyDigits(cpf).length !== 11 && "CPF",
         !isoBirthDate && "data de nascimento",
         !sex && "sexo",
+        !/^\d{10,11}$/.test(onlyDigits(phone)) && "telefone",
         !email.trim() && "e-mail",
         !senha && "senha",
       ].filter(Boolean);
@@ -109,6 +121,7 @@ export default function Login() {
       setCpf("");
       setBirthDate("");
       setSex(null);
+      setPhone("");
       setSenha("");
       setConfirmPassword("");
       toast({
@@ -194,6 +207,21 @@ export default function Login() {
                 </View>
 
                 <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Telefone</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="(00) 00000-0000"
+                    keyboardType="phone-pad"
+                    value={phone}
+                    maxLength={15}
+                    onChangeText={(value) => {
+                      setPhone(maskPhone(value));
+                      setRegistrationError("");
+                    }}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
                   <Text style={styles.label}>Sexo</Text>
                   <View style={styles.options}>
                     {[
@@ -248,32 +276,64 @@ export default function Login() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Senha</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="••••••••"
-                secureTextEntry
-                value={senha}
-                onChangeText={(value) => {
-                  setSenha(value);
-                  setLoginError("");
-                  setRegistrationError("");
-                }}
-              />
+              <View style={styles.passwordWrapper}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="••••••••"
+                  secureTextEntry={!showPassword}
+                  value={senha}
+                  onChangeText={(value) => {
+                    setSenha(value);
+                    setLoginError("");
+                    setRegistrationError("");
+                  }}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword((current) => !current)}
+                  accessibilityLabel={
+                    showPassword ? "Ocultar senha" : "Mostrar senha"
+                  }
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color={COLORS.mutedForeground} />
+                  ) : (
+                    <Eye size={20} color={COLORS.mutedForeground} />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             {mode === "register" && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirmar senha</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  secureTextEntry
-                  value={confirmPassword}
-                  onChangeText={(value) => {
-                    setConfirmPassword(value);
-                    setRegistrationError("");
-                  }}
-                />
+                <View style={styles.passwordWrapper}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput]}
+                    placeholder="••••••••"
+                    secureTextEntry={!showConfirmPassword}
+                    value={confirmPassword}
+                    onChangeText={(value) => {
+                      setConfirmPassword(value);
+                      setRegistrationError("");
+                    }}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() =>
+                      setShowConfirmPassword((current) => !current)
+                    }
+                    accessibilityLabel={
+                      showConfirmPassword ? "Ocultar senha" : "Mostrar senha"
+                    }
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff size={20} color={COLORS.mutedForeground} />
+                    ) : (
+                      <Eye size={20} color={COLORS.mutedForeground} />
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
 
@@ -387,6 +447,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 14,
     fontSize: 16,
+  },
+
+  passwordWrapper: {
+    justifyContent: "center",
+  },
+
+  passwordInput: {
+    paddingRight: 48,
+  },
+
+  eyeButton: {
+    position: "absolute",
+    right: 12,
+    padding: 4,
   },
 
   options: {
