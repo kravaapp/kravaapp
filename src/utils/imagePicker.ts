@@ -17,8 +17,10 @@ export type PickImageResultType =
   | { status: "denied"; message: string }
   | { status: "failed"; message: string };
 
-const PERMISSION_DENIED =
-  "Permita o acesso às fotos nos ajustes do aparelho para escolher uma imagem.";
+const PHOTOS_PERMISSION_DENIED =
+  "Acesso às fotos não autorizado. Toque em escolher imagem para tentar novamente.";
+const CAMERA_PERMISSION_DENIED =
+  "Acesso à câmera não autorizado. Você também pode escolher uma imagem da galeria ou dos arquivos.";
 const PICKER_FAILED =
   "Não foi possível abrir o seletor de imagens. Tente novamente.";
 
@@ -35,14 +37,24 @@ export async function pickImage(
   try {
     if (source === "files") return validate(await pickFromFiles());
 
-    // No nativo o sistema exige permissão; na web a implementação já responde
-    // "concedida" e o navegador cuida do resto.
-    const permission =
-      source === "camera"
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted)
-      return { status: "denied", message: PERMISSION_DENIED };
+    if (source === "camera") {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted)
+        return { status: "denied", message: CAMERA_PERMISSION_DENIED };
+    } else if (Platform.OS !== "web") {
+      const currentPermission =
+        await ImagePicker.getMediaLibraryPermissionsAsync();
+
+      if (!currentPermission.granted && currentPermission.canAskAgain) {
+        const permission =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted)
+          return { status: "denied", message: PHOTOS_PERMISSION_DENIED };
+      }
+      // Após uma recusa definitiva, o sistema não repete o alerta de permissão.
+      // O seletor nativo ainda pode autorizar somente a imagem escolhida, sem
+      // exigir acesso à galeria inteira nem encaminhar o usuário aos ajustes.
+    }
 
     return validate(await pickFromLibrary(source === "camera"));
   } catch {
@@ -73,6 +85,7 @@ async function pickFromFiles(): Promise<PickedImageType | null> {
 async function pickFromLibrary(fromCamera: boolean): Promise<PickedImageType | null> {
   const options: ImagePicker.ImagePickerOptions = {
     mediaTypes: ["images"],
+    allowsEditing: false,
     allowsMultipleSelection: false,
     quality: 1,
     base64: false,
