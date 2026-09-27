@@ -837,10 +837,12 @@ function SettingsCard({
 }) {
   return (
     <AdminCard>
-      <View style={styles.header}>
+      <View style={styles.cardHeader}>
         <View style={styles.headerTitle}>
           <View style={styles.icon}>{icon}</View>
-          <SectionTitle>{title}</SectionTitle>
+          <View style={styles.titleContent}>
+            <SectionTitle>{title}</SectionTitle>
+          </View>
         </View>
         {action}
       </View>
@@ -921,10 +923,27 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
-  headerTitle: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
+  cardHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  headerTitle: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 200,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  titleContent: { flex: 1, minWidth: 0 },
   icon: {
     width: 39,
     height: 39,
+    flexShrink: 0,
     borderRadius: 11,
     backgroundColor: "#f8fafc",
     alignItems: "center",

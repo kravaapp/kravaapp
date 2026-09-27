@@ -55,8 +55,8 @@ export default function AdminPlans() {
     <View style={styles.safe}>
       <ScreenScrollView>
         <AdminScreen>
-          <View style={styles.header}>
-            <View>
+          <View style={styles.pageHeader}>
+            <View style={styles.pageTitle}>
               <SectionTitle>Planos</SectionTitle>
               <Text style={styles.muted}>
                 Gerencie preços, duração e acesso às modalidades.
@@ -484,13 +484,26 @@ function NavButton({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f8fafc" },
+  pageHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  pageTitle: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 240,
+    minWidth: 0,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
   },
-  grow: { flex: 1 },
+  grow: { flex: 1, minWidth: 0 },
   muted: { color: COLORS.mutedForeground, fontSize: 11, lineHeight: 16 },
   error: {
     color: COLORS.destructive,
@@ -516,8 +529,14 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   description: { color: COLORS.foreground, fontSize: 12, lineHeight: 18 },
-  meta: { flexDirection: "row", gap: 12 },
-  metaText: { color: COLORS.mutedForeground, fontSize: 11, fontWeight: "600" },
+  meta: { flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 6 },
+  metaText: {
+    color: COLORS.mutedForeground,
+    fontSize: 11,
+    fontWeight: "600",
+    flexShrink: 1,
+    maxWidth: "100%",
+  },
   pagination: {
     flexDirection: "row",
     alignItems: "center",
