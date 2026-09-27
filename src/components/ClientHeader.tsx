@@ -1,7 +1,7 @@
 import { AuthContext } from "@/contexts/authContext";
 import { Token } from "@/types/auth.types";
 import { router } from "expo-router";
-import { Building2, LogOut } from "lucide-react-native";
+import { Building2, LogOut, UserRound } from "lucide-react-native";
 import { useContext, useState } from "react";
 import {
   Modal,
@@ -42,6 +42,7 @@ type DropdownProps = {
   visible: boolean;
   onClose: () => void;
   onLogout: () => void;
+  onProfile?: () => void;
   onExplore?: () => void;
   user: Token | null;
 };
@@ -50,6 +51,7 @@ const ProfileDropdown = ({
   visible,
   onClose,
   onLogout,
+  onProfile,
   onExplore,
   user,
 }: DropdownProps) => (
@@ -74,6 +76,20 @@ const ProfileDropdown = ({
         </View>
 
         <View style={styles.dropdownSeparator} />
+
+        {onProfile && (
+          <TouchableOpacity
+            style={styles.dropdownItem}
+            activeOpacity={0.7}
+            onPress={() => {
+              onClose();
+              onProfile();
+            }}
+          >
+            <UserRound color={COLORS.foreground} size={16} />
+            <Text style={styles.dropdownExploreText}>Meu perfil</Text>
+          </TouchableOpacity>
+        )}
 
         {onExplore && (
           <TouchableOpacity
@@ -143,6 +159,9 @@ const AlunoHeader = () => {
         visible={dropdownVisible}
         onClose={() => setDropdownVisible(false)}
         onLogout={handleLogout}
+        onProfile={
+          user?.role === "Aluno" ? () => router.push("/profile") : undefined
+        }
         onExplore={
           selectTenantState ? () => router.push("/selectTenant") : undefined
         }

@@ -1,5 +1,5 @@
 import { GetAlunosRequestSchema } from "@/schemas/alunos.schemas";
-import { AlunoHistoryType, AlunoType, CreateAlunoType, PaginatedAlunos, UpdateAlunoPaymentMethodsType, UpdateAlunoType } from "@/types/alunos.types";
+import { AlunoHistoryType, AlunoType, CreateAlunoType, PaginatedAlunos, UpdateAlunoMeType, UpdateAlunoPaymentMethodsType, UpdateAlunoType } from "@/types/alunos.types";
 import api from "./client";
 
 export class AlunosRoutes {
@@ -11,11 +11,17 @@ export class AlunosRoutes {
     async getAluno(id: string) {
         return api.get(`/membership/alunos/${id}`).json<AlunoType>();
     }
+    async getMyAluno() {
+        return api.get("/membership/alunos/me").json<AlunoType>();
+    }
     async createAluno(data: CreateAlunoType) {
         await api.post("/membership/alunos", { json: data });
     }
     async updateAluno(id: string, data: UpdateAlunoType) {
         return api.put(`/membership/alunos/${id}`, { json: data }).json<AlunoType>();
+    }
+    async updateMyAluno(data: UpdateAlunoMeType) {
+        return api.put("/membership/alunos/me", { json: data }).json<AlunoType>();
     }
     async updateLevel(id: string, level: string | null) {
         await api.patch(`/membership/alunos/${id}/level`, { json: { level } });

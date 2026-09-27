@@ -56,6 +56,19 @@ export type UpdateAlunoType = Omit<CreateAlunoType, "userId"> & {
   optOutReengagement: boolean | null;
 };
 
+/** Dados que o próprio aluno pode atualizar no CT atualmente selecionado. */
+export type UpdateAlunoMeType = Pick<
+  UpdateAlunoType,
+  | "cpf"
+  | "birthDate"
+  | "phone"
+  | "emergencyContact"
+  | "emergencyPhone"
+  | "medicalNotes"
+  | "photoUrl"
+  | "sex"
+>;
+
 export type AttendanceItemType = {
   id: string;
   checkedInAt: string;

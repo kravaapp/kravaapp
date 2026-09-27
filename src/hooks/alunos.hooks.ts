@@ -1,6 +1,6 @@
 import { AlunosRoutes } from "@/routes/alunos.routes";
 import { GetAlunosRequestSchema } from "@/schemas/alunos.schemas";
-import { CreateAlunoType, UpdateAlunoPaymentMethodsType, UpdateAlunoType } from "@/types/alunos.types";
+import { CreateAlunoType, UpdateAlunoMeType, UpdateAlunoPaymentMethodsType, UpdateAlunoType } from "@/types/alunos.types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useAlunos(params: GetAlunosRequestSchema) {
@@ -28,6 +28,30 @@ export function useAlunoDetails(id: string | null) {
     const detail = useQuery({ queryKey: ["aluno", id], queryFn: () => new AlunosRoutes().getAluno(id!), enabled: !!id });
     const history = useQuery({ queryKey: ["aluno-history", id], queryFn: () => new AlunosRoutes().getHistory(id!), enabled: !!id });
     return { aluno: detail.data, history: history.data, isLoading: detail.isLoading, historyLoading: history.isLoading, hasError: detail.isError, historyError: history.isError };
+}
+
+export function useMeuPerfilAluno(enabled = true) {
+    const client = useQueryClient();
+    const profile = useQuery({
+        queryKey: ["aluno", "me"],
+        queryFn: () => new AlunosRoutes().getMyAluno(),
+        enabled,
+    });
+    const update = useMutation({
+        mutationFn: (data: UpdateAlunoMeType) => new AlunosRoutes().updateMyAluno(data),
+        onSuccess: () => {
+            client.invalidateQueries({ queryKey: ["aluno", "me"] });
+            client.invalidateQueries({ queryKey: ["alunos"] });
+        },
+    });
+
+    return {
+        aluno: profile.data,
+        isLoading: profile.isLoading,
+        error: profile.error,
+        updateMeuPerfil: update.mutateAsync,
+        isSaving: update.isPending,
+    };
 }
 
 export function useAlunoActions() {
