@@ -39,7 +39,7 @@ export class ScheduleRoutes {
     }
 
     async updateAula(id: string, params: UpdateAulaType) {
-        return await api.put(`/scheduling/aulas/${id}`, { json: params }).json<AulaType>();
+        return await api.put(`/scheduling/aulas/${id}`, { json: { ...params, isActive: true } }).json<AulaType>();
     }
 
     async deleteAula(id: string) {
