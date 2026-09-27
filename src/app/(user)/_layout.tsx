@@ -92,6 +92,7 @@ export default function ProtectedLayout() {
           tabBarIcon: ({ color, size }) => <Clock color={color} size={size} />,
         }}
       />
+      <Tabs.Screen name="pendingPayments" options={{ href: null }} />
     </Tabs>
   );
 }

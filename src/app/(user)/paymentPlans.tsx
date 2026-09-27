@@ -14,6 +14,8 @@ import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useCurrentPlan, usePlans } from "@/hooks/plans.hooks";
+import { usePayments } from "@/hooks/studentPayments.hooks";
+import { router } from "expo-router";
 import { CurrentPlanType, PlanType } from "@/types/plans.types";
 import { Check, ChevronDown, CreditCard, Star } from "lucide-react-native";
 import { useState } from "react";
@@ -212,6 +214,7 @@ const PlanCard = ({ plan }: { plan: PlanType }) => {
 };
 
 export default function PaymentPlans() {
+  const { payments, error: paymentsError, refetch: refetchPayments } = usePayments();
   const { plans, isLoading, error } = usePlans();
   const {
     currentPlan,
@@ -238,6 +241,25 @@ export default function PaymentPlans() {
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollPadding}
       >
+        {payments.length > 0 && (
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={[styles.btnSolid, { marginBottom: 20 }]}
+            onPress={() => router.push("/(user)/pendingPayments")}
+          >
+            <Text style={styles.btnSolidText}>Minhas Pendências</Text>
+          </TouchableOpacity>
+        )}
+        {paymentsError && (
+          <View style={{ marginBottom: 20, gap: 8 }}>
+            <Text style={{ color: COLORS.destructive }}>
+              Não foi possível consultar suas pendências.
+            </Text>
+            <TouchableOpacity style={styles.btnSolid} onPress={() => refetchPayments()}>
+              <Text style={styles.btnSolidText}>Tentar novamente</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {isLoadingCurrent ? (
           <CurrentPlanSkeleton />
         ) : currentError ? (

@@ -1,4 +1,5 @@
 import {
+  PaginatedPayments,
   PaymentGateway,
   PaymentGatewayConfiguration,
   UpdatePaymentGateway,
@@ -7,6 +8,11 @@ import { PAYMENT_GATEWAYS } from "@/utils/paymentGateways";
 import api from "./client";
 
 export class PaymentsRoutes {
+  async getPayments(page?: number): Promise<PaginatedPayments> {
+    return api.get("/payments", page === undefined ? {} : { searchParams: { page } })
+      .json<PaginatedPayments>();
+  }
+
   async getGateways(): Promise<PaymentGatewayConfiguration[]> {
     const result = await api.get("/payments/gateways").json<PaymentGatewayConfiguration[]>();
     // Seleciona apenas os metadados, mesmo se a API passar a enviar outros campos.
