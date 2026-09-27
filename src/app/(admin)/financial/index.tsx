@@ -1,4 +1,4 @@
-import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import { COLORS } from "@/components/ClientHeader";
 import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
@@ -36,7 +36,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 const currency = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -172,8 +171,7 @@ export default function AdminFinancial() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ClientHeader />
+    <View style={styles.safe}>
       <ScreenScrollView>
         <AdminScreen>
           {hasError && (
@@ -329,7 +327,7 @@ export default function AdminFinancial() {
           </AdminCard>
         </AdminScreen>
       </ScreenScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

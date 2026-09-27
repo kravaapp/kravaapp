@@ -4,7 +4,6 @@ import { useAuth } from "@/hooks/auth.hooks";
 import { USER_ROLES } from "@/types/auth.types";
 import { Redirect, Tabs } from "expo-router";
 import {
-    BadgeDollarSign,
     Dumbbell,
     LayoutGrid,
     Settings,
@@ -84,11 +83,7 @@ export default function ProtectedLayout() {
       <Tabs.Screen
         name="plans"
         options={{
-          title: "Planos",
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <BadgeDollarSign color={color} size={size} />
-          ),
+          href: null,
         }}
       />
 
