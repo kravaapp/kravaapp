@@ -8,8 +8,8 @@ import { PAYMENT_GATEWAYS } from "@/utils/paymentGateways";
 import api from "./client";
 
 export class PaymentsRoutes {
-  async getPayments(page?: number): Promise<PaginatedPayments> {
-    return api.get("/payments", page === undefined ? {} : { searchParams: { page } })
+  async getMyPayments(page?: number): Promise<PaginatedPayments> {
+    return api.get("/payments/my", page === undefined ? {} : { searchParams: { page } })
       .json<PaginatedPayments>();
   }
 
