@@ -34,7 +34,8 @@ export class ScheduleRoutes {
     }
 
     async createAula(params: CreateAulaType) {
-        return await api.post("/scheduling/aulas", { json: params }).json<AulaType>();
+        // A tela recarrega a grade após sucesso; não depende do formato do lote retornado.
+        await api.post("/scheduling/aulas", { json: params });
     }
 
     async updateAula(id: string, params: UpdateAulaType) {

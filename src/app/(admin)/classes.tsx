@@ -25,7 +25,7 @@ import { normalizeApiError } from "@/routes/apiError";
 import { AulaType, TodayOccurrenceType } from "@/types/schedules.types";
 import { maskInteger, maskTime } from "@/utils/masks";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -98,14 +98,14 @@ const publicGenderValue = (audience: Audience | null) => {
 const missingClassFields = ({
   modalidadeId,
   professorId,
-  dayOfWeek,
+  daysOfWeek,
   startTime,
   endTime,
   capacity,
 }: {
   modalidadeId: string;
   professorId: string;
-  dayOfWeek: number | null;
+  daysOfWeek: number[];
   startTime: string;
   endTime: string;
   capacity: string;
@@ -114,7 +114,7 @@ const missingClassFields = ({
   return [
     !modalidadeId && "Modalidade",
     !professorId && "Professor",
-    dayOfWeek === null && "Dia da semana",
+    (daysOfWeek.length === 0 || daysOfWeek.some((day) => !Number.isInteger(day) || day < 0 || day > 6)) && "Dias da semana",
     !/^\d{2}:\d{2}$/.test(startTime) && "Horário de início",
     !/^\d{2}:\d{2}$/.test(endTime) && "Horário de fim",
     (!Number.isInteger(maxCapacity) || maxCapacity <= 0) && "Capacidade",
@@ -348,9 +348,9 @@ export default function AdminClasses() {
       <NewClassModal
         visible={newClass}
         onClose={() => setNewClass(false)}
-        onSuccess={() => {
+        onSuccess={(count) => {
           setNewClass(false);
-          toast({ title: "Aula criada com sucesso!" });
+          toast({ title: count === 1 ? "Aula criada com sucesso!" : `${count} aulas criadas com sucesso!` });
         }}
         onError={(message) => {
           setNewClass(false);
@@ -381,7 +381,7 @@ function NewClassModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (count: number) => void;
   onError: (message: string) => void;
 }) {
   const { modalidades, professors, isLoading, error } = useClassFormOptions();
@@ -389,7 +389,7 @@ function NewClassModal({
   const [modalidadeId, setModalidadeId] = useState("");
   const [professorId, setProfessorId] = useState("");
   const [name, setName] = useState("");
-  const [dayOfWeek, setDayOfWeek] = useState<number | null>(null);
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [capacity, setCapacity] = useState("");
@@ -397,24 +397,46 @@ function NewClassModal({
   const [minLevel, setMinLevel] = useState<string | null>(null);
   const [allowTrial, setAllowTrial] = useState(true);
   const [validationMessage, setValidationMessage] = useState("");
+  const submitting = useRef(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    setModalidadeId("");
+    setProfessorId("");
+    setName("");
+    setDaysOfWeek([]);
+    setStartTime("");
+    setEndTime("");
+    setCapacity("");
+    setPublicGender(null);
+    setMinLevel(null);
+    setAllowTrial(true);
+    setValidationMessage("");
+  }, [visible]);
 
   useEffect(() => {
     setValidationMessage("");
-  }, [modalidadeId, professorId, dayOfWeek, startTime, endTime, capacity]);
+  }, [modalidadeId, professorId, daysOfWeek, startTime, endTime, capacity]);
+
+  const close = () => {
+    if (!submitting.current) onClose();
+  };
 
   const submit = async () => {
+    if (submitting.current || isCreating) return;
     const maxCapacity = Number(capacity);
-    const missingFields = missingClassFields({ modalidadeId, professorId, dayOfWeek, startTime, endTime, capacity });
+    const missingFields = missingClassFields({ modalidadeId, professorId, daysOfWeek, startTime, endTime, capacity });
     if (missingFields.length) {
       setValidationMessage(`Preencha: ${missingFields.join(", ")}.`);
       return;
     }
+    submitting.current = true;
     try {
       await createAula({
         modalidadeId,
         professorId,
         name: name.trim() || null,
-        dayOfWeek: dayOfWeek!,
+        daysOfWeek,
         startTime,
         endTime,
         maxCapacity,
@@ -423,12 +445,14 @@ function NewClassModal({
         publicGender: publicGenderValue(publicGender),
         waitlistTimeoutMinutes: null,
       });
-      onSuccess();
+      onSuccess(daysOfWeek.length);
     } catch (requestError) {
       onError(
         normalizeApiError(requestError, "Não foi possível criar a aula.")
           .description,
       );
+    } finally {
+      submitting.current = false;
     }
   };
 
@@ -437,14 +461,14 @@ function NewClassModal({
       transparent
       animationType="slide"
       visible={visible}
-      onRequestClose={onClose}
+      onRequestClose={close}
     >
       <KeyboardAvoider>
         <View style={styles.backdrop}>
           <View style={styles.modal}>
             <View style={styles.rowBetween}>
               <SectionTitle>Nova aula</SectionTitle>
-              <TouchableOpacity onPress={onClose}>
+              <TouchableOpacity onPress={close} disabled={isCreating}>
                 <X color={COLORS.foreground} />
               </TouchableOpacity>
             </View>
@@ -486,14 +510,21 @@ function NewClassModal({
                     placeholder="Ex.: Treino avançado"
                     style={styles.input}
                   />
-                  <Text style={styles.label}>Dia da semana</Text>
+                  <Text style={styles.label}>Dias da semana</Text>
+                  <Text style={styles.muted}>Selecione um ou mais dias. Uma aula será criada na grade para cada dia selecionado.</Text>
                   <View style={styles.options}>
                     {dayLabels.map((day, index) => (
                       <Option
                         key={day}
                         label={day}
-                        active={dayOfWeek === index}
-                        onPress={() => setDayOfWeek(index)}
+                        active={daysOfWeek.includes(index)}
+                        multiple
+                        disabled={isCreating}
+                        onPress={() => setDaysOfWeek((previous) =>
+                          previous.includes(index)
+                            ? previous.filter((day) => day !== index)
+                            : [...previous, index].sort((a, b) => a - b),
+                        )}
                       />
                     ))}
                   </View>
@@ -556,8 +587,9 @@ function NewClassModal({
                     <Switch value={allowTrial} onValueChange={setAllowTrial} />
                   </View>
                   <ActionButton
-                    label={isCreating ? "Criando..." : "Criar aula"}
+                    label={isCreating ? "Criando..." : daysOfWeek.length > 1 ? `Criar ${daysOfWeek.length} aulas` : "Criar aula"}
                     onPress={submit}
+                    disabled={isCreating}
                   />
                 </View>
               )}
@@ -645,7 +677,7 @@ function EditClassModal({
   const submit = () => {
     if (isUpdating) return;
     const maxCapacity = Number(capacity);
-    const missingFields = missingClassFields({ modalidadeId, professorId, dayOfWeek, startTime, endTime, capacity });
+    const missingFields = missingClassFields({ modalidadeId, professorId, daysOfWeek: dayOfWeek === null ? [] : [dayOfWeek], startTime, endTime, capacity });
     if (missingFields.length) {
       setValidationMessage(`Preencha: ${missingFields.join(", ")}.`);
       return;
@@ -797,14 +829,21 @@ function Option({
   label,
   active,
   onPress,
+  multiple = false,
+  disabled = false,
 }: {
   label: string;
   active: boolean;
   onPress: () => void;
+  multiple?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <TouchableOpacity
       onPress={onPress}
+      disabled={disabled}
+      accessibilityRole={multiple ? "checkbox" : "button"}
+      accessibilityState={multiple ? { checked: active, disabled } : { selected: active, disabled }}
       style={[styles.option, active && styles.optionActive]}
     >
       <Text style={[styles.optionText, active && styles.optionTextActive]}>

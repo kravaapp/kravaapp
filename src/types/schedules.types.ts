@@ -171,11 +171,10 @@ export type ProfessorType = {
   role: string | null;
 }
 
-export type CreateAulaType = {
+type AulaFields = {
   modalidadeId: string;
   professorId: string;
   name: string | null;
-  dayOfWeek: number;
   startTime: string;
   endTime: string;
   maxCapacity: number;
@@ -185,5 +184,11 @@ export type CreateAulaType = {
   waitlistTimeoutMinutes: number | null;
 }
 
-/** O contrato de atualização contém os mesmos campos editáveis da aula. */
-export type UpdateAulaType = CreateAulaType;
+/** Criação em lote ou formato legado, sempre com pelo menos um dia. */
+export type CreateAulaType = AulaFields & (
+  | { daysOfWeek: number[]; dayOfWeek?: never }
+  | { dayOfWeek: number; daysOfWeek?: never }
+);
+
+/** A edição permanece individual por registro da grade. */
+export type UpdateAulaType = AulaFields & { dayOfWeek: number };
