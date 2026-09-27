@@ -12,7 +12,7 @@ import {
   resendConfirmationCodeSchema,
 } from "@/schemas/auth.schemas";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -148,17 +148,16 @@ export default function ConfirmEmail() {
       >
         <View style={styles.card}>
           <TouchableOpacity
-            style={styles.backRow}
+            style={styles.backButton}
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Voltar para o login"
           >
-            <ArrowLeft size={18} color={COLORS.foreground} />
-            <Text style={styles.backText}>Voltar</Text>
+            <ChevronLeft size={24} color={COLORS.foreground} />
           </TouchableOpacity>
 
           <View style={styles.logoContainer}>
-            <KravaLogo size={56} />
+            <KravaLogo size={64} />
             <Text style={styles.title}>{STEP_TITLES[step]}</Text>
           </View>
 
@@ -290,24 +289,20 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
-  backRow: {
-    flexDirection: "row",
+  backButton: {
+    position: "absolute",
+    zIndex: 1,
+    top: 24,
+    left: 12,
+    width: 44,
+    height: 44,
     alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-  },
-
-  backText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: COLORS.foreground,
+    justifyContent: "center",
   },
 
   logoContainer: {
     alignItems: "center",
-    marginTop: 8,
-    marginBottom: 24,
+    marginBottom: 32,
   },
 
   title: {
