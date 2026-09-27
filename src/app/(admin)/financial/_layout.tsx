@@ -6,11 +6,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const sections = [
   { label: "Financeiro", href: "/(admin)/financial" },
   { label: "Planos", href: "/(admin)/financial/plans" },
+  { label: "Gateways", href: "/(admin)/financial/gateways" },
 ] as const;
 
 export default function FinancialLayout() {
   const pathname = usePathname();
-  const activeSection = pathname.endsWith("/plans") ? "Planos" : "Financeiro";
+  const activeSection = pathname.endsWith("/gateways")
+    ? "Gateways"
+    : pathname.endsWith("/plans") ? "Planos" : "Financeiro";
 
   return (
     <SafeAreaView style={styles.container}>
@@ -41,6 +44,7 @@ export default function FinancialLayout() {
       <Stack screenOptions={{ headerShown: false, animation: "none" }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="plans" />
+        <Stack.Screen name="gateways" />
       </Stack>
     </SafeAreaView>
   );
