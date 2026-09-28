@@ -13,12 +13,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useToast } from "@/components/Toast";
+import { useSubscribeContract } from "@/hooks/contracts.hooks";
 import { useCurrentPlan, usePlans } from "@/hooks/plans.hooks";
 import { usePayments } from "@/hooks/studentPayments.hooks";
+import { normalizeApiError } from "@/routes/apiError";
 import { router } from "expo-router";
 import { CurrentPlanType, PlanType } from "@/types/plans.types";
 import { Check, ChevronDown, CreditCard, Star } from "lucide-react-native";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 const ProgressBar = ({ progress }: { progress: number }) => (
   <View style={styles.progressBarBackground}>
@@ -141,7 +144,17 @@ const CurrentPlanCard = ({ plan }: { plan: CurrentPlanType }) => {
   );
 };
 
-const PlanCard = ({ plan }: { plan: PlanType }) => {
+const PlanCard = ({
+  plan,
+  onSubscribe,
+  disabled,
+  isSubscribing,
+}: {
+  plan: PlanType;
+  onSubscribe: (plan: PlanType) => void;
+  disabled: boolean;
+  isSubscribing: boolean;
+}) => {
   const isPopular = plan.name.toLowerCase().includes("trimestral");
 
   const isCurrent = false;
@@ -204,8 +217,18 @@ const PlanCard = ({ plan }: { plan: PlanType }) => {
             <Text style={styles.btnOutlineDisabledText}>Plano atual</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.btnSolid}>
-            <Text style={styles.btnSolidText}>Assinar Plano</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ disabled, busy: isSubscribing }}
+            style={[styles.btnSolid, disabled && { opacity: 0.6 }]}
+            disabled={disabled}
+            onPress={() => onSubscribe(plan)}
+          >
+            {isSubscribing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.btnSolidText}>Assinar Plano</Text>
+            )}
           </TouchableOpacity>
         )}
       </View>
@@ -214,6 +237,10 @@ const PlanCard = ({ plan }: { plan: PlanType }) => {
 };
 
 export default function PaymentPlans() {
+  const { toast } = useToast();
+  const { subscribe, isLoading: isSubscribing } = useSubscribeContract();
+  const subscriptionInFlight = useRef(false);
+  const [subscribingPlanId, setSubscribingPlanId] = useState<string | null>(null);
   const { payments, error: paymentsError, refetch: refetchPayments } = usePayments();
   const { plans, isLoading, error } = usePlans();
   const {
@@ -226,6 +253,33 @@ export default function PaymentPlans() {
   const [selectedPartner, setSelectedPartner] = useState<string | null>(null);
   const [partnerId, setPartnerId] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const handleSubscribe = async (plan: PlanType) => {
+    if (subscriptionInFlight.current) return;
+    subscriptionInFlight.current = true;
+    setSubscribingPlanId(plan.id);
+    try {
+      await subscribe({
+        planoId: plan.id,
+        cancelExistingActive: true,
+        immediate: true,
+      });
+      toast({
+        title: "Assinatura registrada!",
+      });
+    } catch (requestError) {
+      toast({
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível assinar o plano. Tente novamente.",
+        ).description,
+        variant: "destructive",
+      });
+    } finally {
+      subscriptionInFlight.current = false;
+      setSubscribingPlanId(null);
+    }
+  };
 
   const handleSendRequest = () => {
     setPartnerModal(false);
@@ -299,7 +353,15 @@ export default function PaymentPlans() {
               <Text style={{ color: "#6b7280", fontSize: 12 }}>{error}</Text>
             </View>
           ) : (
-            plans?.map((p) => <PlanCard key={p.id} plan={p} />)
+            plans?.map((p) => (
+              <PlanCard
+                key={p.id}
+                plan={p}
+                onSubscribe={handleSubscribe}
+                disabled={isSubscribing || subscribingPlanId !== null}
+                isSubscribing={subscribingPlanId === p.id}
+              />
+            ))
           )}
         </View>
 

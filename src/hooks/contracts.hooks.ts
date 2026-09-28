@@ -1,6 +1,21 @@
 import { ContractsRoutes } from "@/routes/contracts.routes";
-import { CreateContractType } from "@/types/contracts.types";
+import { CreateContractType, SubscribeContractType } from "@/types/contracts.types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+export function useSubscribeContract() {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (contract: SubscribeContractType) =>
+      new ContractsRoutes().subscribe(contract),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["plans"] });
+      queryClient.invalidateQueries({ queryKey: ["aluno"] });
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
+    },
+  });
+
+  return { subscribe: mutation.mutateAsync, isLoading: mutation.isPending };
+}
 
 export function useCreateContract() {
   const queryClient = useQueryClient();
@@ -11,6 +26,8 @@ export function useCreateContract() {
       queryClient.invalidateQueries({ queryKey: ["admin-plans"] });
       queryClient.invalidateQueries({ queryKey: ["plans"] });
       queryClient.invalidateQueries({ queryKey: ["alunos"] });
+      queryClient.invalidateQueries({ queryKey: ["aluno"] });
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
     },
   });
 
