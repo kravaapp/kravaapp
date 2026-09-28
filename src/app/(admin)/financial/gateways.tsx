@@ -5,7 +5,7 @@ import { useToast } from "@/components/Toast";
 import { ActionButton, AdminCard, AdminScreen, AdminSkeleton, Pill, SectionTitle } from "@/components/admin/AdminUi";
 import { usePaymentGateways } from "@/hooks/payments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
-import { gatewayConfigurationSchema } from "@/schemas/payments.schemas";
+import { gatewayConfigurationSchema, mercadoPagoConfigurationSchema } from "@/schemas/payments.schemas";
 import { PaymentGateway, UpdatePaymentGateway } from "@/types/payments.types";
 import { PAYMENT_GATEWAYS, gatewayConfigurationDate } from "@/utils/paymentGateways";
 import { Check, Eye, EyeOff, ShieldCheck, X } from "lucide-react-native";
@@ -136,6 +136,7 @@ function GatewayModal({ editor, activeOther, onClose, onSave, onSaved, refreshin
 }) {
   const definition = PAYMENT_GATEWAYS.find((item) => item.gateway === editor.gateway)!;
   const [apiKey, setApiKey] = useState("");
+  const [publicKey, setPublicKey] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [isActive, setIsActive] = useState(editor.isActive);
   const [error, setError] = useState("");
@@ -148,6 +149,7 @@ function GatewayModal({ editor, activeOther, onClose, onSave, onSaved, refreshin
   const close = () => {
     if (submitting.current) return;
     setApiKey("");
+    setPublicKey("");
     setWebhookSecret("");
     onClose();
   };
@@ -155,7 +157,8 @@ function GatewayModal({ editor, activeOther, onClose, onSave, onSaved, refreshin
   const submit = async (confirmed = false) => {
     if (submitting.current || refreshing) return;
     setError("");
-    const parsed = gatewayConfigurationSchema.safeParse({ apiKey, webhookSecret, isActive });
+    const schema = editor.gateway === "mercadopago" ? mercadoPagoConfigurationSchema : gatewayConfigurationSchema;
+    const parsed = schema.safeParse({ apiKey, publicKey, webhookSecret, isActive });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Verifique os dados informados.");
       return;
@@ -169,10 +172,12 @@ function GatewayModal({ editor, activeOther, onClose, onSave, onSaved, refreshin
     try {
       await onSave({
         apiKey: parsed.data.apiKey,
+        ...(editor.gateway === "mercadopago" ? { publicKey: parsed.data.publicKey } : {}),
         ...(parsed.data.webhookSecret ? { webhookSecret: parsed.data.webhookSecret } : {}),
         isActive: parsed.data.isActive,
       });
       setApiKey("");
+      setPublicKey("");
       setWebhookSecret("");
       onSaved(parsed.data.isActive);
     } catch (requestError) {
@@ -219,6 +224,24 @@ function GatewayModal({ editor, activeOther, onClose, onSave, onSaved, refreshin
                     </Text>
                   )}
                   <SecretField label={`${definition.credentialLabel} *`} value={apiKey} onChange={setApiKey} disabled={busy} />
+                  {editor.gateway === "mercadopago" && (
+                    <View style={styles.heading}>
+                      <Text style={styles.fieldLabel}>Public Key *</Text>
+                      <TextInput
+                        accessibilityLabel="Public Key *"
+                        style={styles.input}
+                        value={publicKey}
+                        onChangeText={setPublicKey}
+                        placeholder="APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        spellCheck={false}
+                        autoComplete="off"
+                        editable={!busy}
+                      />
+                      <Text style={styles.muted}>Necessária para o processamento de cartões de crédito no aplicativo dos alunos.</Text>
+                    </View>
+                  )}
                   <SecretField label="Webhook Secret (opcional)" value={webhookSecret} onChange={setWebhookSecret} disabled={busy} />
                   <View style={styles.switchRow}>
                     <View style={styles.grow}>
