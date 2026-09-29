@@ -1,24 +1,22 @@
 import { cardPaymentFieldsSchema } from "@/schemas/payments.schemas";
 import { createMercadoPagoCardHtml, MercadoPagoCardProps } from "@/utils/mercadoPagoCard";
 import { publicBaseUrl } from "@/utils/apiUrl";
-import { useMemo, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { useMemo, useRef } from "react";
+import { View } from "react-native";
 import { WebView } from "react-native-webview";
 
-export default function MercadoPagoCard({ onToken, ...config }: MercadoPagoCardProps) {
+export default function MercadoPagoCard({ onToken, onError, ...config }: MercadoPagoCardProps) {
   const webview = useRef<WebView>(null);
   const processing = useRef(false);
-  const [failed, setFailed] = useState(false);
   const html = useMemo(() => createMercadoPagoCardHtml(config), [config.publicKey, config.amount, config.customerName, config.customerDocument]);
   return (
-    <View style={{ height: 540 }}>
-      {failed && <Text style={{ color: "#b91c1c" }}>Não foi possível abrir o checkout. Tente novamente.</Text>}
+    <View style={{ height: 380 }}>
       <WebView
         ref={webview}
         source={{ html, baseUrl: publicBaseUrl }}
         originWhitelist={["https://*"]}
         javaScriptEnabled
-        onError={() => setFailed(true)}
+        onError={() => onError("Não foi possível abrir o checkout. Tente novamente.")}
         onMessage={async (event) => {
           if (processing.current) return;
           let message;
@@ -27,9 +25,16 @@ export default function MercadoPagoCard({ onToken, ...config }: MercadoPagoCardP
           } catch {
             return;
           }
+          if (message?.type === "card-error") {
+            if (typeof message.message === "string") onError(message.message);
+            return;
+          }
           if (message?.type !== "card-token") return;
           const result = cardPaymentFieldsSchema.safeParse(message.fields);
-          if (!result.success) return;
+          if (!result.success) {
+            onError("Não foi possível validar o cartão. Confira os dados e tente novamente.");
+            return;
+          }
           processing.current = true;
           try {
             await onToken(result.data);

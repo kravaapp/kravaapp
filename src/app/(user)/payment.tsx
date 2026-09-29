@@ -69,7 +69,6 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
     null,
   );
   const [result, setResult] = useState<PayInvoiceResponse | null>(null);
-  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const inFlight = useRef(false);
   const successNotified = useRef(false);
@@ -115,7 +114,6 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   }, [isPixResult, paid, result?.status, id, refetchInvoice, completePayment]));
 
   const showError = (description: string) => {
-    setError(description);
     toast({ title: description, variant: "destructive" });
   };
 
@@ -129,7 +127,6 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
       showError(parsed.error.issues[0].message);
       return null;
     }
-    setError("");
     return parsed.data;
   };
 
@@ -144,7 +141,6 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
       return;
     inFlight.current = true;
     setSubmitting(true);
-    setError("");
     try {
       const response = await pay(request);
       setResult(response);
@@ -281,6 +277,18 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                 </>
               )}
               {isPixResult && <Text style={[styles.muted, styles.pixText]}>O status é verificado automaticamente a cada 7 segundos.</Text>}
+              {isPixResult && (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.changePayment}
+                  onPress={() => setResult(null)}
+                  disabled={submitting}
+                >
+                  <Text style={[styles.changePaymentText, submitting && styles.disabled]}>
+                    Alterar dados ou forma de pagamento
+                  </Text>
+                </TouchableOpacity>
+              )}
               {!isPixResult && checkoutUrl &&
                 button(
                   result.status === "action_required"
@@ -312,7 +320,6 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
               ) &&
                 button("Tentar novamente", () => {
                   setResult(null);
-                  setError("");
                 })}
               {!isPixResult && button("Ver pendências", () =>
                 router.navigate("/(user)/pendingPayments"),
@@ -419,7 +426,6 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                           disabled={submitting}
                           onPress={() => {
                             setMethod(option);
-                            setError("");
                           }}
                         >
                           <Text style={styles.label}>
@@ -450,21 +456,22 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                       customerName={cardCustomer.customerName}
                       customerDocument={cardCustomer.customerDocument}
                       onToken={onCardToken}
+                      onError={showError}
                     />
-                    {button(
-                      "Alterar dados ou forma de pagamento",
-                      () => setCardCustomer(null),
-                      submitting,
-                    )}
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      style={styles.changePayment}
+                      onPress={() => setCardCustomer(null)}
+                      disabled={submitting}
+                    >
+                      <Text style={[styles.changePaymentText, submitting && styles.disabled]}>
+                        Alterar dados ou forma de pagamento
+                      </Text>
+                    </TouchableOpacity>
                   </>
                 )}
               </View>
             </>
-          )}
-          {!!error && (
-            <Text accessibilityRole="alert" style={styles.error}>
-              {error}
-            </Text>
           )}
         </ScrollView>
       </KeyboardAvoider>
@@ -527,6 +534,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonText: { color: COLORS.white, fontWeight: "600" },
+  changePayment: { alignSelf: "center", padding: 12 },
+  changePaymentText: { color: COLORS.mainOrange, fontWeight: "600", textAlign: "center" },
   disabled: { opacity: 0.4 },
   error: { color: COLORS.destructive, fontSize: 14 },
   qrCode: { width: 230, height: 230, maxWidth: "100%", alignSelf: "center" },
