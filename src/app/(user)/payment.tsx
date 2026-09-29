@@ -21,7 +21,7 @@ import {
   isPaymentPaid,
 } from "@/utils/payments";
 import * as Clipboard from "expo-clipboard";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { ArrowLeft } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -82,6 +82,8 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   const cardAvailable =
     gateway.data?.gateway === "mercadopago" && !!gateway.data.publicKey?.trim();
   const checkoutUrl = getCheckoutUrl(result?.paymentUrl);
+  const isPixResult = method === "Pix" && !!result;
+  const { refetch: refetchInvoice } = invoices;
 
   const completePayment = useCallback(() => {
     if (successNotified.current) return;
@@ -93,6 +95,27 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   useEffect(() => {
     if (paid) completePayment();
   }, [paid, completePayment]);
+
+  useFocusEffect(useCallback(() => {
+    if (!isPixResult || paid || ["failed", "rejected", "recusado", "cancelled", "canceled"].includes(result.status.trim().toLowerCase())) return;
+    let active = true;
+    let checking = false;
+    const interval = setInterval(() => {
+      if (checking) return;
+      checking = true;
+      void refetchInvoice().then((refreshed) => {
+        if (active && isPaymentPaid(refreshed.data?.items.find((item) => item.id === id)?.status ?? "")) {
+          completePayment();
+        }
+      }).catch(() => {
+        // A próxima consulta automática tentará novamente.
+      }).finally(() => { checking = false; });
+    }, 7000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [isPixResult, paid, result?.status, id, refetchInvoice, completePayment]));
 
   const showError = (description: string) => {
     setError(description);
@@ -206,7 +229,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
       <ClientHeader />
       <KeyboardAvoider>
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, isPixResult && styles.pixContent]}
           keyboardShouldPersistTaps="handled"
         >
           <TouchableOpacity
@@ -232,8 +255,8 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
               )}
             </View>
           ) : result ? (
-            <View style={styles.card}>
-              <Text style={styles.heading}>
+            <View style={isPixResult ? styles.pixResult : styles.card}>
+              <Text style={[styles.heading, isPixResult && styles.pixText]}>
                 {getPaymentResultMessage(result.status)}
               </Text>
               {!!result.pixQrCodeBase64 && (
@@ -252,24 +275,20 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
               )}
               {!!result.pixCopyPaste && (
                 <>
-                  <Text style={styles.muted}>
+                  <Text style={[styles.muted, styles.pixText]}>
                     Copie o código e pague pelo aplicativo do seu banco.
-                  </Text>
-                  <Text selectable style={styles.pixCode}>
-                    {result.pixCopyPaste}
                   </Text>
                   {button("Copiar código Pix", () => {
                     void Clipboard.setStringAsync(result.pixCopyPaste!)
                       .then(() => toast({ title: "Código Pix copiado!" }))
                       .catch(() =>
-                        showError(
-                          "Não foi possível copiar. Selecione o código acima.",
-                        ),
+                        showError("Não foi possível copiar. Tente novamente."),
                       );
                   })}
                 </>
               )}
-              {checkoutUrl &&
+              {isPixResult && <Text style={[styles.muted, styles.pixText]}>O status é verificado automaticamente a cada 7 segundos.</Text>}
+              {!isPixResult && checkoutUrl &&
                 button(
                   result.status === "action_required"
                     ? "Concluir autenticação"
@@ -288,21 +307,21 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                   pendências antes de tentar novamente.
                 </Text>
               )}
-              {button(
+              {!isPixResult && button(
                 "Atualizar status",
                 () => {
                   void refreshPayment();
                 },
                 invoices.isFetching,
               )}
-              {["rejected", "failed", "recusado"].includes(
+              {!isPixResult && ["rejected", "failed", "recusado"].includes(
                 result.status.toLowerCase(),
               ) &&
                 button("Tentar novamente", () => {
                   setResult(null);
                   setError("");
                 })}
-              {button("Ver pendências", () =>
+              {!isPixResult && button("Ver pendências", () =>
                 router.navigate("/(user)/pendingPayments"),
               )}
             </View>
@@ -463,6 +482,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   content: { padding: 20, paddingBottom: 40, gap: 16 },
+  pixContent: { flexGrow: 1 },
   back: { flexDirection: "row", gap: 8, alignItems: "center" },
   backText: { color: COLORS.mainOrange, fontWeight: "600" },
   title: { fontSize: 24, fontWeight: "bold", color: COLORS.foreground },
@@ -475,8 +495,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: COLORS.card,
   },
+  pixResult: {
+    flex: 1,
+    justifyContent: "center",
+    paddingVertical: 16,
+    gap: 18,
+    alignItems: "center",
+    backgroundColor: COLORS.white,
+  },
   amount: { fontSize: 26, fontWeight: "bold", color: COLORS.foreground },
   muted: { fontSize: 13, lineHeight: 19, color: COLORS.mutedForeground },
+  pixText: { textAlign: "center" },
   label: { color: COLORS.foreground, fontSize: 14, fontWeight: "500" },
   input: {
     borderWidth: 1,
@@ -507,11 +536,4 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.4 },
   error: { color: COLORS.destructive, fontSize: 14 },
   qrCode: { width: 230, height: 230, maxWidth: "100%", alignSelf: "center" },
-  pixCode: {
-    padding: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.subOrange,
-    color: COLORS.foreground,
-    fontSize: 12,
-  },
 });
