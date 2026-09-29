@@ -93,6 +93,7 @@ export default function ProtectedLayout() {
         }}
       />
       <Tabs.Screen name="pendingPayments" options={{ href: null }} />
+      <Tabs.Screen name="payment" options={{ href: null }} />
     </Tabs>
   );
 }

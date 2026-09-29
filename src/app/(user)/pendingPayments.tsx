@@ -1,6 +1,6 @@
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import { usePayments } from "@/hooks/studentPayments.hooks";
-import { formatPaymentDate, getPaymentType } from "@/utils/payments";
+import { canPayInvoice, formatPaymentDate, getPaymentType } from "@/utils/payments";
 import { router } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import { useState } from "react";
@@ -43,6 +43,19 @@ export default function PendingPayments() {
               {!!type.description && <Text style={styles.muted}>{type.description}</Text>}
               <Text style={styles.amount}>{payment.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</Text>
               <Text style={styles.muted}>Vencimento: {formatPaymentDate(payment.dueDate)}</Text>
+              {canPayInvoice(payment.status) && (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={`Pagar ${payment.description || type.label}`}
+                  style={styles.button}
+                  onPress={() => router.push({
+                    pathname: "/(user)/payment",
+                    params: { id: payment.id, ...(page !== undefined ? { page: String(page) } : {}) },
+                  })}
+                >
+                  <Text style={styles.buttonText}>Pagar</Text>
+                </TouchableOpacity>
+              )}
             </View>
           );
         })}

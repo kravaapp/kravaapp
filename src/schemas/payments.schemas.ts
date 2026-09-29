@@ -1,5 +1,24 @@
 import z from "zod";
 
+export const paymentCustomerSchema = z.object({
+  customerName: z.string().trim().min(2, "Informe seu nome completo."),
+  customerEmail: z.string().trim().pipe(z.email("Informe um e-mail válido.")),
+  customerDocument: z.string().transform((value) => value.replace(/\D/g, ""))
+    .refine((value) => value.length === 11 || value.length === 14, "Informe um CPF ou CNPJ válido."),
+});
+
+export const cardPaymentFieldsSchema = z.object({
+  cardToken: z.string().min(1),
+  installments: z.number().int().positive(),
+  cardPaymentMethodId: z.enum(["master", "visa", "elo", "amex", "hipercard"]),
+});
+
+// O parse seleciona somente os campos permitidos, inclusive em runtime.
+export const payInvoiceSchema = z.discriminatedUnion("paymentMethod", [
+  paymentCustomerSchema.extend({ paymentMethod: z.literal("Pix") }),
+  paymentCustomerSchema.extend({ paymentMethod: z.literal("Cartao"), ...cardPaymentFieldsSchema.shape }),
+]);
+
 export const gatewayConfigurationSchema = z.object({
   apiKey: z.string().trim().min(1, "Informe a credencial do gateway."),
   publicKey: z.string().trim().optional(),

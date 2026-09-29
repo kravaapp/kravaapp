@@ -1,5 +1,36 @@
 export type PaymentGateway = "mercadopago" | "abacatepay";
 
+export type ActivePaymentGateway = {
+  gateway: PaymentGateway;
+  publicKey: string | null;
+};
+
+export type PaymentCustomer = {
+  customerName: string;
+  customerEmail: string;
+  customerDocument: string;
+};
+
+export type CardPaymentFields = {
+  cardToken: string;
+  installments: number;
+  cardPaymentMethodId: "master" | "visa" | "elo" | "amex" | "hipercard";
+};
+
+export type PayInvoiceRequest = PaymentCustomer & (
+  | { paymentMethod: "Pix" }
+  | ({ paymentMethod: "Cartao" } & CardPaymentFields)
+);
+
+export type PayInvoiceResponse = {
+  cobrancaId: string;
+  status: string;
+  paymentUrl?: string | null;
+  pixCopyPaste?: string | null;
+  pixQrCodeBase64?: string | null;
+  gatewayPaymentId?: string | null;
+};
+
 export type Payment = {
   id: string;
   alunoName: string;

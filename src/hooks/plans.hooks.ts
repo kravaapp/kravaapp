@@ -1,10 +1,12 @@
 import { PlansRoutes } from "@/routes/plans.routes";
+import { useAuth } from "@/hooks/auth.hooks";
 import { CreateAdminPlanType, UpdateAdminPlanType } from "@/types/plans.types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function usePlans() {
+    const { user } = useAuth();
     const query = useQuery({
-        queryKey: ["plans"],
+        queryKey: ["plans", "list", user?.tenantId],
         queryFn: async () => {
             const plansRoutes = new PlansRoutes();
             return await plansRoutes.getPlans();
@@ -24,8 +26,9 @@ export function usePlans() {
 }
 
 export function useCurrentPlan() {
+    const { user } = useAuth();
     const query = useQuery({
-        queryKey: ["plans", "current"],
+        queryKey: ["plans", "current", user?.tenantId, user?.userId],
         queryFn: async () => {
             const plansRoutes = new PlansRoutes();
             return await plansRoutes.getCurrentPlan();

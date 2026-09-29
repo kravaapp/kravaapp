@@ -21,6 +21,33 @@ const PAYMENT_TYPES: Record<string, { label: string; description: string }> = {
   },
 };
 
+export function isPaymentPaid(status: string) {
+  return ["paid", "pago", "paga", "confirmado", "confirmada"].includes(status.trim().toLowerCase());
+}
+
+export function canPayInvoice(status: string) {
+  return ["pending", "pendente", "overdue", "vencido", "vencida", "atrasado", "atrasada", "action_required"].includes(status.trim().toLowerCase());
+}
+
+export function getPaymentResultMessage(status: string) {
+  const value = status.trim().toLowerCase();
+  if (isPaymentPaid(value)) return "Pagamento aprovado!";
+  if (value === "action_required") return "Seu pagamento precisa de autenticação. Continue no provedor para concluir.";
+  if (["pending", "pendente", "in_process", "processing"].includes(value)) return "Aguardando confirmação do pagamento.";
+  if (["rejected", "failed", "recusado"].includes(value)) return "Pagamento não aprovado. Você pode tentar novamente.";
+  return `Status do pagamento: ${status}`;
+}
+
+export function getCheckoutUrl(value?: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getPaymentType(type: string) {
   const key = type.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
   return PAYMENT_TYPES[key] ?? { label: type || "Cobrança", description: "" };

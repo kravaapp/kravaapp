@@ -1,4 +1,5 @@
 import { isHTTPError, isNetworkError, isTimeoutError } from "ky";
+import { getMercadoPagoErrorMessage } from "@/utils/mercadoPagoErrors";
 
 export type ApiErrorInfo = {
   code: string | null;
@@ -55,6 +56,7 @@ export function normalizeApiError(
 ): ApiErrorInfo {
   if (isHTTPError(error)) {
     const { data } = error;
+    const gatewayDescription = getMercadoPagoErrorMessage(data);
 
     if (isRecord(data)) {
       const entry = firstErrorEntry(data);
@@ -62,7 +64,7 @@ export function normalizeApiError(
       return {
         code: firstString(data.code, entry?.code),
         description:
-          firstString(
+          gatewayDescription ?? firstString(
             data.message,
             data.description,
             data.detail,
@@ -75,7 +77,7 @@ export function normalizeApiError(
 
     // Corpo em texto puro — descartado se parecer uma página de erro HTML.
     if (typeof data === "string" && data.trim() && !looksLikeMarkup(data)) {
-      return { code: null, description: data.trim().slice(0, 200) };
+      return { code: null, description: gatewayDescription ?? data.trim().slice(0, 200) };
     }
 
     return {

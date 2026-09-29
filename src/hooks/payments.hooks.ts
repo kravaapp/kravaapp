@@ -23,6 +23,7 @@ export function usePaymentGateways() {
         updateGatewayStatuses(previous, gateway, configuration.isActive),
       );
       void client.invalidateQueries({ queryKey });
+      void client.invalidateQueries({ queryKey: ["active-payment-gateway", user?.tenantId] });
     },
   });
 

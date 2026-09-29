@@ -1,13 +1,29 @@
 import {
+  ActivePaymentGateway,
+  PayInvoiceRequest,
+  PayInvoiceResponse,
   PaginatedPayments,
   PaymentGateway,
   PaymentGatewayConfiguration,
   UpdatePaymentGateway,
 } from "@/types/payments.types";
 import { PAYMENT_GATEWAYS } from "@/utils/paymentGateways";
+import { payInvoiceSchema } from "@/schemas/payments.schemas";
+import z from "zod";
 import api from "./client";
 
 export class PaymentsRoutes {
+  async getActiveGateway(): Promise<ActivePaymentGateway> {
+    const { gateway, publicKey } = await api.get("/payments/gateways/active").json<ActivePaymentGateway>();
+    return { gateway, publicKey };
+  }
+
+  async payInvoice(id: string, request: PayInvoiceRequest): Promise<PayInvoiceResponse> {
+    const invoiceId = z.uuid().parse(id);
+    const body = payInvoiceSchema.parse(request);
+    return api.post(`/payments/${invoiceId}/pay`, { json: body, retry: 0 }).json<PayInvoiceResponse>();
+  }
+
   async getMyPayments(page?: number): Promise<PaginatedPayments> {
     return api.get("/payments/my", page === undefined ? {} : { searchParams: { page } })
       .json<PaginatedPayments>();

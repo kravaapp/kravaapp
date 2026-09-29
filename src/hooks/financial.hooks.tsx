@@ -1,12 +1,14 @@
 import { FinancialRoutes } from "@/routes/financial.routes";
+import { useAuth } from "@/hooks/auth.hooks";
 import { UpdateTenantSettingsType } from "@/types/financial.types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useFinancialScreen(month: string) {
+  const { user } = useAuth();
   const routes = new FinancialRoutes();
   const summary = useQuery({ queryKey: ["financial-summary", month], queryFn: () => routes.getSummary(month) });
   const contracts = useQuery({ queryKey: ["contracts"], queryFn: () => routes.getContracts() });
-  const plans = useQuery({ queryKey: ["plans"], queryFn: () => routes.getPlans() });
+  const plans = useQuery({ queryKey: ["plans", "financial", user?.tenantId], queryFn: () => routes.getPlans() });
   const modalidades = useQuery({ queryKey: ["modalidades", "active"], queryFn: () => routes.getModalidades() });
   const settings = useQuery({ queryKey: ["tenant-settings"], queryFn: () => routes.getSettings() });
   return {
