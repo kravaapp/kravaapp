@@ -2,7 +2,6 @@ import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import MercadoPagoCard from "@/components/MercadoPagoCard";
 import { useToast } from "@/components/Toast";
-import { useMeuPerfilAluno } from "@/hooks/alunos.hooks";
 import { useAuth } from "@/hooks/auth.hooks";
 import { useInvoicePayment } from "@/hooks/studentPayments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
@@ -61,11 +60,9 @@ export default function PaymentScreen() {
 function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   // A navegação passa apenas o identificador e a página; os dados financeiros vêm da API.
   const { invoices, gateway, pay, isPaying } = useInvoicePayment(id, page);
-  const { user } = useAuth();
-  const { aluno } = useMeuPerfilAluno(!!id);
   const { toast } = useToast();
-  const [name, setName] = useState(user?.userName ?? "");
-  const [email, setEmail] = useState(user?.email ?? "");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [document, setDocument] = useState("");
   const [method, setMethod] = useState<"Pix" | "CreditCard">("Pix");
   const [cardCustomer, setCardCustomer] = useState<PaymentCustomer | null>(
@@ -121,10 +118,6 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
     setError(description);
     toast({ title: description, variant: "destructive" });
   };
-
-  useEffect(() => {
-    if (aluno?.cpf) setDocument((current) => current || aluno.cpf!);
-  }, [aluno?.cpf]);
 
   const customer = () => {
     const parsed = paymentCustomerSchema.safeParse({
@@ -356,7 +349,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
             </Text>
           ) : (
             <>
-              <View style={styles.card}>
+              <View style={styles.summary}>
                 <Text style={styles.heading}>
                   {invoice.description || "Cobrança"}
                 </Text>
@@ -487,6 +480,7 @@ const styles = StyleSheet.create({
   backText: { color: COLORS.mainOrange, fontWeight: "600" },
   title: { fontSize: 24, fontWeight: "bold", color: COLORS.foreground },
   heading: { fontSize: 17, fontWeight: "700", color: COLORS.foreground },
+  summary: { paddingVertical: 16, gap: 12 },
   card: {
     padding: 16,
     gap: 12,
