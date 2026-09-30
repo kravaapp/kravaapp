@@ -230,7 +230,8 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
             <ArrowLeft size={18} color={COLORS.mainOrange} />
             <Text style={styles.backText}>Voltar às pendências</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Pagamento</Text>
+          <Text style={styles.title}>pagamento</Text>
+          <Text style={styles.subtitle}>Revise a cobrança e escolha como pagar.</Text>
           {!id ? (
             <Text style={styles.error}>Cobrança inválida.</Text>
           ) : invoices.isLoading || gateway.isLoading ? (
@@ -357,7 +358,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
           ) : (
             <>
               <View style={styles.summary}>
-                <Text style={styles.heading}>
+                <Text style={styles.summaryHeading}>
                   {invoice.description || "Cobrança"}
                 </Text>
                 <Text style={styles.amount}>
@@ -366,7 +367,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                     currency: "BRL",
                   })}
                 </Text>
-                <Text style={styles.muted}>
+                <Text style={styles.summaryMuted}>
                   Vencimento: {formatPaymentDate(invoice.dueDate)}
                 </Text>
               </View>
@@ -483,57 +484,68 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   content: { padding: 20, paddingBottom: 40, gap: 16 },
   pixContent: { flexGrow: 1 },
-  back: { flexDirection: "row", gap: 8, alignItems: "center" },
-  backText: { color: COLORS.mainOrange, fontWeight: "600" },
-  title: { fontSize: 24, fontWeight: "bold", color: COLORS.foreground },
-  heading: { fontSize: 17, fontWeight: "700", color: COLORS.foreground },
-  summary: { paddingVertical: 16, gap: 12 },
+  back: { flexDirection: "row", gap: 8, alignItems: "center", minHeight: 36 },
+  backText: { color: COLORS.foreground, fontWeight: "700", fontSize: 13 },
+  title: { fontSize: 30, fontWeight: "800", letterSpacing: -1.2, color: COLORS.foreground, textTransform: "lowercase" },
+  subtitle: { color: COLORS.mutedForeground, fontSize: 14, lineHeight: 21, marginTop: -12, marginBottom: 6 },
+  heading: { fontSize: 18, fontWeight: "800", letterSpacing: -0.4, color: COLORS.foreground },
+  summary: { padding: 20, gap: 12, borderRadius: 18, backgroundColor: COLORS.mainOrange },
+  summaryHeading: { fontSize: 15, fontWeight: "700", color: COLORS.white },
+  summaryMuted: { fontSize: 13, color: COLORS.white, opacity: 0.85 },
   card: {
-    padding: 16,
-    gap: 12,
+    padding: 20,
+    gap: 14,
     borderWidth: 1,
-    borderColor: COLORS.subOrange,
-    borderRadius: 12,
-    backgroundColor: COLORS.card,
+    borderColor: "#E8E9EC",
+    borderRadius: 18,
+    backgroundColor: COLORS.white,
   },
   pixResult: {
     flex: 1,
     justifyContent: "center",
-    paddingVertical: 16,
+    padding: 20,
     gap: 18,
     alignItems: "center",
     backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: "#E8E9EC",
+    borderRadius: 18,
   },
-  amount: { fontSize: 26, fontWeight: "bold", color: COLORS.foreground },
+  amount: { fontSize: 34, fontWeight: "800", letterSpacing: -1, color: COLORS.white },
   muted: { fontSize: 13, lineHeight: 19, color: COLORS.mutedForeground },
   pixText: { textAlign: "center" },
-  label: { color: COLORS.foreground, fontSize: 14, fontWeight: "500" },
+  label: { color: COLORS.foreground, fontSize: 13, fontWeight: "700" },
   input: {
     borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 12,
-    borderRadius: 6,
+    borderColor: "#DCDDE1",
+    minHeight: 50,
+    paddingHorizontal: 14,
+    borderRadius: 12,
     color: COLORS.foreground,
     backgroundColor: COLORS.white,
   },
   row: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
   method: {
-    padding: 12,
-    borderRadius: 6,
+    minHeight: 48,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   selected: {
     borderColor: COLORS.mainOrange,
-    backgroundColor: COLORS.subOrange,
+    backgroundColor: "#FFF2E9",
   },
   button: {
-    padding: 14,
-    borderRadius: 6,
+    minHeight: 48,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    borderRadius: 12,
     backgroundColor: COLORS.mainOrange,
     alignItems: "center",
   },
-  buttonText: { color: COLORS.white, fontWeight: "600" },
+  buttonText: { color: COLORS.white, fontWeight: "700", fontSize: 14 },
   changePayment: { alignSelf: "center", padding: 12 },
   changePaymentText: { color: COLORS.mainOrange, fontWeight: "600", textAlign: "center" },
   disabled: { opacity: 0.4 },

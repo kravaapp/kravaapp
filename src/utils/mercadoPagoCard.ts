@@ -17,8 +17,8 @@ export function createMercadoPagoCardHtml(props: Omit<MercadoPagoCardProps, "onT
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <style>
     *{box-sizing:border-box}body{font-family:system-ui,sans-serif;margin:0;color:#111827;background:#fff}
-    label{display:block;font-size:14px;font-weight:600;margin:12px 0 6px}.field,select{height:48px;width:100%;border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#fff;color:#111827;font-size:15px}
-    .row{display:flex;gap:12px}.row>div{flex:1;min-width:0}button{width:100%;height:48px;border:0;background:#e95a07;color:white;border-radius:8px;font-size:15px;font-weight:600;margin-top:20px}
+    label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}.field,select{height:50px;width:100%;border:1px solid #dcdde1;border-radius:12px;padding:12px;background:#fff;color:#111827;font-size:15px}
+    .row{display:flex;gap:12px}.row>div{flex:1;min-width:0}button{width:100%;height:48px;border:0;background:#E85C07;color:#fff;border-radius:12px;font-size:14px;font-weight:700;margin-top:20px}
     button:disabled{opacity:.5}#brand{min-height:18px;margin:10px 0 2px;font-size:13px;color:#6b7280}
   </style></head><body>
     <label>Número do cartão</label><div id="number" class="field"></div>

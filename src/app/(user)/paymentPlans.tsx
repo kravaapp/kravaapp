@@ -12,7 +12,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
-import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
 import { useSubscribeContract } from "@/hooks/contracts.hooks";
 import { useCurrentPlan, usePlans } from "@/hooks/plans.hooks";
@@ -20,7 +19,7 @@ import { usePayments } from "@/hooks/studentPayments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import { router } from "expo-router";
 import { CurrentPlanType, PlanType } from "@/types/plans.types";
-import { Check, ChevronDown, CreditCard, Star } from "lucide-react-native";
+import { ArrowRight, Check, ChevronDown, CreditCard, Star } from "lucide-react-native";
 import { useRef, useState } from "react";
 
 const ProgressBar = ({ progress }: { progress: number }) => (
@@ -60,8 +59,6 @@ const CurrentPlanSkeleton = () => (
 );
 
 const CurrentPlanCard = ({ plan }: { plan: CurrentPlanType }) => {
-  const isActive = plan.status?.toLowerCase() === "ativo";
-
   const hasLimit =
     plan.maxClassesPerMonth !== null && plan.maxClassesPerMonth > 0;
   const progress = hasLimit
@@ -78,10 +75,7 @@ const CurrentPlanCard = ({ plan }: { plan: CurrentPlanType }) => {
           <Text style={styles.navySubtitle}>SEU PLANO ATUAL</Text>
           <Text style={styles.navyTitle}>{plan.planoName}</Text>
         </View>
-        <StatusBadge
-          status={isActive ? "confirmado" : "encerrada"}
-          label={plan.status}
-        />
+        <View style={styles.currentStatus}><Text style={styles.currentStatusText}>{plan.status}</Text></View>
       </View>
 
       {plan.modalitiesPermitted?.length > 0 && (
@@ -164,7 +158,7 @@ const PlanCard = ({
       {isPopular && (
         <View style={styles.badgeTopRight}>
           <View style={styles.badgeWarning}>
-            <Star size={12} color="#f59e0b" style={{ marginRight: 4 }} />
+            <Star size={12} color={COLORS.mainOrange} style={{ marginRight: 4 }} />
             <Text style={styles.badgeWarningText}>Mais popular</Text>
           </View>
         </View>
@@ -178,9 +172,9 @@ const PlanCard = ({
         </View>
       )}
 
-      <Text style={styles.planName}>{plan.name}</Text>
+      <Text style={[styles.planName, isPopular && styles.planNameWithBadge]}>{plan.name}</Text>
       <View style={styles.rowAlignBottom}>
-        <Text style={styles.planPrice}>R${plan.price.toFixed(2)}</Text>
+        <Text style={styles.planPrice}>{plan.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</Text>
         <Text style={styles.planPriceMonth}>/mês</Text>
       </View>
       <Text style={styles.planFreq}>
@@ -192,7 +186,7 @@ const PlanCard = ({
 
       <View style={styles.featuresList}>
         <View style={styles.featureItem}>
-          <Check size={14} color="#22c55e" style={styles.featureIcon} />
+          <Check size={16} color={COLORS.mainOrange} style={styles.featureIcon} />
           <Text style={styles.featureText}>
             {plan.maxClassesPerWeek
               ? `${plan.maxClassesPerWeek} sessões por semana`
@@ -200,13 +194,13 @@ const PlanCard = ({
           </Text>
         </View>
         <View style={styles.featureItem}>
-          <Check size={14} color="#22c55e" style={styles.featureIcon} />
+          <Check size={16} color={COLORS.mainOrange} style={styles.featureIcon} />
           <Text style={styles.featureText}>
             Duração de {plan.durationDays} dias
           </Text>
         </View>
         <View style={styles.featureItem}>
-          <Check size={14} color="#22c55e" style={styles.featureIcon} />
+          <Check size={16} color={COLORS.mainOrange} style={styles.featureIcon} />
           <Text style={styles.featureText}>{plan.description}</Text>
         </View>
       </View>
@@ -295,13 +289,16 @@ export default function PaymentPlans() {
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollPadding}
       >
+        <Text style={styles.screenTitle}>planos</Text>
+        <Text style={styles.screenSubtitle}>Escolha o ritmo que combina com você.</Text>
         {payments.length > 0 && (
           <TouchableOpacity
             accessibilityRole="button"
-            style={[styles.btnSolid, { marginBottom: 20 }]}
+            style={styles.pendingLink}
             onPress={() => router.push("/(user)/pendingPayments")}
           >
-            <Text style={styles.btnSolidText}>Minhas Pendências</Text>
+            <Text style={styles.pendingLinkText}>Minhas pendências</Text>
+            <ArrowRight size={18} color={COLORS.mainOrange} />
           </TouchableOpacity>
         )}
         {paymentsError && (
@@ -340,6 +337,7 @@ export default function PaymentPlans() {
           </View>
         )}
 
+        <Text style={styles.sectionTitle}>planos disponíveis</Text>
         <View style={styles.plansContainer}>
           {isLoading ? (
             <ActivityIndicator
@@ -377,6 +375,7 @@ export default function PaymentPlans() {
             aprovação pelo local, sua conta será convertida automaticamente.
           </Text>
           <TouchableOpacity
+            accessibilityRole="button"
             style={styles.btnSolid}
             onPress={() => setPartnerModal(true)}
           >
@@ -385,7 +384,7 @@ export default function PaymentPlans() {
         </View>
       </ScrollView>
 
-      <Modal visible={partnerModal} transparent animationType="fade">
+      <Modal visible={partnerModal} transparent animationType="fade" onRequestClose={() => setPartnerModal(false)}>
         <KeyboardAvoider style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
@@ -394,6 +393,7 @@ export default function PaymentPlans() {
 
             <View style={styles.modalBody}>
               <TouchableOpacity
+                accessibilityRole="button"
                 style={styles.selectTrigger}
                 onPress={() => setIsDropdownOpen(!isDropdownOpen)}
               >
@@ -454,10 +454,14 @@ export default function PaymentPlans() {
             </View>
 
             <TouchableOpacity
+              accessibilityRole="button"
               style={styles.btnSolid}
               onPress={handleSendRequest}
             >
               <Text style={styles.btnSolidText}>Enviar solicitação</Text>
+            </TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" style={styles.modalCancel} onPress={() => setPartnerModal(false)}>
+              <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoider>
@@ -467,6 +471,15 @@ export default function PaymentPlans() {
 }
 
 const styles = StyleSheet.create({
+  screenTitle: { fontSize: 30, fontWeight: "800", letterSpacing: -1.2, color: COLORS.foreground, textTransform: "lowercase" },
+  screenSubtitle: { fontSize: 14, lineHeight: 21, color: COLORS.mutedForeground, marginBottom: 22, marginTop: 4 },
+  sectionTitle: { color: COLORS.foreground, fontSize: 19, fontWeight: "800", letterSpacing: -0.5, marginBottom: 14 },
+  pendingLink: { minHeight: 52, borderWidth: 1, borderColor: "#F2C5A9", backgroundColor: "#FFF7F2", borderRadius: 14, paddingHorizontal: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  pendingLinkText: { color: COLORS.foreground, fontSize: 14, fontWeight: "700" },
+  currentStatus: { borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.65)", paddingHorizontal: 10, paddingVertical: 5 },
+  currentStatusText: { color: COLORS.white, fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
+  modalCancel: { minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 8 },
+  modalCancelText: { color: COLORS.foreground, fontSize: 14, fontWeight: "700" },
   container: {
     flex: 1,
     backgroundColor: "#fff",
@@ -479,25 +492,24 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   cardNavy: {
-    backgroundColor: "#0f172a",
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: COLORS.mainOrange,
+    borderRadius: 18,
+    padding: 20,
     marginBottom: 20,
-    borderWidth: 2,
-    borderColor: COLORS.mainOrange,
   },
   navySubtitle: {
     color: "rgba(255, 255, 255, 0.6)",
-    fontSize: 10,
-    fontWeight: "500",
+    fontSize: 11,
+    fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   navyTitle: {
     color: "#fff",
-    fontSize: 20,
-    fontWeight: "bold",
+    fontSize: 24,
+    fontWeight: "800",
+    letterSpacing: -0.7,
     marginBottom: 2,
   },
   rowAlignBottom: {
@@ -505,7 +517,7 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
   },
   navyPrice: {
-    color: COLORS.mainOrange,
+    color: COLORS.white,
     fontSize: 18,
     fontWeight: "bold",
   },
@@ -537,12 +549,14 @@ const styles = StyleSheet.create({
   progressBarBackground: {
     height: 8,
     backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderWidth: 1,
+    borderColor: COLORS.white,
     borderRadius: 4,
     overflow: "hidden",
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: COLORS.mainOrange,
+    backgroundColor: COLORS.white,
     borderRadius: 4,
   },
   navyBottomRow: {
@@ -589,7 +603,7 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
   },
   unlimitedTag: {
-    color: COLORS.mainOrange,
+    color: COLORS.white,
     fontSize: 12,
     fontWeight: "600",
     marginTop: 2,
@@ -627,8 +641,9 @@ const styles = StyleSheet.create({
   btnOutlineLight: {
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.4)",
-    paddingVertical: 8,
-    borderRadius: 6,
+    minHeight: 44,
+    justifyContent: "center",
+    borderRadius: 12,
     alignItems: "center",
   },
   btnOutlineLightText: {
@@ -642,15 +657,10 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 18,
+    padding: 20,
     borderWidth: 1,
-    borderColor: COLORS.subOrange,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderColor: "#E8E9EC",
     position: "relative",
   },
   cardActive: {
@@ -665,15 +675,15 @@ const styles = StyleSheet.create({
   badgeWarning: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fef3c7",
+    backgroundColor: "#FFF2E9",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#fde68a",
+    borderColor: "#F5D9C8",
   },
   badgeWarningText: {
-    color: "#f59e0b",
+    color: COLORS.foreground,
     fontSize: 10,
     fontWeight: "600",
   },
@@ -689,13 +699,15 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   planName: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.5,
     color: COLORS.foreground,
   },
+  planNameWithBadge: { marginTop: 24 },
   planPrice: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 28,
+    fontWeight: "800",
     color: COLORS.foreground,
     marginTop: 4,
   },
@@ -706,12 +718,12 @@ const styles = StyleSheet.create({
   planFreq: {
     fontSize: 12,
     fontWeight: "500",
-    color: COLORS.mainOrange,
+    color: COLORS.mutedForeground,
     marginTop: 4,
   },
   featuresList: {
-    marginTop: 8,
-    gap: 6,
+    marginTop: 16,
+    gap: 10,
   },
   featureItem: {
     flexDirection: "row",
@@ -722,23 +734,25 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   featureText: {
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 19,
     color: COLORS.foreground,
     flex: 1,
   },
   buttonContainer: {
-    marginTop: 12,
+    marginTop: 18,
   },
   btnSolid: {
     backgroundColor: COLORS.mainOrange,
-    paddingVertical: 10,
-    borderRadius: 6,
+    minHeight: 48,
+    justifyContent: "center",
+    borderRadius: 12,
     alignItems: "center",
   },
   btnSolidText: {
     color: "#fff",
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 14,
+    fontWeight: "700",
   },
   btnOutlineDisabled: {
     borderWidth: 1,
@@ -768,9 +782,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   cardLightBlue: {
-    backgroundColor: "#f5f3ff",
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: "#FFF7F2",
+    borderRadius: 18,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#F5D9C8",
   },
   rowAlign: {
     flexDirection: "row",
@@ -778,16 +794,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   lightBlueTitle: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "800",
     color: COLORS.foreground,
     marginLeft: 8,
   },
   lightBlueDesc: {
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.mutedForeground,
     marginBottom: 12,
-    lineHeight: 16,
+    lineHeight: 20,
   },
   modalOverlay: {
     flex: 1,
@@ -804,8 +820,9 @@ const styles = StyleSheet.create({
     maxWidth: 340,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.5,
     color: COLORS.foreground,
     marginBottom: 16,
   },
@@ -816,9 +833,9 @@ const styles = StyleSheet.create({
   selectTrigger: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 6,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    minHeight: 50,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -851,9 +868,9 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 6,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    minHeight: 50,
     fontSize: 14,
     color: COLORS.foreground,
   },

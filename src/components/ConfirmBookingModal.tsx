@@ -45,8 +45,8 @@ export const ConfirmBookingModal = ({
         <TouchableWithoutFeedback>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Confirmar Agendamento</Text>
-              <TouchableOpacity onPress={onClose} disabled={isCreatingSchedule}>
+              <Text style={styles.modalTitle}>confirmar agendamento</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar" onPress={onClose} disabled={isCreatingSchedule}>
                 <X size={24} color="#9ca3af" />
               </TouchableOpacity>
             </View>
@@ -60,6 +60,7 @@ export const ConfirmBookingModal = ({
 
               <View style={styles.modalActions}>
                 <TouchableOpacity
+                  accessibilityRole="button"
                   style={[styles.modalButton, styles.modalButtonCancel]}
                   onPress={onClose}
                   disabled={isCreatingSchedule}
@@ -67,6 +68,7 @@ export const ConfirmBookingModal = ({
                   <Text style={styles.modalButtonCancelText}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
+                  accessibilityRole="button"
                   style={[styles.modalButton, styles.modalButtonConfirm]}
                   onPress={onConfirm}
                   disabled={isCreatingSchedule}
@@ -96,15 +98,10 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 20,
     width: '100%',
     maxWidth: 400,
-    padding: 20,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    padding: 22,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -113,8 +110,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: -0.6,
     color: COLORS.foreground,
   },
   modalBody: {
@@ -131,25 +129,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   modalButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 18,
+    minHeight: 48,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: 100,
   },
   modalButtonCancel: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F4F4F5',
   },
   modalButtonCancelText: {
-    color: '#4b5563',
-    fontWeight: 'bold',
+    color: COLORS.foreground,
+    fontWeight: '700',
   },
   modalButtonConfirm: {
     backgroundColor: COLORS.mainOrange,
   },
   modalButtonConfirmText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });

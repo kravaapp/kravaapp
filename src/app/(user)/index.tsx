@@ -36,6 +36,14 @@ const BRAND_ORANGE = "#E85C07";
 const INK = "#111827";
 const MUTED = "#626973";
 
+const formatAvailableClassDate = (value: string) => {
+    const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    if (!year || !month || !day || Number.isNaN(date.getTime())) return value;
+    const weekdays = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+    return `${weekdays[date.getDay()]}, ${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
+};
+
 export function getClassTime(date: string, time: string) {
     const [year, month, day] = date.split("-").map(Number);
 
@@ -380,6 +388,9 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', o
         <View style={styles.classCard}>
             <View style={styles.classTopRow}>
                 <View style={styles.timePill}>
+                    <CalendarDays size={15} color={BRAND_ORANGE} />
+                    <Text style={styles.time}>{formatAvailableClassDate(aula.date)}</Text>
+                    <Text style={styles.dateTimeSeparator}>·</Text>
                     <Clock3 size={15} color={BRAND_ORANGE} />
                     <Text style={styles.time}>{aula.startTime.substring(0, 5)}</Text>
                 </View>
@@ -409,7 +420,7 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', o
                         style={styles.bookButton}
                         onPress={() => onBookPress(aula)}
                         accessibilityRole="button"
-                        accessibilityLabel={`agendar ${aula.modalityName || aula.aulaName} às ${aula.startTime.substring(0, 5)}`}
+                        accessibilityLabel={`agendar ${aula.modalityName || aula.aulaName} em ${formatAvailableClassDate(aula.date)} às ${aula.startTime.substring(0, 5)}`}
                     >
                         <Text style={styles.bookButtonText}>agendar</Text>
                         <ArrowRight size={17} color="#FFFFFF" />
@@ -805,6 +816,10 @@ const styles = StyleSheet.create({
         color: INK,
         fontSize: 14,
         fontWeight: "bold",
+    },
+    dateTimeSeparator: {
+        color: MUTED,
+        fontSize: 14,
     },
     className: {
         color: INK,

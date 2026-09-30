@@ -25,7 +25,7 @@ export const COLORS = {
   overlay: "rgba(0,0,0,0.4)",
   white: "#ffffff",
   outline: "#d1d5db",
-  mainOrange: "#e95a07",
+  mainOrange: "#E85C07",
   subOrange: "#fbdecd",
   grayLabels: "#6b7280",
   navy: "#0f172a",

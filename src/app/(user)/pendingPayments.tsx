@@ -2,7 +2,7 @@ import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import { usePayments } from "@/hooks/studentPayments.hooks";
 import { canPayInvoice, formatPaymentDate, getPaymentType } from "@/utils/payments";
 import { router } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft, ArrowRight } from "lucide-react-native";
 import { useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,7 +19,8 @@ export default function PendingPayments() {
           <ArrowLeft size={18} color={COLORS.mainOrange} />
           <Text style={styles.backText}>Voltar aos planos</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Minhas Pendências</Text>
+        <Text style={styles.title}>pendências</Text>
+        <Text style={styles.subtitle}>Acompanhe e resolva suas cobranças.</Text>
         {isLoading ? (
           <ActivityIndicator size="large" color={COLORS.mainOrange} />
         ) : error ? (
@@ -30,7 +31,7 @@ export default function PendingPayments() {
             </TouchableOpacity>
           </View>
         ) : payments.length === 0 ? (
-          <Text style={styles.muted}>Você não possui pendências.</Text>
+          <View style={styles.empty}><Text style={styles.emptyTitle}>Tudo em dia.</Text><Text style={styles.muted}>Você não possui pendências.</Text></View>
         ) : payments.map((payment) => {
           const type = getPaymentType(payment.type);
           return (
@@ -53,7 +54,8 @@ export default function PendingPayments() {
                     params: { id: payment.id, ...(page !== undefined ? { page: String(page) } : {}) },
                   })}
                 >
-                  <Text style={styles.buttonText}>Pagar</Text>
+                  <Text style={styles.buttonText}>Pagar agora</Text>
+                  <ArrowRight size={18} color={COLORS.white} />
                 </TouchableOpacity>
               )}
             </View>
@@ -61,11 +63,11 @@ export default function PendingPayments() {
         })}
         {!error && data && (data.hasPreviousPage || data.hasNextPage) && (
           <View style={styles.row}>
-            <TouchableOpacity accessibilityRole="button" style={[styles.button, (!data.hasPreviousPage || isRefreshing) && styles.disabled]} disabled={!data.hasPreviousPage || isRefreshing} onPress={() => setPage(data.page - 1)}>
-              <Text style={styles.buttonText}>Anterior</Text>
+            <TouchableOpacity accessibilityRole="button" style={[styles.pageButton, (!data.hasPreviousPage || isRefreshing) && styles.disabled]} disabled={!data.hasPreviousPage || isRefreshing} onPress={() => setPage(data.page - 1)}>
+              <Text style={styles.pageButtonText}>Anterior</Text>
             </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" style={[styles.button, (!data.hasNextPage || isRefreshing) && styles.disabled]} disabled={!data.hasNextPage || isRefreshing} onPress={() => setPage(data.page + 1)}>
-              <Text style={styles.buttonText}>Próxima</Text>
+            <TouchableOpacity accessibilityRole="button" style={[styles.pageButton, (!data.hasNextPage || isRefreshing) && styles.disabled]} disabled={!data.hasNextPage || isRefreshing} onPress={() => setPage(data.page + 1)}>
+              <Text style={styles.pageButtonText}>Próxima</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -77,18 +79,23 @@ export default function PendingPayments() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
   content: { padding: 20, paddingBottom: 40, gap: 16 },
-  back: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start" },
-  backText: { color: COLORS.mainOrange, fontWeight: "600" },
-  title: { fontSize: 24, fontWeight: "bold", color: COLORS.foreground },
-  card: { padding: 16, gap: 12, borderWidth: 1, borderColor: COLORS.subOrange, borderRadius: 12, backgroundColor: COLORS.card },
+  back: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", minHeight: 36 },
+  backText: { color: COLORS.foreground, fontWeight: "700", fontSize: 13 },
+  title: { fontSize: 30, fontWeight: "800", letterSpacing: -1.2, color: COLORS.foreground, textTransform: "lowercase" },
+  subtitle: { color: COLORS.mutedForeground, fontSize: 14, lineHeight: 21, marginTop: -12, marginBottom: 6 },
+  card: { padding: 20, gap: 12, borderWidth: 1, borderColor: "#E8E9EC", borderRadius: 18, backgroundColor: COLORS.white },
+  empty: { padding: 24, gap: 6, borderWidth: 1, borderColor: "#E8E9EC", borderRadius: 18 },
+  emptyTitle: { fontSize: 18, fontWeight: "800", color: COLORS.foreground },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" },
-  type: { fontSize: 16, fontWeight: "700", color: COLORS.foreground },
-  status: { color: COLORS.foreground, backgroundColor: COLORS.subOrange, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, fontSize: 12 },
+  type: { fontSize: 17, fontWeight: "800", color: COLORS.foreground, flexShrink: 1 },
+  status: { color: COLORS.foreground, backgroundColor: "#FFF2E9", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, fontSize: 11, fontWeight: "700", overflow: "hidden" },
   description: { fontSize: 14, color: COLORS.foreground },
   muted: { fontSize: 13, lineHeight: 19, color: COLORS.mutedForeground },
-  amount: { fontSize: 24, fontWeight: "bold", color: COLORS.foreground },
+  amount: { fontSize: 28, fontWeight: "800", letterSpacing: -0.8, color: COLORS.foreground, marginTop: 4 },
   error: { color: COLORS.destructive },
-  button: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 6, backgroundColor: COLORS.mainOrange, alignItems: "center" },
-  buttonText: { color: COLORS.white, fontWeight: "600" },
+  button: { minHeight: 48, paddingHorizontal: 16, borderRadius: 12, backgroundColor: COLORS.mainOrange, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, marginTop: 4 },
+  buttonText: { color: COLORS.white, fontWeight: "700", fontSize: 14 },
+  pageButton: { minHeight: 44, minWidth: 106, borderWidth: 1, borderColor: "#E8E9EC", borderRadius: 12, justifyContent: "center", alignItems: "center" },
+  pageButtonText: { color: COLORS.foreground, fontSize: 13, fontWeight: "700" },
   disabled: { opacity: 0.4 },
 });

@@ -29,19 +29,19 @@ const HistorySummary = ({ data, loading }: { data: MyMonthlyScheduleType | undef
             ) : (
                 <>
                     <View style={styles.statsRow}>
-                        <View style={[styles.statBox, { backgroundColor: '#dcfce7' }]}>
-                            <Text style={[styles.statNumber, { color: '#16a34a' }]}>{totalPresencas}</Text>
+                        <View style={styles.statBox}>
+                            <Text style={styles.statNumber}>{totalPresencas}</Text>
                             <Text style={styles.statLabel}>Presenças</Text>
                         </View>
-                        <View style={[styles.statBox, { backgroundColor: '#fee2e2' }]}>
-                            <Text style={[styles.statNumber, { color: '#ef4444' }]}>{totalFaltas}</Text>
+                        <View style={styles.statBox}>
+                            <Text style={styles.statNumber}>{totalFaltas}</Text>
                             <Text style={styles.statLabel}>Faltas</Text>
                         </View>
-                        <View style={[styles.statBox, { backgroundColor: '#f3f4f6' }]}>
+                        <View style={styles.statBox}>
                             {isUnlimited ? (
-                                <InfinityIcon size={24} color="#6b7280" />
+                                <InfinityIcon size={24} color={COLORS.foreground} />
                             ) : (
-                                <Text style={[styles.statNumber, { color: '#6b7280' }]}>{available}</Text>
+                                <Text style={styles.statNumber}>{available}</Text>
                             )}
                             <Text style={styles.statLabel}>Restantes</Text>
                         </View>
@@ -80,6 +80,8 @@ const CategoryFilter = ({
         ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
                 <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selected === 'Todas' }}
                     style={[styles.filterPill, selected === 'Todas' && styles.filterPillSelected]}
                     onPress={() => onSelect('Todas')}
                 >
@@ -87,6 +89,8 @@ const CategoryFilter = ({
                 </TouchableOpacity>
                 {categories?.map((cat: Category) => (
                     <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: selected === cat.name }}
                         key={cat.id}
                         style={[styles.filterPill, selected === cat.name && styles.filterPillSelected]}
                         onPress={() => onSelect(cat.id)}
@@ -100,7 +104,7 @@ const CategoryFilter = ({
 );
 
 const statusConfig = {
-    Confirmado: { label: 'Confirmado — aguardando aula', variant: 'warning', icon: AlertTriangle, color: '#f59e0b', bg: '#fef3c7' },
+    Confirmado: { label: 'Confirmado — aguardando aula', variant: 'warning', icon: AlertTriangle, color: COLORS.mainOrange, bg: '#FFF2E9' },
     CheckedIn: { label: 'Presente ✓', variant: 'success', icon: Check, color: '#16a34a', bg: '#dcfce7' },
     Faltou: { label: 'Falta não cancelada ⚠', variant: 'destructive', icon: X, color: '#ef4444', bg: '#fee2e2' },
     default: { label: 'Status Desconhecido', variant: 'warning', icon: AlertTriangle, color: '#6b7280', bg: '#f3f4f6' }
@@ -166,7 +170,6 @@ export default function History() {
         modalityId: filtroId === 'Todas' ? undefined : filtroId
     });
 
-    const currentMonth = new Date().toISOString().substring(0, 7);
     const { myMonthlySchedule, isLoading: isMonthlyLoading } = useMyMonthlySchedule({
         modalityId: filtroId === 'Todas' ? undefined : filtroId
     });
@@ -176,9 +179,14 @@ export default function History() {
     return (
         <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
             <ClientHeader />
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+                <View style={styles.intro}>
+                    <Text style={styles.screenTitle}>histórico</Text>
+                    <Text style={styles.screenSubtitle}>Suas aulas e seu ritmo no mês.</Text>
+                </View>
                 <HistorySummary data={myMonthlySchedule} loading={isMonthlyLoading} />
 
+                <Text style={styles.sectionTitle}>aulas</Text>
                 <CategoryFilter 
                     categories={categories} 
                     loading={categoriesLoading} 
@@ -206,8 +214,9 @@ export default function History() {
                             />
                         ))
                     ) : (
-                        <View style={{ alignItems: 'center', marginTop: 20 }}>
-                            <Text style={{ color: '#9ca3af' }}>Nenhum histórico encontrado</Text>
+                        <View style={styles.empty}>
+                            <Text style={styles.emptyTitle}>Nenhuma aula por aqui.</Text>
+                            <Text style={styles.emptyText}>Tente outra modalidade ou volte depois.</Text>
                         </View>
                     )}
                 </View>
@@ -217,46 +226,61 @@ export default function History() {
 }
 
 const styles = StyleSheet.create({
+    content: { paddingBottom: 32 },
+    intro: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 6 },
+    screenTitle: { fontSize: 30, fontWeight: '800', letterSpacing: -1.2, color: COLORS.foreground },
+    screenSubtitle: { fontSize: 14, lineHeight: 21, color: COLORS.mutedForeground, marginTop: 4 },
+    sectionTitle: { color: COLORS.foreground, fontSize: 19, fontWeight: '800', letterSpacing: -0.5, marginHorizontal: 20, marginBottom: 12 },
+    empty: { padding: 24, borderWidth: 1, borderColor: '#E8E9EC', borderRadius: 18, gap: 5, marginTop: 8 },
+    emptyTitle: { color: COLORS.foreground, fontSize: 17, fontWeight: '800' },
+    emptyText: { color: COLORS.mutedForeground, fontSize: 13 },
     container: {
         flex: 1,
         backgroundColor: '#fff',
     },
     summaryContainer: {
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 12,
+        marginHorizontal: 20,
+        marginTop: 18,
+        marginBottom: 18,
+        padding: 18,
+        borderWidth: 1,
+        borderColor: '#E8E9EC',
+        borderRadius: 18,
     },
     monthTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#0f172a',
-        marginBottom: 12,
+        fontSize: 18,
+        fontWeight: '800',
+        letterSpacing: -0.4,
+        color: COLORS.foreground,
+        marginBottom: 16,
     },
     statsRow: {
         flexDirection: 'row',
-        gap: 12,
-        marginBottom: 12,
+        gap: 8,
+        marginBottom: 18,
     },
     statBox: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 12,
-        paddingVertical: 10,
+        paddingVertical: 14,
+        backgroundColor: '#F7F7F8',
     },
     statNumber: {
-        fontSize: 20,
-        fontWeight: 'bold',
+        fontSize: 22,
+        fontWeight: '800',
+        color: COLORS.foreground,
     },
     statLabel: {
-        fontSize: 10,
+        fontSize: 11,
         color: '#6b7280',
         marginTop: 2,
     },
     progressTextRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 4,
+        marginBottom: 8,
     },
     progressLabel: {
         fontSize: 12,
@@ -264,7 +288,7 @@ const styles = StyleSheet.create({
     },
     progressBarBg: {
         height: 8,
-        backgroundColor: '#e2e8f0',
+        backgroundColor: '#ECEDEF',
         borderRadius: 4,
         overflow: 'hidden',
     },
@@ -274,7 +298,7 @@ const styles = StyleSheet.create({
         borderRadius: 4,
     },
     filterContainer: {
-        paddingBottom: 12,
+        paddingBottom: 18,
     },
     filterContent: {
         paddingHorizontal: 20,
@@ -282,10 +306,10 @@ const styles = StyleSheet.create({
     },
     filterPill: {
         paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderRadius: 16,
+        minHeight: 42,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: '#E8E9EC',
         backgroundColor: '#fff',
         justifyContent: 'center',
     },
@@ -295,8 +319,8 @@ const styles = StyleSheet.create({
     },
     filterText: {
         color: COLORS.foreground,
-        fontWeight: '600',
-        fontSize: 12,
+        fontWeight: '700',
+        fontSize: 13,
     },
     filterTextSelected: {
         color: '#fff',
@@ -304,31 +328,26 @@ const styles = StyleSheet.create({
     listContainer: {
         paddingHorizontal: 20,
         paddingBottom: 20,
-        gap: 10,
+        gap: 12,
     },
     skeletonCard: {
-        height: 64,
-        backgroundColor: '#f1f5f9',
-        borderRadius: 12,
+        height: 88,
+        backgroundColor: '#F7F7F8',
+        borderRadius: 18,
         marginBottom: 10,
     },
     card: {
         backgroundColor: '#fff',
-        borderRadius: 12,
+        borderRadius: 18,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: '#E8E9EC',
         overflow: 'hidden',
-        elevation: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
     },
     cardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 12,
+        padding: 14,
     },
     cardLeft: {
         flexDirection: 'row',
@@ -338,24 +357,29 @@ const styles = StyleSheet.create({
     },
     dateBox: {
         alignItems: 'center',
-        minWidth: 40,
+        minWidth: 56,
+        minHeight: 54,
+        justifyContent: 'center',
+        backgroundColor: '#FFF2E9',
+        borderRadius: 11,
     },
     dayText: {
-        fontSize: 12,
-        color: '#6b7280',
+        fontSize: 11,
+        color: COLORS.mainOrange,
+        fontWeight: '700',
     },
     dateText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#0f172a',
+        fontSize: 15,
+        fontWeight: '800',
+        color: COLORS.foreground,
     },
     infoBox: {
         flex: 1,
     },
     modalityText: {
         fontSize: 14,
-        fontWeight: '600',
-        color: '#0f172a',
+        fontWeight: '800',
+        color: COLORS.foreground,
     },
     profText: {
         fontSize: 12,
@@ -369,9 +393,9 @@ const styles = StyleSheet.create({
     badge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 5,
+        borderRadius: 10,
         gap: 4,
     },
     badgeText: {

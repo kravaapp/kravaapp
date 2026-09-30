@@ -9,7 +9,7 @@ import { useCategories } from '@/hooks/categories.hooks';
 import { useCreateSchedule, useSchedule } from '@/hooks/schedule.hooks';
 import { Category } from '@/types/categories.types';
 import { ScheduleOccurrenceType } from '@/types/schedules.types';
-import { Clock } from 'lucide-react-native';
+import { ArrowRight, Clock } from 'lucide-react-native';
 import { getTimeUntilClass } from '.';
 
 // Types
@@ -36,7 +36,7 @@ const CategoryFilter = ({ categories, selected, onSelect, isLoading, error }: Ca
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
           {Array.from({ length: 4 }).map((_, index) => (
-            <View key={`skeleton-${index}`} style={[styles.filterPill, { width: 80, backgroundColor: '#f1f5f9', borderColor: '#f1f5f9' }]} />
+            <View key={`skeleton-${index}`} style={styles.filterSkeleton} />
           ))}
         </ScrollView>
       </View>
@@ -45,8 +45,8 @@ const CategoryFilter = ({ categories, selected, onSelect, isLoading, error }: Ca
 
   if (error) {
     return (
-      <View style={[styles.filterContainer, { paddingHorizontal: 20 }]}>
-        <Text style={{ fontSize: 12 }}>Erro ao carregar categorias</Text>
+      <View style={styles.filterError}>
+        <Text style={styles.emptyText}>não foi possível carregar as modalidades</Text>
       </View>
     );
   }
@@ -59,6 +59,8 @@ const CategoryFilter = ({ categories, selected, onSelect, isLoading, error }: Ca
             key={cat.id}
             style={[styles.filterPill, selected === cat.id && styles.filterPillSelected]}
             onPress={() => onSelect(cat.id)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selected === cat.id }}
           >
             <Text style={[styles.filterText, selected === cat.id && styles.filterTextSelected]}>{cat.name}</Text>
           </TouchableOpacity>
@@ -84,6 +86,8 @@ const DayCalendar = ({ days, selectedId, onSelect }: DayCalendarProps) => (
             key={day.id}
             style={[styles.dayCard, isSelected && styles.dayCardSelected]}
             onPress={() => onSelect(day.id)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSelected }}
           >
             <Text style={[styles.dayLabel, isSelected && styles.dayTextSelected]}>{day.label}</Text>
             <Text style={[styles.dayNumber, isSelected && styles.dayTextSelected]}>{day.day}</Text>
@@ -97,18 +101,14 @@ const DayCalendar = ({ days, selectedId, onSelect }: DayCalendarProps) => (
 
 const getLevelStyle = (level: string) => {
   switch (level?.toLowerCase()) {
-    case 'avançado': return { color: '#f59e0b', backgroundColor: '#fef3c7' };
-    case 'intermediário': return { color: '#ea580c', backgroundColor: '#ffedd5' };
-    default: return { color: '#9ca3af', backgroundColor: '#f3f4f6' };
+    case 'avançado': return { color: COLORS.foreground, backgroundColor: '#F3F4F6' };
+    case 'intermediário': return { color: COLORS.foreground, backgroundColor: '#FFF0E7' };
+    default: return { color: COLORS.foreground, backgroundColor: '#F3F4F6' };
   }
 };
 
-const getGenderStyle = (gender: string) => {
-  switch (gender?.toUpperCase()) {
-    case 'M': return { color: '#3b82f6', backgroundColor: '#dbeafe' };
-    case 'F': return { color: '#ec4899', backgroundColor: '#fce7f3' };
-    default: return { color: '#9ca3af', backgroundColor: '#f3f4f6' };
-  }
+const getGenderStyle = (_gender: string) => {
+  return { color: COLORS.foreground, backgroundColor: '#F3F4F6' };
 };
 
 const capitalizeText = (text: string) => {
@@ -117,9 +117,9 @@ const capitalizeText = (text: string) => {
 
 const getGenderLabel = (gender: string) => {
   switch (gender?.toUpperCase()) {
-    case 'M': return '♂ Masculina';
-    case 'F': return '♀ Feminina';
-    default: return '⚥ Mista';
+    case 'M': return 'Masculina';
+    case 'F': return 'Feminina';
+    default: return 'Mista';
   }
 };
 
@@ -140,10 +140,8 @@ const getLevelWeight = (level: string) => {
 };
 
 const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPress }: ClassCardProps) => {
-  const isEnded = false;
-
-  const progress = typeof item.maxCapacity === 'number' && typeof item.confirmedCount === 'number'
-    ? (item.confirmedCount / item.maxCapacity) * 100
+  const progress = typeof item.maxCapacity === 'number' && item.maxCapacity > 0 && typeof item.confirmedCount === 'number'
+    ? Math.min(100, Math.max(0, (item.confirmedCount / item.maxCapacity) * 100))
     : 50;
   const level = item.minLevel || "iniciante";
   const gender = item.publicGender || "Mixed";
@@ -188,7 +186,6 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
           <View style={[
             styles.progressBarFill,
             { width: `${progress}%` },
-            isEnded ? { backgroundColor: '#fdba74' } : { backgroundColor: COLORS.mainOrange }
           ]} />
         </View>
         <Text style={styles.progressText}>
@@ -209,16 +206,17 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
                item.subscriptionStatus === 'Faltou' ? 'Faltou' : ''}
             </Text>
           ) : !isGenderAllowed ? (
-            <Text style={styles.disabledReasonText}>Apenas para o gênero {getGenderLabel(gender).substring(2)}</Text>
+            <Text style={styles.disabledReasonText}>Apenas para o gênero {getGenderLabel(gender)}</Text>
           ) : !isLevelAllowed ? (
             <Text style={styles.disabledReasonText}>Requer nível {capitalizeText(level)}</Text>
           ) : isReleased ? (
-            <TouchableOpacity style={styles.bookButton} onPress={() => onBookPress(item)}>
-              <Text style={styles.bookButtonText}>Agendar</Text>
+            <TouchableOpacity style={styles.bookButton} onPress={() => onBookPress(item)} accessibilityRole="button">
+              <Text style={styles.bookButtonText}>agendar</Text>
+              <ArrowRight size={17} color="#FFFFFF" />
             </TouchableOpacity>
           ) : (
             <View style={styles.releaseBadge}>
-              <Clock size={12} color="#9ca3af" />
+              <Clock size={16} color={COLORS.mutedForeground} />
               <Text style={styles.releaseBadgeText}>Libera em {timeUntilRelease}</Text>
             </View>
           )}
@@ -293,6 +291,10 @@ export default function Schedule() {
       <ClientHeader />
 
       <View style={styles.fixedHeader}>
+        <View style={styles.screenIntro}>
+          <Text style={styles.screenTitle}>agendar aulas</Text>
+          <Text style={styles.screenSubtitle}>Escolha a modalidade e o dia.</Text>
+        </View>
         <CategoryFilter
           categories={categories || []}
           isLoading={categoriesLoading}
@@ -308,13 +310,13 @@ export default function Schedule() {
       </View>
 
       {scheduleLoading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 40 }}>
+        <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={COLORS.mainOrange} />
         </View>
       ) : scheduleError ? (
-        <View style={{ padding: 20, alignItems: 'center' }}>
-          <Text style={{ color: '#ef4444' }}>Erro ao carregar agenda</Text>
-          <Text style={{ color: '#6b7280', fontSize: 12, marginTop: 4 }}>{scheduleError}</Text>
+        <View style={styles.emptyState}>
+          <Text style={styles.errorTitle}>não foi possível carregar a agenda</Text>
+          <Text style={styles.emptyText}>{scheduleError}</Text>
         </View>
       ) : (
         <FlatList
@@ -324,8 +326,8 @@ export default function Schedule() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View style={{ alignItems: 'center', marginTop: 40 }}>
-              <Text style={{ color: '#9ca3af' }}>Nenhuma aula encontrada para este dia</Text>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>nenhuma aula encontrada para este dia</Text>
             </View>
           }
         />
@@ -348,23 +350,50 @@ const styles = StyleSheet.create({
   },
   fixedHeader: {
     backgroundColor: '#fff',
-    paddingBottom: 10,
+    paddingBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  screenIntro: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  screenTitle: {
+    color: COLORS.foreground,
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -1.2,
+  },
+  screenSubtitle: {
+    color: COLORS.mutedForeground,
+    fontSize: 14,
+    marginTop: 4,
   },
   filterContainer: {
-    marginTop: 15,
+    marginTop: 20,
   },
   filterContent: {
     paddingHorizontal: 20,
-    gap: 10,
+    gap: 8,
   },
   filterPill: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    minHeight: 44,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#D8DDE3',
     backgroundColor: '#fff',
     justifyContent: 'center',
+  },
+  filterSkeleton: {
+    width: 88,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#F1F3F5',
+  },
+  filterError: {
+    paddingHorizontal: 20,
+    marginTop: 16,
   },
   filterPillSelected: {
     backgroundColor: COLORS.mainOrange,
@@ -372,24 +401,24 @@ const styles = StyleSheet.create({
   },
   filterText: {
     color: COLORS.foreground,
-    fontWeight: '600',
+    fontWeight: 'bold',
     fontSize: 14,
   },
   filterTextSelected: {
     color: '#fff',
   },
   calendarContainer: {
-    marginTop: 15,
+    marginTop: 16,
   },
   calendarContent: {
     paddingHorizontal: 20,
     gap: 10,
   },
   dayCard: {
-    width: 60,
-    height: 80,
-    borderRadius: 16,
-    backgroundColor: '#fff5f0',
+    width: 62,
+    height: 78,
+    borderRadius: 12,
+    backgroundColor: '#F4F5F7',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
@@ -400,77 +429,76 @@ const styles = StyleSheet.create({
   dayLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9ca3af',
+    color: COLORS.mutedForeground,
   },
   dayNumber: {
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: 'bold',
-    color: '#6b7280',
+    color: COLORS.foreground,
     marginVertical: 2,
   },
   dayMonth: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: COLORS.mutedForeground,
   },
   dayTextSelected: {
     color: '#fff',
   },
   listContent: {
     padding: 20,
-    gap: 16,
+    gap: 12,
   },
   classCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 16,
+    padding: 18,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: '#E5E7EB',
   },
   classCardDisabled: {
-    opacity: 0.6,
     backgroundColor: '#f9fafb',
   },
   disabledReasonText: {
-    color: '#ef4444',
-    fontSize: 12,
-    fontWeight: '600',
-    fontStyle: 'italic',
+    color: '#B42318',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   subscriptionStatusText: {
-    color: COLORS.mainOrange,
-    fontSize: 12,
+    color: COLORS.foreground,
+    fontSize: 13,
     fontWeight: 'bold',
   },
   classHeaderRow: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   timeContainer: {
-    width: 80,
+    width: 74,
     alignItems: 'center',
-    marginRight: 10,
+    justifyContent: 'center',
+    backgroundColor: '#FFF0E7',
+    borderRadius: 10,
+    marginRight: 14,
+    paddingVertical: 8,
   },
   classTime: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.mainOrange,
+    color: COLORS.foreground,
   },
   classEndTime: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: COLORS.mutedForeground,
   },
   classDetails: {
     flex: 1,
+    minWidth: 0,
   },
   classTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.foreground,
+    letterSpacing: -0.3,
     marginBottom: 6,
   },
   tagsRow: {
@@ -480,18 +508,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   tagText: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   professorText: {
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.mutedForeground,
-    marginLeft: 4,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -501,14 +528,15 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     flex: 1,
-    height: 8,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: '#FFE4D3',
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 3,
+    backgroundColor: COLORS.mainOrange,
   },
   progressText: {
     fontSize: 12,
@@ -519,13 +547,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
   bookButton: {
     backgroundColor: COLORS.mainOrange,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    minHeight: 48,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   bookButtonText: {
     color: '#fff',
@@ -537,13 +568,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f3f4f6',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 4,
+    minHeight: 44,
+    borderRadius: 10,
+    gap: 6,
   },
   releaseBadgeText: {
     color: '#6b7280',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
+  },
+  loadingState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyState: {
+    margin: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyText: {
+    color: COLORS.mutedForeground,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  errorTitle: {
+    color: '#B42318',
+    fontSize: 15,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
