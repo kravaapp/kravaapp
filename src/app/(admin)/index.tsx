@@ -197,7 +197,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ClientHeader />
       <ScrollView showsVerticalScrollIndicator={false}>
         <AdminScreen>

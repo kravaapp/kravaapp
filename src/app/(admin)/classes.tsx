@@ -153,7 +153,7 @@ export default function AdminClasses() {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ClientHeader />
       <ScreenScrollView>
         <AdminScreen>

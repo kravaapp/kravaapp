@@ -224,7 +224,7 @@ export default function AdminSettings() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
       <ScreenScrollView>
         <AdminScreen>

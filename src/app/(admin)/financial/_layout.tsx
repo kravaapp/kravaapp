@@ -16,7 +16,7 @@ export default function FinancialLayout() {
     : pathname.endsWith("/plans") ? "Planos" : "Financeiro";
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ClientHeader />
       <View style={styles.navigation}>
         <View style={styles.tabs}>

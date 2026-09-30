@@ -4,18 +4,83 @@ import { useAuth } from "@/hooks/auth.hooks";
 import { USER_ROLES } from "@/types/auth.types";
 import { Redirect, Tabs } from "expo-router";
 import {
-    Dumbbell,
-    LayoutGrid,
-    Settings,
-    Users,
-    Wallet,
+  Dumbbell,
+  LayoutGrid,
+  Settings,
+  Users,
+  Wallet,
 } from "lucide-react-native";
+import { useEffect, useState, type ComponentProps } from "react";
+import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const MENU_ITEMS = {
+  index: { label: "Painel", Icon: LayoutGrid },
+  students: { label: "Alunos", Icon: Users },
+  classes: { label: "Aulas", Icon: Dumbbell },
+  financial: { label: "Financeiro", Icon: Wallet },
+  settings: { label: "Ajustes", Icon: Settings },
+};
+
+type AdminTabBarProps = Parameters<
+  NonNullable<ComponentProps<typeof Tabs>["tabBar"]>
+>[0];
+
+function AdminTabBar({ state, navigation }: AdminTabBarProps) {
+  const insets = useSafeAreaInsets();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  if (keyboardVisible) return null;
+
+  return (
+    <View style={[styles.bar, { paddingBottom: insets.bottom }]}>
+      {state.routes.map((route, index) => {
+        const item = MENU_ITEMS[route.name as keyof typeof MENU_ITEMS];
+        if (!item) return null;
+
+        const focused = state.index === index;
+        const { Icon, label } = item;
+
+        return (
+          <Pressable
+            key={route.key}
+            style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+            onPress={() => {
+              const event = navigation.emit({
+                type: "tabPress",
+                target: route.key,
+                canPreventDefault: true,
+              });
+              if (!focused && !event.defaultPrevented) {
+                navigation.navigate(route.name, route.params);
+              }
+            }}
+            onLongPress={() => navigation.emit({ type: "tabLongPress", target: route.key })}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: focused }}
+            accessibilityLabel={label}
+          >
+            <View style={[styles.indicator, focused && styles.indicatorActive]} />
+            <Icon color={focused ? COLORS.mainOrange : COLORS.grayLabels} size={21} strokeWidth={focused ? 2.3 : 2} />
+            <Text style={[styles.label, focused && styles.labelActive]} numberOfLines={1}>{label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 export default function ProtectedLayout() {
   const { user } = useAuth();
-
-  const insets = useSafeAreaInsets();
 
   if (!user) {
     return <Redirect href="/signIn" />;
@@ -27,36 +92,14 @@ export default function ProtectedLayout() {
 
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: COLORS.mainOrange,
-        tabBarInactiveTintColor: COLORS.grayLabels,
-        tabBarHideOnKeyboard: true,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "700", marginTop: 2 },
-        tabBarIconStyle: { marginTop: 2 },
-        tabBarStyle: {
-          backgroundColor: COLORS.white,
-          paddingTop: 8,
-          height: 64 + insets.bottom,
-          paddingBottom: insets.bottom,
-          borderTopWidth: 1,
-          borderTopColor: "#ECEDEF",
-          elevation: 8,
-          shadowColor: "#111827",
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-        },
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <AdminTabBar {...props} />}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: "Painel",
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <LayoutGrid color={color} size={size} />
-          ),
         }}
       />
 
@@ -65,7 +108,6 @@ export default function ProtectedLayout() {
         options={{
           title: "Alunos",
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
         }}
       />
 
@@ -74,9 +116,6 @@ export default function ProtectedLayout() {
         options={{
           title: "Aulas",
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Dumbbell color={color} size={size} />
-          ),
         }}
       />
 
@@ -85,7 +124,6 @@ export default function ProtectedLayout() {
         options={{
           title: "Financeiro",
           headerShown: false,
-          tabBarIcon: ({ color, size }) => <Wallet color={color} size={size} />,
         }}
       />
 
@@ -101,11 +139,41 @@ export default function ProtectedLayout() {
         options={{
           title: "Ajustes",
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Settings color={color} size={size} />
-          ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  bar: {
+    flexDirection: "row",
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  item: {
+    flex: 1,
+    minHeight: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 2,
+  },
+  itemPressed: { opacity: 0.65 },
+  indicator: {
+    width: 20,
+    height: 2,
+    borderRadius: 1,
+    marginBottom: 4,
+    backgroundColor: "transparent",
+  },
+  indicatorActive: { backgroundColor: COLORS.mainOrange },
+  label: { color: COLORS.grayLabels, fontSize: 11, fontWeight: "500" },
+  labelActive: { color: COLORS.foreground, fontWeight: "600" },
+});

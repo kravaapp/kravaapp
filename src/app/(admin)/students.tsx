@@ -40,6 +40,7 @@ import {
   ChevronRight,
   Plus,
   Search,
+  SlidersHorizontal,
   X,
 } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -53,7 +54,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Option = { label: string; value: string };
 
@@ -95,10 +96,15 @@ const tone = (value?: string | null) =>
       : ("neutral" as const);
 
 export default function AdminStudents() {
+  const [section, setSection] = useState<"manage" | "requests">("manage");
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState("");
   const [status, setStatus] = useState("");
   const [payment, setPayment] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [draftLevel, setDraftLevel] = useState("");
+  const [draftStatus, setDraftStatus] = useState("");
+  const [draftPayment, setDraftPayment] = useState("");
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedMethods, setSelectedMethods] = useState<string[]>([]);
@@ -107,6 +113,7 @@ export default function AdminStudents() {
     null,
   );
   const { toast } = useToast();
+  const insets = useSafeAreaInsets();
   const {
     requests: joinRequests,
     isLoading: joinRequestsLoading,
@@ -128,7 +135,22 @@ export default function AdminStudents() {
     sortDirection: "asc",
   });
   const items = alunos?.items ?? [];
+  const activeFilterCount = [status, level, payment].filter(Boolean).length;
   useEffect(() => setPage(1), [search, level, status, payment]);
+
+  const openFilters = () => {
+    setDraftStatus(status);
+    setDraftLevel(level);
+    setDraftPayment(payment);
+    setFiltersOpen(true);
+  };
+
+  const applyFilters = () => {
+    setStatus(draftStatus);
+    setLevel(draftLevel);
+    setPayment(draftPayment);
+    setFiltersOpen(false);
+  };
 
   const decideJoinRequest = async (
     id: string,
@@ -155,42 +177,43 @@ export default function AdminStudents() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
-      <ScreenScrollView keyboardShouldPersistTaps="handled">
+      <View style={styles.pageNavigation}>
+        <AdminPageHeader title="alunos" subtitle="Cadastro e solicitações de entrada" />
+        <View style={styles.internalTabs} accessibilityRole="tablist">
+          <TouchableOpacity
+            accessibilityRole="tab"
+            accessibilityState={{ selected: section === "manage" }}
+            style={[styles.internalTab, section === "manage" && styles.internalTabActive]}
+            onPress={() => setSection("manage")}
+          >
+            <Text style={[styles.internalTabText, section === "manage" && styles.internalTabTextActive]}>Gerenciamento</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="tab"
+            accessibilityState={{ selected: section === "requests" }}
+            style={[styles.internalTab, section === "requests" && styles.internalTabActive]}
+            onPress={() => setSection("requests")}
+          >
+            <Text style={[styles.internalTabText, section === "requests" && styles.internalTabTextActive]}>Solicitações</Text>
+            {joinRequests.length > 0 && (
+              <View style={styles.requestCount}><Text style={styles.requestCountText}>{joinRequests.length}</Text></View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+      <ScreenScrollView key={section} style={styles.contentScroll} keyboardShouldPersistTaps="handled">
         <AdminScreen>
-          <AdminPageHeader title="alunos" subtitle="Cadastro e solicitações de entrada" />
-          <View style={styles.toolbar}>
-            <View style={styles.searchBox}>
-              <Search size={17} color={COLORS.mutedForeground} />
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Buscar aluno..."
-                placeholderTextColor={COLORS.mutedForeground}
-                style={styles.searchInput}
-              />
-            </View>
-            <ActionButton
-              label="Convidar aluno"
-              icon={<Plus size={15} color="#fff" />}
-              onPress={() => setInviting(true)}
-            />
-          </View>
+          {section === "requests" ? (
           <View style={styles.joinRequestsSection}>
             <View style={styles.joinRequestsHeader}>
               <View>
-                <Text style={styles.sectionTitle}>Solicitações de entrada</Text>
+                <Text style={styles.requestTitle}>Solicitações de entrada</Text>
                 <Text style={styles.secondary}>
                   Alunos aguardando aprovação para entrar no CT.
                 </Text>
               </View>
-              {joinRequests.length > 0 && (
-                <Pill
-                  label={`${joinRequests.length} pendente${joinRequests.length === 1 ? "" : "s"}`}
-                  tone="warning"
-                />
-              )}
             </View>
             {joinRequestsLoading ? (
               <AdminSkeleton height={106} radius={8} />
@@ -236,6 +259,7 @@ export default function AdminStudents() {
                         }
                         icon={<Check size={14} color="#fff" />}
                         onPress={() => decideJoinRequest(request.id, "approve")}
+                        disabled={isSavingJoinRequest}
                       />
                       <TouchableOpacity
                         disabled={isSavingJoinRequest}
@@ -254,24 +278,37 @@ export default function AdminStudents() {
               })
             )}
           </View>
-          <Filter
-            label="Status"
-            options={[ALL, ...statuses]}
-            selected={status}
-            onSelect={setStatus}
-          />
-          <Filter
-            label="Nível"
-            options={[ALL, ...levels]}
-            selected={level}
-            onSelect={setLevel}
-          />
-          <Filter
-            label="Pagamento"
-            options={[ALL, ...paymentMethods]}
-            selected={payment}
-            onSelect={setPayment}
-          />
+          ) : (
+          <>
+          <View style={styles.toolbar}>
+            <View style={styles.searchBox}>
+              <Search size={17} color={COLORS.mutedForeground} />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Buscar aluno..."
+                placeholderTextColor={COLORS.mutedForeground}
+                style={styles.searchInput}
+              />
+            </View>
+            <ActionButton
+              label="Convidar aluno"
+              icon={<Plus size={15} color="#fff" />}
+              onPress={() => setInviting(true)}
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.filterTrigger, activeFilterCount > 0 && styles.filterTriggerActive]}
+            onPress={openFilters}
+            accessibilityRole="button"
+            accessibilityLabel={activeFilterCount > 0 ? `Abrir filtros, ${activeFilterCount} ativo${activeFilterCount === 1 ? "" : "s"}` : "Abrir filtros"}
+          >
+            <SlidersHorizontal size={17} color={COLORS.mainOrange} />
+            <Text style={styles.filterTriggerText}>Filtros</Text>
+            {activeFilterCount > 0 && (
+              <View style={styles.filterCount}><Text style={styles.filterCountText}>{activeFilterCount}</Text></View>
+            )}
+          </TouchableOpacity>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {isLoading ? (
             Array.from({ length: 5 }).map((_, index) => (
@@ -348,6 +385,8 @@ export default function AdminStudents() {
               />
             </View>
           )}
+          </>
+          )}
         </AdminScreen>
       </ScreenScrollView>
       <StudentModal
@@ -356,6 +395,35 @@ export default function AdminStudents() {
         onClose={() => setSelectedId(null)}
       />
       <InviteModal visible={inviting} onClose={() => setInviting(false)} />
+      <Modal
+        visible={filtersOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFiltersOpen(false)}
+      >
+        <View style={styles.filterOverlay}>
+          <TouchableOpacity style={styles.filterDismiss} activeOpacity={1} onPress={() => setFiltersOpen(false)} accessibilityLabel="Fechar filtros" />
+          <View style={[styles.filterSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            <View style={styles.filterSheetHeader}>
+              <Text style={styles.filterSheetTitle}>Filtrar alunos</Text>
+              <TouchableOpacity onPress={() => setFiltersOpen(false)} accessibilityRole="button" accessibilityLabel="Fechar filtros" style={styles.filterClose}>
+                <X size={20} color={COLORS.foreground} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.filterSheetScroll} contentContainerStyle={styles.filterSheetContent} showsVerticalScrollIndicator={false}>
+              <Filter label="Status" options={[ALL, ...statuses]} selected={draftStatus} onSelect={setDraftStatus} />
+              <Filter label="Nível" options={[ALL, ...levels]} selected={draftLevel} onSelect={setDraftLevel} />
+              <Filter label="Pagamento" options={[ALL, ...paymentMethods]} selected={draftPayment} onSelect={setDraftPayment} />
+            </ScrollView>
+            <View style={styles.filterSheetActions}>
+              <TouchableOpacity style={styles.clearFilters} onPress={() => { setDraftStatus(""); setDraftLevel(""); setDraftPayment(""); }} accessibilityRole="button">
+                <Text style={styles.clearFiltersText}>Limpar</Text>
+              </TouchableOpacity>
+              <ActionButton label="Aplicar filtros" onPress={applyFilters} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -983,8 +1051,93 @@ function Choice({
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.white },
-  grow: { flex: 1 },
+  pageNavigation: { paddingHorizontal: 20, paddingTop: 18, gap: 16 },
+  contentScroll: { flex: 1 },
+  internalTabs: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E7E8EB",
+  },
+  internalTab: {
+    flex: 1,
+    minHeight: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  internalTabActive: { borderBottomColor: COLORS.mainOrange },
+  internalTabText: { color: COLORS.mutedForeground, fontSize: 13, fontWeight: "700" },
+  internalTabTextActive: { color: COLORS.mainOrange, fontWeight: "800" },
+  requestCount: {
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    backgroundColor: "#FFF0E6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  requestCountText: { color: COLORS.mainOrange, fontSize: 11, fontWeight: "800" },
+  grow: { flex: 1, minWidth: 0 },
   toolbar: { flexDirection: "row", alignItems: "center", gap: 8 },
+  filterTrigger: {
+    alignSelf: "flex-start",
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#E7E8EB",
+    borderRadius: 9,
+  },
+  filterTriggerActive: { borderColor: "#F1B68F", backgroundColor: "#FFF7F1" },
+  filterTriggerText: { color: COLORS.mainOrange, fontSize: 13, fontWeight: "700" },
+  filterCount: {
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    backgroundColor: COLORS.mainOrange,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterCountText: { color: COLORS.white, fontSize: 11, fontWeight: "800" },
+  filterOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: "flex-end" },
+  filterDismiss: { flex: 1 },
+  filterSheet: {
+    maxHeight: "85%",
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+  },
+  filterSheetHeader: {
+    minHeight: 58,
+    paddingLeft: 20,
+    paddingRight: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  filterSheetTitle: { color: COLORS.foreground, fontSize: 20, fontWeight: "800", letterSpacing: -0.4 },
+  filterClose: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  filterSheetScroll: { flexGrow: 0 },
+  filterSheetContent: { paddingHorizontal: 20, paddingVertical: 12, gap: 22 },
+  filterSheetActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#ECEDEF",
+  },
+  clearFilters: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
+  clearFiltersText: { color: COLORS.mainOrange, fontSize: 13, fontWeight: "700" },
   searchBox: {
     flex: 1,
     minHeight: 46,
@@ -1042,6 +1195,7 @@ const styles = StyleSheet.create({
   secondary: { color: COLORS.mutedForeground, fontSize: 11, lineHeight: 16 },
   pills: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginVertical: 5 },
   joinRequestsSection: { gap: 10 },
+  requestTitle: { color: COLORS.foreground, fontSize: 18, fontWeight: "800", letterSpacing: -0.3 },
   joinRequestsHeader: {
     flexDirection: "row",
     alignItems: "center",
