@@ -288,7 +288,7 @@ export default function PaymentPlans() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ClientHeader />
 
       <ScrollView

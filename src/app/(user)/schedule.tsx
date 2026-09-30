@@ -289,7 +289,7 @@ export default function Schedule() {
   }, [categories]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ClientHeader />
 
       <View style={styles.fixedHeader}>

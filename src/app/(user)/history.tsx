@@ -174,7 +174,7 @@ export default function History() {
     const filtered = bookingUserHistory?.items?.filter(p => filtroName === 'Todas' || p.modalityName === filtroName) || [];
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
             <ClientHeader />
             <ScrollView showsVerticalScrollIndicator={false}>
                 <HistorySummary data={myMonthlySchedule} loading={isMonthlyLoading} />

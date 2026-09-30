@@ -214,7 +214,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ClientHeader />
       <KeyboardAvoider>
         <ScrollView

@@ -12,7 +12,7 @@ export default function PendingPayments() {
   const { data, payments, isLoading, isRefreshing, error, refetch } = usePayments(page);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ClientHeader />
       <ScrollView contentContainerStyle={styles.content}>
         <TouchableOpacity accessibilityRole="button" style={styles.back} onPress={() => router.navigate("/(user)/paymentPlans")}>
