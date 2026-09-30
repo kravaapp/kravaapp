@@ -10,7 +10,7 @@ export default function MercadoPagoCard({ onToken, onError, ...config }: Mercado
   const processing = useRef(false);
   const html = useMemo(() => createMercadoPagoCardHtml(config), [config.publicKey, config.amount, config.customerName, config.customerDocument]);
   return (
-    <View style={{ height: 380 }}>
+    <View style={{ height: 292 }}>
       <WebView
         ref={webview}
         source={{ html, baseUrl: publicBaseUrl }}

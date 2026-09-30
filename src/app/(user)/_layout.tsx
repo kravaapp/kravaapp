@@ -39,7 +39,7 @@ function StudentTabBar({ state, navigation }: StudentTabBarProps) {
     };
   }, []);
 
-  if (keyboardVisible) return null;
+  if (keyboardVisible || state.routes[state.index]?.name === "payment") return null;
 
   return (
     <View style={[styles.bar, { paddingBottom: insets.bottom }]}>

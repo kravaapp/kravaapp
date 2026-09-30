@@ -30,5 +30,5 @@ export default function MercadoPagoCard({ onToken, onError, ...config }: Mercado
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
   }, [onToken, onError]);
-  return <iframe ref={frame} title="Pagamento seguro com cartão" srcDoc={html} style={{ width: "100%", height: 380, border: 0 }} />;
+  return <iframe ref={frame} title="Pagamento seguro com cartão" srcDoc={html} style={{ width: "100%", height: 292, border: 0 }} />;
 }
