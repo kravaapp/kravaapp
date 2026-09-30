@@ -2,7 +2,7 @@ import { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
-import { ActionButton, AdminCard, AdminScreen, AdminSkeleton, Pill, SectionTitle } from "@/components/admin/AdminUi";
+import { ActionButton, AdminCard, AdminPageHeader, AdminScreen, AdminSkeleton, Pill } from "@/components/admin/AdminUi";
 import { usePaymentGateways } from "@/hooks/payments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import { gatewayConfigurationSchema, mercadoPagoConfigurationSchema } from "@/schemas/payments.schemas";
@@ -50,10 +50,7 @@ export default function AdminPaymentGateways() {
     <View style={styles.screen}>
       <ScreenScrollView>
         <AdminScreen>
-          <View style={styles.heading}>
-            <SectionTitle>Gateways de pagamento</SectionTitle>
-            <Text style={styles.muted}>Configure como o CT recebe pagamentos. Apenas um gateway pode ficar ativo.</Text>
-          </View>
+          <AdminPageHeader title="gateways" subtitle="Configure como o CT recebe pagamentos" />
           {error && (
             <AdminCard>
               <Text accessibilityRole="alert" style={styles.error}>
@@ -304,17 +301,17 @@ function SecretField({ label, value, onChange, disabled }: {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#f8fafc" },
+  screen: { flex: 1, backgroundColor: COLORS.white },
   heading: { gap: 6 },
   muted: { color: COLORS.mutedForeground, fontSize: 12, lineHeight: 18 },
   body: { color: COLORS.foreground, fontSize: 14, lineHeight: 22 },
-  title: { color: COLORS.foreground, fontSize: 16, fontWeight: "700", flexShrink: 1 },
+  title: { color: COLORS.foreground, fontSize: 18, fontWeight: "800", flexShrink: 1 },
   grow: { flex: 1, minWidth: 0, gap: 4 },
   cardHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  activeSummary: { backgroundColor: COLORS.warningSurface },
+  activeSummary: { backgroundColor: "#FFF0E6", borderColor: "#F5D2BB" },
   summaryRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  activeCard: { borderColor: COLORS.mainOrange, borderWidth: 2 },
+  activeCard: { borderColor: COLORS.mainOrange },
   error: { color: COLORS.destructive, backgroundColor: "#fee2e2", padding: 12, borderRadius: 10, fontSize: 12, lineHeight: 18 },
   notice: { color: COLORS.info, backgroundColor: COLORS.infoSurface, padding: 12, borderRadius: 10, fontSize: 12, lineHeight: 18 },
   overlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: "flex-end", alignItems: "center" },
@@ -324,7 +321,7 @@ const styles = StyleSheet.create({
   form: { padding: 16, gap: 16 },
   fieldLabel: { color: COLORS.foreground, fontSize: 13, fontWeight: "600" },
   inputWrapper: { justifyContent: "center" },
-  input: { minHeight: 44, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingLeft: 12, paddingRight: 48, color: COLORS.foreground, fontSize: 14 },
+  input: { minHeight: 46, borderWidth: 1, borderColor: COLORS.border, borderRadius: 10, paddingLeft: 12, paddingRight: 48, color: COLORS.foreground, fontSize: 14 },
   eyeButton: { position: "absolute", right: 2, width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  switchRow: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#f8fafc", padding: 12, borderRadius: 10 },
+  switchRow: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#F7F8FA", padding: 12, borderRadius: 10 },
 });

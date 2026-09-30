@@ -7,8 +7,8 @@ import {
   AdminCard,
   AdminScreen,
   AdminSkeleton,
+  AdminPageHeader,
   Pill,
-  SectionTitle,
 } from "@/components/admin/AdminUi";
 import { useCategories } from "@/hooks/categories.hooks";
 import { useAdminPlanActions, useAdminPlans } from "@/hooks/plans.hooks";
@@ -57,10 +57,7 @@ export default function AdminPlans() {
         <AdminScreen>
           <View style={styles.pageHeader}>
             <View style={styles.pageTitle}>
-              <SectionTitle>Planos</SectionTitle>
-              <Text style={styles.muted}>
-                Gerencie preços, duração e acesso às modalidades.
-              </Text>
+              <AdminPageHeader title="planos" subtitle="Preços, duração e acesso às modalidades" />
             </View>
             <ActionButton
               label="Novo plano"
@@ -483,7 +480,7 @@ function NavButton({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8fafc" },
+  safe: { flex: 1, backgroundColor: COLORS.white },
   pageHeader: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -520,11 +517,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   empty: { color: COLORS.mutedForeground, textAlign: "center", padding: 20 },
-  planCard: { borderRadius: 8 },
-  planName: { color: COLORS.foreground, fontSize: 15, fontWeight: "700" },
+  planCard: { borderRadius: 18 },
+  planName: { color: COLORS.foreground, fontSize: 18, fontWeight: "800", letterSpacing: -0.3 },
   price: {
     color: COLORS.mainOrange,
-    fontSize: 19,
+    fontSize: 23,
     fontWeight: "800",
     marginTop: 3,
   },
@@ -573,15 +570,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  modalTitle: { color: COLORS.foreground, fontSize: 17, fontWeight: "700" },
+  modalTitle: { color: COLORS.foreground, fontSize: 20, fontWeight: "800", letterSpacing: -0.4 },
   form: { padding: 16, paddingBottom: 36, gap: 14 },
   field: { gap: 6 },
   label: { color: COLORS.foreground, fontSize: 12, fontWeight: "700" },
   input: {
-    minHeight: 42,
+    minHeight: 46,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 11,
     color: COLORS.foreground,
   },
@@ -592,7 +589,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     padding: 12,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#F7F8FA",
     borderRadius: 8,
   },
   choices: { flexDirection: "row", flexWrap: "wrap", gap: 7 },

@@ -6,6 +6,7 @@ import {
   AdminCard,
   AdminScreen,
   AdminSkeleton,
+  AdminPageHeader,
   Pill,
   SectionTitle,
   initials,
@@ -99,31 +100,26 @@ export default function AdminFinancial() {
           label: "Mensalistas",
           block: summary.monthly,
           Icon: Users,
-          color: COLORS.mainOrange,
         },
         {
           label: "Gympass",
           block: summary.gympass,
           Icon: CreditCard,
-          color: COLORS.info,
         },
         {
           label: "Totalpass",
           block: summary.totalpass,
           Icon: CreditCard,
-          color: COLORS.primary,
         },
         {
           label: "Avulsos",
           block: summary.avulso,
           Icon: TrendingUp,
-          color: COLORS.warning,
         },
         {
           label: "Parceiros",
           block: summary.partner,
           Icon: Handshake,
-          color: COLORS.success,
         },
       ]
     : [];
@@ -174,6 +170,7 @@ export default function AdminFinancial() {
     <View style={styles.safe}>
       <ScreenScrollView>
         <AdminScreen>
+          <AdminPageHeader title="financeiro" subtitle="Receitas, repasses e contratos" />
           {hasError && (
             <Text style={styles.error}>
               Alguns dados financeiros não puderam ser carregados.
@@ -189,12 +186,12 @@ export default function AdminFinancial() {
                     radius={14}
                   />
                 ))
-              : blocks.map(({ label, block, Icon, color }) => (
+              : blocks.map(({ label, block, Icon }) => (
                   <AdminCard
                     key={label}
-                    style={[styles.summary, { borderTopColor: color }]}
+                    style={styles.summary}
                   >
-                    <Icon size={20} color={color} />
+                    <Icon size={20} color={COLORS.mainOrange} />
                     <Text style={styles.value}>{currency(block.total)}</Text>
                     <Text style={styles.label}>{label}</Text>
                     <Text style={styles.muted}>
@@ -384,7 +381,7 @@ function EditableTransfer({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8fafc" },
+  safe: { flex: 1, backgroundColor: COLORS.white },
   error: {
     backgroundColor: "#fee2e2",
     color: COLORS.destructive,
@@ -394,17 +391,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  summary: { width: "48%", borderTopWidth: 4 },
+  summary: { width: "47.5%", minHeight: 132, justifyContent: "space-between" },
   value: { fontSize: 19, fontWeight: "800", color: COLORS.foreground },
   label: { fontSize: 13, fontWeight: "700", color: COLORS.foreground },
   muted: { color: COLORS.mutedForeground, fontSize: 11 },
-  total: { backgroundColor: COLORS.navy, borderWidth: 0 },
+  total: { backgroundColor: COLORS.mainOrange, borderColor: COLORS.mainOrange },
   totalValue: { color: "#fff", fontSize: 24, fontWeight: "800" },
-  totalText: { color: "rgba(255,255,255,.65)", fontSize: 12 },
+  totalText: { color: COLORS.white, fontSize: 12 },
   editRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#F7F8FA",
     borderRadius: 12,
     padding: 12,
     gap: 8,

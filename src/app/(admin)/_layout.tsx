@@ -31,19 +31,28 @@ export default function ProtectedLayout() {
         headerShown: false,
         tabBarActiveTintColor: COLORS.mainOrange,
         tabBarInactiveTintColor: COLORS.grayLabels,
+        tabBarHideOnKeyboard: true,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "700", marginTop: 2 },
+        tabBarIconStyle: { marginTop: 2 },
         tabBarStyle: {
-          paddingTop: 5,
-          height: 60 + insets.bottom,
+          backgroundColor: COLORS.white,
+          paddingTop: 8,
+          height: 64 + insets.bottom,
           paddingBottom: insets.bottom,
           borderTopWidth: 1,
-          borderTopColor: "#9fa2a8ff",
+          borderTopColor: "#ECEDEF",
+          elevation: 8,
+          shadowColor: "#111827",
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Dashboard",
+          title: "Painel",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <LayoutGrid color={color} size={size} />
@@ -90,7 +99,7 @@ export default function ProtectedLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: "Configurações",
+          title: "Ajustes",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Settings color={color} size={size} />

@@ -3,6 +3,7 @@ import { PropsWithChildren, ReactNode, useEffect, useRef } from "react";
 import {
   Animated,
   DimensionValue,
+  StyleProp,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,11 +17,23 @@ export const AdminScreen = ({ children }: PropsWithChildren) => (
 export const AdminCard = ({
   children,
   style,
-}: PropsWithChildren<{ style?: ViewStyle | ViewStyle[] }>) => (
+}: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) => (
   <View style={[styles.card, style]}>{children}</View>
 );
 export const SectionTitle = ({ children }: PropsWithChildren) => (
   <Text style={styles.sectionTitle}>{children}</Text>
+);
+export const AdminPageHeader = ({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle?: string;
+}) => (
+  <View style={styles.pageHeader}>
+    <Text style={styles.pageTitle}>{title}</Text>
+    {subtitle ? <Text style={styles.pageSubtitle}>{subtitle}</Text> : null}
+  </View>
 );
 export const Pill = ({
   label,
@@ -30,7 +43,7 @@ export const Pill = ({
   tone?: "primary" | "success" | "warning" | "danger" | "info" | "neutral";
 }) => {
   const colors = {
-    primary: [COLORS.subOrange, COLORS.mainOrange],
+    primary: ["#FFF0E6", COLORS.mainOrange],
     success: [COLORS.successSurface, "#15803d"],
     warning: [COLORS.warningSurface, "#b45309"],
     danger: ["#fee2e2", COLORS.destructive],
@@ -58,6 +71,7 @@ export const ActionButton = ({
 }) => (
   <TouchableOpacity
     activeOpacity={0.75}
+    accessibilityRole="button"
     onPress={onPress}
     disabled={disabled}
     style={[styles.button, outline && styles.buttonOutline, disabled && styles.disabled]}
@@ -74,7 +88,7 @@ export const ProgressBar = ({ value }: { value: number }) => (
       style={[
         styles.fill,
         {
-          width: `${Math.min(value, 100)}%`,
+          width: `${Math.max(0, Math.min(value, 100))}%`,
           backgroundColor:
             value >= 90
               ? COLORS.destructive
@@ -137,31 +151,30 @@ export const AdminSkeleton = ({
 };
 
 const styles = StyleSheet.create({
-  screen: { padding: 16, gap: 16 },
+  screen: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32, gap: 20 },
   card: {
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    padding: 16,
+    borderColor: "#ECEDEF",
+    borderRadius: 18,
+    padding: 18,
     gap: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
   },
-  sectionTitle: { color: COLORS.foreground, fontSize: 16, fontWeight: "700" },
+  pageHeader: { gap: 4, paddingBottom: 2 },
+  pageTitle: { color: COLORS.foreground, fontSize: 28, fontWeight: "800", letterSpacing: -0.8 },
+  pageSubtitle: { color: COLORS.mutedForeground, fontSize: 13, lineHeight: 19 },
+  sectionTitle: { color: COLORS.foreground, fontSize: 19, fontWeight: "800", letterSpacing: -0.4 },
   pill: {
     alignSelf: "flex-start",
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   pillText: { fontSize: 11, fontWeight: "700" },
   button: {
-    minHeight: 36,
+    minHeight: 44,
     borderRadius: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     flexDirection: "row",
     gap: 6,
     alignItems: "center",
@@ -171,14 +184,14 @@ const styles = StyleSheet.create({
   buttonOutline: {
     backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "#F1B68F",
   },
-  buttonText: { color: COLORS.white, fontSize: 12, fontWeight: "700" },
-  buttonOutlineText: { color: COLORS.foreground },
+  buttonText: { color: COLORS.white, fontSize: 13, fontWeight: "700" },
+  buttonOutlineText: { color: COLORS.mainOrange },
   disabled: { opacity: 0.5 },
   track: {
-    height: 7,
-    backgroundColor: "#f3f4f6",
+    height: 8,
+    backgroundColor: "#E7E8EB",
     borderRadius: 99,
     overflow: "hidden",
     flex: 1,

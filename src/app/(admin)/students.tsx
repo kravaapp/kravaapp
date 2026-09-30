@@ -7,6 +7,7 @@ import {
   AdminCard,
   AdminScreen,
   AdminSkeleton,
+  AdminPageHeader,
   Pill,
   initials,
 } from "@/components/admin/AdminUi";
@@ -158,6 +159,7 @@ export default function AdminStudents() {
       <ClientHeader />
       <ScreenScrollView keyboardShouldPersistTaps="handled">
         <AdminScreen>
+          <AdminPageHeader title="alunos" subtitle="Cadastro e solicitações de entrada" />
           <View style={styles.toolbar}>
             <View style={styles.searchBox}>
               <Search size={17} color={COLORS.mutedForeground} />
@@ -980,19 +982,19 @@ function Choice({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8fafc" },
+  safe: { flex: 1, backgroundColor: COLORS.white },
   grow: { flex: 1 },
   toolbar: { flexDirection: "row", alignItems: "center", gap: 8 },
   searchBox: {
     flex: 1,
-    minHeight: 42,
+    minHeight: 46,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: "#fff",
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
   },
   searchInput: { flex: 1, color: COLORS.foreground, fontSize: 14 },
@@ -1025,7 +1027,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderRadius: 8,
+    borderRadius: 14,
   },
   avatar: {
     width: 44,
@@ -1036,7 +1038,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: { color: COLORS.mainOrange, fontSize: 13, fontWeight: "800" },
-  name: { color: COLORS.foreground, fontSize: 13, fontWeight: "700" },
+  name: { color: COLORS.foreground, fontSize: 15, fontWeight: "800" },
   secondary: { color: COLORS.mutedForeground, fontSize: 11, lineHeight: 16 },
   pills: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginVertical: 5 },
   joinRequestsSection: { gap: 10 },
@@ -1050,7 +1052,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderRadius: 8,
+    borderRadius: 14,
   },
   joinRequestActions: { gap: 7, minWidth: 82 },
   planReference: {
@@ -1060,7 +1062,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   rejectButton: {
-    minHeight: 36,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1120,15 +1122,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  modalTitle: { color: COLORS.foreground, fontSize: 17, fontWeight: "700" },
+  modalTitle: { color: COLORS.foreground, fontSize: 20, fontWeight: "800", letterSpacing: -0.4 },
   modalContent: { padding: 16, gap: 14, paddingBottom: 36 },
   field: { gap: 6 },
   fieldLabel: { color: COLORS.foreground, fontSize: 12, fontWeight: "700" },
   input: {
-    minHeight: 42,
+    minHeight: 46,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 11,
     color: COLORS.foreground,
     backgroundColor: "#fff",
@@ -1156,7 +1158,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     padding: 12,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#F7F8FA",
     borderRadius: 8,
   },
   sectionTitle: {
@@ -1170,7 +1172,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     padding: 11,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#F7F8FA",
     borderRadius: 8,
   },
 });

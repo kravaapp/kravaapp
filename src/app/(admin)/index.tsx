@@ -5,6 +5,7 @@ import {
   AdminCard,
   AdminScreen,
   AdminSkeleton,
+  AdminPageHeader,
   Pill,
   ProgressBar,
   SectionTitle,
@@ -135,7 +136,7 @@ export default function AdminDashboard() {
       label: "Receita recorrente/mês",
       value: formatCurrency(financial?.mrr),
       Icon: DollarSign,
-      color: COLORS.primary,
+      color: COLORS.mainOrange,
       isLoading: loading.financial,
     },
     {
@@ -155,7 +156,7 @@ export default function AdminDashboard() {
           ? "—"
           : `${attendanceRate.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`,
       Icon: TrendingUp,
-      color: COLORS.warning,
+      color: COLORS.mainOrange,
       isLoading: loading.operational,
     },
   ];
@@ -200,6 +201,7 @@ export default function AdminDashboard() {
       <ClientHeader />
       <ScrollView showsVerticalScrollIndicator={false}>
         <AdminScreen>
+          <AdminPageHeader title="painel" subtitle="Visão geral do CT" />
           {hasError && (
             <View style={styles.errorBanner}>
               <Text style={styles.errorText}>
@@ -210,15 +212,15 @@ export default function AdminDashboard() {
           )}
 
           <View style={styles.kpiGrid}>
-            {kpis.map(({ label, value, Icon, color, isLoading: isLoadingKpi }) => (
+            {kpis.map(({ label, value, Icon, color, isLoading: isLoadingKpi }, index) => (
               <AdminCard
                 key={label}
-                style={[styles.kpiCard, { borderTopColor: color }]}
+                style={[styles.kpiCard, index === 0 && styles.kpiFeatured]}
               >
                 <View
-                  style={[styles.iconBox, { backgroundColor: `${color}18` }]}
+                  style={[styles.iconBox, { backgroundColor: index === 0 ? "#FFFFFF26" : `${color}18` }]}
                 >
-                  <Icon size={20} color={color} />
+                  <Icon size={20} color={index === 0 ? COLORS.white : color} />
                 </View>
                 {isLoadingKpi ? (
                   <>
@@ -227,8 +229,8 @@ export default function AdminDashboard() {
                   </>
                 ) : (
                   <>
-                    <Text style={styles.kpiValue}>{value}</Text>
-                    <Text style={styles.muted}>{label}</Text>
+                    <Text style={[styles.kpiValue, index === 0 && styles.kpiFeaturedText]}>{value}</Text>
+                    <Text style={[styles.muted, index === 0 && styles.kpiFeaturedText]}>{label}</Text>
                   </>
                 )}
               </AdminCard>
@@ -412,11 +414,13 @@ export default function AdminDashboard() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f8fafc" },
+  safeArea: { flex: 1, backgroundColor: COLORS.white },
   errorBanner: { padding: 12, borderRadius: 12, backgroundColor: "#fee2e2" },
   errorText: { color: COLORS.destructive, fontSize: 12, fontWeight: "600" },
   kpiGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  kpiCard: { width: "48%", borderTopWidth: 4 },
+  kpiCard: { width: "47.5%", minHeight: 138, justifyContent: "space-between" },
+  kpiFeatured: { backgroundColor: COLORS.mainOrange, borderColor: COLORS.mainOrange },
+  kpiFeaturedText: { color: COLORS.white },
   iconBox: {
     width: 38,
     height: 38,

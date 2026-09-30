@@ -7,6 +7,7 @@ import {
   AdminCard,
   AdminScreen,
   AdminSkeleton,
+  AdminPageHeader,
   Pill,
   ProgressBar,
   SectionTitle,
@@ -156,6 +157,7 @@ export default function AdminClasses() {
       <ClientHeader />
       <ScreenScrollView>
         <AdminScreen>
+          <AdminPageHeader title="aulas" subtitle="Ocorrências de hoje e grade semanal" />
           <View style={styles.segment}>
             <TouchableOpacity
               onPress={() => setView("today")}
@@ -164,7 +166,7 @@ export default function AdminClasses() {
                 view === "today" && styles.segmentActive,
               ]}
             >
-              <Text style={styles.segmentText}>Hoje</Text>
+              <Text style={[styles.segmentText, view === "today" && styles.segmentTextActive]}>Hoje</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setView("week")}
@@ -173,7 +175,7 @@ export default function AdminClasses() {
                 view === "week" && styles.segmentActive,
               ]}
             >
-              <Text style={styles.segmentText}>Grade semanal</Text>
+              <Text style={[styles.segmentText, view === "week" && styles.segmentTextActive]}>Grade semanal</Text>
             </TouchableOpacity>
           </View>
 
@@ -944,26 +946,28 @@ function ClassModal({
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f8fafc" },
+  safeArea: { flex: 1, backgroundColor: COLORS.white },
   segment: {
     flexDirection: "row",
-    backgroundColor: "#eef0f3",
-    borderRadius: 12,
-    padding: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E7E8EB",
   },
   segmentButton: {
     flex: 1,
-    padding: 10,
+    minHeight: 44,
     alignItems: "center",
-    borderRadius: 9,
+    justifyContent: "center",
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
-  segmentActive: { backgroundColor: COLORS.white },
-  segmentText: { fontSize: 12, fontWeight: "700", color: COLORS.foreground },
+  segmentActive: { borderBottomColor: COLORS.mainOrange },
+  segmentText: { fontSize: 13, fontWeight: "700", color: COLORS.mutedForeground },
+  segmentTextActive: { color: COLORS.mainOrange },
   filters: { gap: 8 },
   filter: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 999,
+    borderRadius: 9,
     paddingHorizontal: 13,
     paddingVertical: 7,
     backgroundColor: COLORS.white,
@@ -995,7 +999,7 @@ const styles = StyleSheet.create({
     bottom: 18,
     width: 54,
     height: 54,
-    borderRadius: 18,
+    borderRadius: 27,
     backgroundColor: COLORS.mainOrange,
     alignItems: "center",
     justifyContent: "center",
@@ -1011,7 +1015,7 @@ const styles = StyleSheet.create({
   day: { width: 34, fontWeight: "800", color: COLORS.foreground },
   grow: { flex: 1 },
   slot: {
-    backgroundColor: COLORS.subOrange,
+    backgroundColor: "#FFF2E9",
     borderRadius: 10,
     padding: 9,
     marginBottom: 6,
@@ -1038,18 +1042,18 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 9,
     marginBottom: 5,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#F7F8FA",
     borderRadius: 10,
   },
   avatar: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: COLORS.successSurface,
+    backgroundColor: "#FFF0E6",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: "#15803d", fontSize: 10, fontWeight: "800" },
+  avatarText: { color: COLORS.mainOrange, fontSize: 10, fontWeight: "800" },
   empty: { textAlign: "center", color: COLORS.mutedForeground, padding: 24 },
   validationError: {
     color: COLORS.destructive,
@@ -1071,7 +1075,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 10,
     paddingHorizontal: 12,
-    height: 42,
+    minHeight: 46,
     color: COLORS.foreground,
   },
   fieldsRow: { flexDirection: "row", gap: 8 },

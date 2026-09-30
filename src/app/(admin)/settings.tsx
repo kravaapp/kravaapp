@@ -7,6 +7,7 @@ import {
   AdminCard,
   AdminScreen,
   AdminSkeleton,
+  AdminPageHeader,
   Pill,
   SectionTitle,
 } from "@/components/admin/AdminUi";
@@ -227,13 +228,14 @@ export default function AdminSettings() {
       <ClientHeader />
       <ScreenScrollView>
         <AdminScreen>
+          <AdminPageHeader title="configurações" subtitle="Dados do CT e regras de operação" />
           {hasError && (
             <Text style={styles.error}>
               Algumas configurações não puderam ser carregadas.
             </Text>
           )}
           <SettingsCard
-            icon={<Globe2 color={COLORS.info} size={20} />}
+            icon={<Globe2 color={COLORS.mainOrange} size={20} />}
             title="Perfil público"
           >
             {loading.catalogProfile ? (
@@ -328,7 +330,7 @@ export default function AdminSettings() {
             )}
           </SettingsCard>
           <SettingsCard
-            icon={<Globe2 color={COLORS.info} size={20} />}
+            icon={<Globe2 color={COLORS.mainOrange} size={20} />}
             title="Modalidades"
             action={
               <ActionButton
@@ -409,7 +411,7 @@ export default function AdminSettings() {
             )}
           </SettingsCard>
           <SettingsCard
-            icon={<DollarSign color={COLORS.success} size={20} />}
+            icon={<DollarSign color={COLORS.mainOrange} size={20} />}
             title="Aula avulsa"
           >
             <Text style={styles.muted}>
@@ -523,7 +525,7 @@ export default function AdminSettings() {
             )}
           </SettingsCard>
           <SettingsCard
-            icon={<Users color={COLORS.info} size={20} />}
+            icon={<Users color={COLORS.mainOrange} size={20} />}
             title="Limites de check-in por parceiro"
           >
             {loading.tenant ? (
@@ -908,7 +910,7 @@ function EditableRow({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8fafc" },
+  safe: { flex: 1, backgroundColor: COLORS.white },
   error: {
     backgroundColor: "#fee2e2",
     color: COLORS.destructive,
@@ -945,7 +947,7 @@ const styles = StyleSheet.create({
     height: 39,
     flexShrink: 0,
     borderRadius: 11,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#FFF0E6",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -955,7 +957,7 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#F7F8FA",
   },
   grow: { flex: 1, gap: 3 },
   itemTitle: { color: COLORS.foreground, fontSize: 13, fontWeight: "700" },
@@ -968,7 +970,7 @@ const styles = StyleSheet.create({
   },
   input: {
     width: 72,
-    height: 34,
+    height: 42,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 8,
@@ -977,10 +979,10 @@ const styles = StyleSheet.create({
   },
   edit: { padding: 8 },
   info: {
-    color: COLORS.info,
+    color: COLORS.mainOrange,
     fontSize: 11,
     lineHeight: 17,
-    backgroundColor: COLORS.infoSurface,
+    backgroundColor: "#FFF0E6",
     padding: 11,
     borderRadius: 10,
   },
@@ -1006,7 +1008,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: { color: COLORS.foreground, fontSize: 12, fontWeight: "700" },
   fullInput: {
-    height: 42,
+    minHeight: 46,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 10,

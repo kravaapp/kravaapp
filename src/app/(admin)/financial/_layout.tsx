@@ -51,23 +51,22 @@ export default function FinancialLayout() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
-  navigation: { paddingHorizontal: 16, paddingTop: 16 },
+  container: { flex: 1, backgroundColor: COLORS.white },
+  navigation: { paddingHorizontal: 20, paddingTop: 8 },
   tabs: {
     flexDirection: "row",
-    backgroundColor: "#e2e8f0",
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E7E8EB",
   },
   tab: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 44,
-    borderRadius: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
-  activeTab: { backgroundColor: "#fff" },
-  label: { fontSize: 14, fontWeight: "600", color: COLORS.mutedForeground },
-  activeLabel: { color: COLORS.mainOrange },
+  activeTab: { borderBottomColor: COLORS.mainOrange },
+  label: { fontSize: 13, fontWeight: "600", color: COLORS.mutedForeground },
+  activeLabel: { color: COLORS.mainOrange, fontWeight: "800" },
 });
