@@ -310,14 +310,14 @@ const WeekCalendar = () => {
     if (isLoading) {
         return (
             <View style={styles.weekCard}>
-                <View style={styles.weekRow}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.weekRow}>
                     {Array.from({ length: 7 }).map((_, index) => (
                         <View key={index} style={styles.dayItem}>
                             <View style={styles.skeletonDayLabel} />
                             <View style={styles.skeletonCircle} />
                         </View>
                     ))}
-                </View>
+                </ScrollView>
             </View>
         );
     }
@@ -387,43 +387,42 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', o
     return (
         <View style={styles.classCard}>
             <View style={styles.classTopRow}>
-                <View style={styles.timePill}>
-                    <CalendarDays size={15} color={BRAND_ORANGE} />
-                    <Text style={styles.time}>{formatAvailableClassDate(aula.date)}</Text>
-                    <Text style={styles.dateTimeSeparator}>·</Text>
-                    <Clock3 size={15} color={BRAND_ORANGE} />
-                    <Text style={styles.time}>{aula.startTime.substring(0, 5)}</Text>
+                <View style={styles.classDateRow}>
+                    <CalendarDays size={14} color={BRAND_ORANGE} />
+                    <Text style={styles.classDate}>{formatAvailableClassDate(aula.date)} · {aula.startTime.substring(0, 5)}</Text>
                 </View>
                 <StatusBadge status={aula.status?.toLowerCase() as BadgeStatus} />
             </View>
-            <Text style={styles.className}>{aula.modalityName || aula.aulaName}</Text>
-            <Text style={styles.classMeta}>
-                prof. {aula.professorName || "a definir"} · {aula.confirmedCount !== undefined && aula.maxCapacity !== undefined ? `${aula.confirmedCount}/${aula.maxCapacity}` : "-/-"} vagas
-            </Text>
-            <View style={styles.classFooter}>
+            <View style={styles.classBottomRow}>
+                <View style={styles.classDetails}>
+                    <Text style={styles.className} numberOfLines={1}>{aula.modalityName || aula.aulaName}</Text>
+                    <Text style={styles.classMeta} numberOfLines={1}>
+                        prof. {aula.professorName || "a definir"} · {aula.confirmedCount !== undefined && aula.maxCapacity !== undefined ? `${aula.confirmedCount}/${aula.maxCapacity}` : "-/-"} vagas
+                    </Text>
+                </View>
                 {aula.subscriptionStatus ? (
                     <Text style={styles.classNotice}>
-                        {aula.subscriptionStatus === 'Confirmado' ? 'agendamento confirmado ✓' :
-                        aula.subscriptionStatus === 'ListaEspera' ? 'na fila de espera' :
-                        aula.subscriptionStatus === 'WaitlistPending' ? 'aguardando confirmação' :
-                        aula.subscriptionStatus === 'CheckedIn' ? 'check-in realizado' :
+                        {aula.subscriptionStatus === 'Confirmado' ? 'confirmado ✓' :
+                        aula.subscriptionStatus === 'ListaEspera' ? 'na fila' :
+                        aula.subscriptionStatus === 'WaitlistPending' ? 'aguardando' :
+                        aula.subscriptionStatus === 'CheckedIn' ? 'check-in feito' :
                         aula.subscriptionStatus === 'Faltou' ? 'faltou' : ''}
                     </Text>
                 ) : isBlocked ? (
-                    <Text style={styles.classWarning}>aula bloqueada</Text>
+                    <Text style={styles.classWarning}>bloqueada</Text>
                 ) : !isGenderAllowed ? (
                     <Text style={styles.classWarning}>apenas {getGenderLabel(gender).substring(2).toLowerCase()}</Text>
                 ) : !isLevelAllowed ? (
-                    <Text style={styles.classWarning}>requer nível {capitalizeText(level).toLowerCase()}</Text>
+                    <Text style={styles.classWarning}>nível {capitalizeText(level).toLowerCase()}</Text>
                 ) : (
                     <TouchableOpacity
                         style={styles.bookButton}
+                        hitSlop={4}
                         onPress={() => onBookPress(aula)}
                         accessibilityRole="button"
                         accessibilityLabel={`agendar ${aula.modalityName || aula.aulaName} em ${formatAvailableClassDate(aula.date)} às ${aula.startTime.substring(0, 5)}`}
                     >
                         <Text style={styles.bookButtonText}>agendar</Text>
-                        <ArrowRight size={17} color="#FFFFFF" />
                     </TouchableOpacity>
                 )}
             </View>
@@ -512,13 +511,12 @@ export default function Home() {
                 }
                 ListFooterComponent={
                     <TouchableOpacity
-                        style={styles.seeAllButton}
+                        style={styles.seeAllLink}
                         onPress={() => router.push("/schedule")}
-                        accessibilityRole="button"
+                        accessibilityRole="link"
                         accessibilityLabel="Ver todas as aulas na tela de agendamento"
                     >
-                        <Text style={styles.seeAllButtonText}>ver todas as aulas</Text>
-                        <ArrowRight size={18} color="#FFFFFF" />
+                        <Text style={styles.seeAllLinkText}>ver todas as aulas</Text>
                     </TouchableOpacity>
                 }
             />
@@ -715,33 +713,29 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     weekCard: {
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderRadius: 16,
-        padding: 12,
-        marginBottom: 28,
+        marginBottom: 24,
     },
     weekRow: {
         flexGrow: 1,
         flexDirection: "row",
         justifyContent: "space-between",
-        gap: 3,
+        gap: 0,
     },
     dayItem: {
-        width: 48,
-        minHeight: 76,
+        width: 40,
+        minHeight: 70,
         alignItems: "center",
         justifyContent: "center",
     },
     dayLabel: {
         color: MUTED,
         fontSize: 11,
-        marginBottom: 5,
+        marginBottom: 6,
     },
     circle: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         backgroundColor: "#F3F4F6",
         alignItems: "center",
         justifyContent: "center",
@@ -774,8 +768,8 @@ const styles = StyleSheet.create({
     selectedDayCard: {
         borderTopWidth: 1,
         borderTopColor: "#E5E7EB",
-        paddingTop: 14,
-        marginTop: 8,
+        paddingTop: 10,
+        marginTop: 6,
     },
     cardTitle: {
         color: INK,
@@ -788,12 +782,11 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     classCard: {
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,
-        backgroundColor: "#FFFFFF",
+        borderRadius: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        marginBottom: 8,
+        backgroundColor: "#F6F7F8",
     },
     classTopRow: {
         flexDirection: "row",
@@ -801,70 +794,64 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
         gap: 8,
-        marginBottom: 14,
+        marginBottom: 7,
     },
-    timePill: {
-        minHeight: 32,
+    classDateRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
-        paddingHorizontal: 10,
-        backgroundColor: "#FFF0E7",
-        borderRadius: 8,
+        gap: 5,
     },
-    time: {
-        color: INK,
-        fontSize: 14,
+    classDate: {
+        color: BRAND_ORANGE,
+        fontSize: 12,
         fontWeight: "bold",
     },
-    dateTimeSeparator: {
-        color: MUTED,
-        fontSize: 14,
+    classBottomRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+    },
+    classDetails: {
+        flex: 1,
+        minWidth: 0,
     },
     className: {
         color: INK,
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: "bold",
         letterSpacing: -0.3,
     },
     classMeta: {
         color: MUTED,
-        fontSize: 13,
-        lineHeight: 19,
-        marginTop: 5,
-    },
-    classFooter: {
-        minHeight: 52,
-        alignItems: "flex-end",
-        justifyContent: "center",
-        marginTop: 14,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: "#E5E7EB",
+        fontSize: 12,
+        marginTop: 3,
     },
     classNotice: {
-        color: INK,
-        fontSize: 13,
+        color: BRAND_ORANGE,
+        fontSize: 11,
         fontWeight: "bold",
+        textAlign: "right",
+        maxWidth: 100,
     },
     classWarning: {
         color: "#B42318",
-        fontSize: 13,
+        fontSize: 11,
         fontWeight: "bold",
+        textAlign: "right",
+        maxWidth: 100,
     },
     bookButton: {
-        minHeight: 48,
-        flexDirection: "row",
+        minHeight: 36,
         alignItems: "center",
         justifyContent: "center",
-        gap: 8,
-        paddingHorizontal: 16,
-        borderRadius: 10,
+        paddingHorizontal: 12,
+        borderRadius: 8,
         backgroundColor: BRAND_ORANGE,
     },
     bookButtonText: {
         color: "#FFFFFF",
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: "bold",
     },
     emptyState: {
@@ -882,22 +869,18 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: "center",
     },
-    seeAllButton: {
-        minHeight: 52,
-        flexDirection: "row",
+    seeAllLink: {
+        minHeight: 44,
+        alignSelf: "center",
         alignItems: "center",
         justifyContent: "center",
-        gap: 10,
-        marginTop: 6,
-        paddingHorizontal: 16,
-        borderRadius: 10,
-        backgroundColor: BRAND_ORANGE,
+        marginTop: 8,
+        paddingHorizontal: 12,
     },
-    seeAllButtonText: {
-        color: "#FFFFFF",
-        fontSize: 15,
+    seeAllLinkText: {
+        color: BRAND_ORANGE,
+        fontSize: 14,
         fontWeight: "bold",
-        letterSpacing: -0.3,
     },
     skeletonLabel: {
         width: 90,
@@ -934,9 +917,9 @@ const styles = StyleSheet.create({
         marginBottom: 7,
     },
     skeletonCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         backgroundColor: "#E5E7EB",
     },
 });
