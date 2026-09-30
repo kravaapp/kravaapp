@@ -22,10 +22,11 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Eye, EyeOff } from "lucide-react-native";
+import { ArrowRight, Eye, EyeOff } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const EMAIL_NOT_CONFIRMED = "Auth.EmailNotConfirmed";
+const BRAND_ORANGE = "#E85C07";
 
 /** Login bloqueado por e-mail ainda não confirmado — leva para o código OTP. */
 function isEmailNotConfirmed(error: unknown) {
@@ -51,6 +52,7 @@ export default function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [registrationError, setRegistrationError] = useState("");
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const { login, isLoading } = useLogin();
   const { selfRegister, isLoading: isRegistering } = useSelfRegister();
@@ -147,15 +149,23 @@ export default function Login() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.card}>
-          <View style={styles.logoContainer}>
-            <KravaLogo size={64} />
+        <View style={styles.content}>
+          <View style={styles.brandRow}>
+            <KravaLogo size={38} showWordmark />
+          </View>
 
-            <Text style={styles.title}>krava</Text>
+          <View style={styles.hero}>
+            <Text style={styles.title}>
+              {mode === "login" ? (
+                <>bom te ver{"\n"}de volta<Text style={styles.titleAccent}>.</Text></>
+              ) : (
+                <>vamos{"\n"}treinar<Text style={styles.titleAccent}>.</Text></>
+              )}
+            </Text>
             <Text style={styles.subtitle}>
               {mode === "login"
-                ? "Gestão esportiva inteligente"
-                : "Crie sua conta para encontrar um CT"}
+                ? "Entre para agendar sua próxima aula."
+                : "Encontre um centro de treino e agende suas aulas."}
             </Text>
           </View>
 
@@ -163,7 +173,7 @@ export default function Login() {
             {mode === "register" && (
               <>
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Nome completo</Text>
+                  <Text style={styles.label}>nome completo</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Seu nome"
@@ -192,7 +202,7 @@ export default function Login() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Data de nascimento</Text>
+                  <Text style={styles.label}>data de nascimento</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="DD/MM/AAAA"
@@ -207,7 +217,7 @@ export default function Login() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Telefone</Text>
+                  <Text style={styles.label}>telefone</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="(00) 00000-0000"
@@ -222,7 +232,7 @@ export default function Login() {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Sexo</Text>
+                  <Text style={styles.label}>sexo</Text>
                   <View style={styles.options}>
                     {[
                       { label: "Masculino", value: "M" as const },
@@ -259,12 +269,18 @@ export default function Login() {
               </>
             )}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>E-mail</Text>
+              <Text style={styles.label}>e-mail</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === "email" && styles.inputFocused]}
                 placeholder="seu@email.com"
+                placeholderTextColor="#7B818A"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                accessibilityLabel="E-mail"
+                onFocus={() => setFocusedField("email")}
+                onBlur={() => setFocusedField(null)}
                 value={email}
                 onChangeText={(value) => {
                   setEmail(value);
@@ -275,12 +291,17 @@ export default function Login() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Senha</Text>
+              <Text style={styles.label}>senha</Text>
               <View style={styles.passwordWrapper}>
                 <TextInput
-                  style={[styles.input, styles.passwordInput]}
+                  style={[styles.input, styles.passwordInput, focusedField === "password" && styles.inputFocused]}
                   placeholder="••••••••"
+                  placeholderTextColor="#7B818A"
                   secureTextEntry={!showPassword}
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  accessibilityLabel="Senha"
+                  onFocus={() => setFocusedField("password")}
+                  onBlur={() => setFocusedField(null)}
                   value={senha}
                   onChangeText={(value) => {
                     setSenha(value);
@@ -291,6 +312,7 @@ export default function Login() {
                 <TouchableOpacity
                   style={styles.eyeButton}
                   onPress={() => setShowPassword((current) => !current)}
+                  accessibilityRole="button"
                   accessibilityLabel={
                     showPassword ? "Ocultar senha" : "Mostrar senha"
                   }
@@ -306,7 +328,7 @@ export default function Login() {
 
             {mode === "register" && (
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Confirmar senha</Text>
+                <Text style={styles.label}>confirmar senha</Text>
                 <View style={styles.passwordWrapper}>
                   <TextInput
                     style={[styles.input, styles.passwordInput]}
@@ -323,6 +345,7 @@ export default function Login() {
                     onPress={() =>
                       setShowConfirmPassword((current) => !current)
                     }
+                    accessibilityRole="button"
                     accessibilityLabel={
                       showConfirmPassword ? "Ocultar senha" : "Mostrar senha"
                     }
@@ -338,49 +361,62 @@ export default function Login() {
             )}
 
             {(mode === "login" ? loginError : registrationError) && (
-              <Text style={styles.errorText}>
+              <Text style={styles.errorText} accessibilityLiveRegion="polite">
                 {mode === "login" ? loginError : registrationError}
               </Text>
             )}
 
+            {mode === "login" && (
+              <TouchableOpacity
+                style={styles.forgotButton}
+                onPress={() => router.push("/forgotPassword")}
+                accessibilityRole="button"
+              >
+                <Text style={styles.linkText}>esqueci minha senha</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
-              style={[styles.button, busy && { opacity: 0.7 }]}
+              style={[styles.button, busy && styles.buttonDisabled]}
               onPress={mode === "login" ? handleLogin : handleRegister}
               disabled={busy}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: busy, busy }}
             >
               {busy ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.buttonText}>
-                  {mode === "login" ? "Entrar" : "Criar conta"}
-                </Text>
+                <>
+                  <Text style={styles.buttonText}>
+                    {mode === "login" ? "entrar" : "criar conta"}
+                  </Text>
+                  <ArrowRight size={20} color="#FFFFFF" strokeWidth={2.5} />
+                </>
               )}
             </TouchableOpacity>
           </View>
 
-          {mode === "login" && (
-            <TouchableOpacity
-              style={styles.forgotButton}
-              onPress={() => router.push("/forgotPassword")}
-            >
-              <Text style={styles.registerText}>Esqueci minha senha</Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={styles.registerButton}
-            onPress={() => {
-              setMode((current) => (current === "login" ? "register" : "login"));
-              setSenha("");
-              setConfirmPassword("");
-              setLoginError("");
-              setRegistrationError("");
-            }}
-          >
-            <Text style={styles.registerText}>
-              {mode === "login" ? "Criar conta" : "Já tenho uma conta"}
+          <View style={styles.switchRow}>
+            <Text style={styles.switchPrompt}>
+              {mode === "login" ? "Ainda não tem conta?" : "Já tem uma conta?"}
             </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.registerButton}
+              accessibilityRole="button"
+              onPress={() => {
+                setMode((current) => (current === "login" ? "register" : "login"));
+                setSenha("");
+                setConfirmPassword("");
+                setLoginError("");
+                setRegistrationError("");
+              }}
+            >
+              <Text style={styles.registerText}>
+                {mode === "login" ? "criar conta" : "entrar"}
+              </Text>
+              <ArrowRight size={16} color={BRAND_ORANGE} />
+            </TouchableOpacity>
+          </View>
         </View>
       </ScreenScrollView>
     </SafeAreaView>
@@ -390,140 +426,170 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
   },
-
-  // O card centraliza na área livre; com o teclado aberto o ScrollView rola
-  // até o campo focado em vez de deixá-lo escondido atrás dele.
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 28,
   },
-
-  card: {
+  content: {
     width: "100%",
-    maxWidth: 400,
-    padding: 24,
+    maxWidth: 440,
   },
-
-  logoContainer: {
+  brandRow: {
+    flexDirection: "row",
     alignItems: "center",
+  },
+  hero: {
+    marginTop: 48,
     marginBottom: 32,
   },
-
   title: {
-    marginTop: 16,
-    fontSize: 28,
+    color: "#111827",
+    fontSize: 38,
     fontWeight: "bold",
-    color: "#111",
+    letterSpacing: -0.8,
+    lineHeight: 43,
   },
-
+  titleAccent: {
+    color: BRAND_ORANGE,
+  },
   subtitle: {
-    marginTop: 4,
-    fontSize: 14,
-    color: "#666",
+    marginTop: 12,
+    maxWidth: 300,
+    color: "#626973",
+    fontSize: 15,
+    lineHeight: 22,
   },
-
   form: {
-    gap: 16,
+    gap: 14,
   },
-
   inputGroup: {
     gap: 8,
   },
-
   label: {
+    color: "#111827",
     fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: "bold",
+    letterSpacing: -0.2,
   },
-
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 14,
+    borderColor: "#D5D8DC",
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: "#111827",
     fontSize: 16,
   },
-
+  inputFocused: {
+    borderColor: BRAND_ORANGE,
+    borderWidth: 2,
+  },
   passwordWrapper: {
     justifyContent: "center",
   },
-
   passwordInput: {
-    paddingRight: 48,
+    paddingRight: 56,
   },
-
   eyeButton: {
     position: "absolute",
-    right: 12,
-    padding: 4,
+    right: 2,
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
   },
-
   options: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
   },
-
   option: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderColor: "#D5D8DC",
+    borderRadius: 10,
+    minHeight: 48,
+    paddingHorizontal: 13,
     paddingVertical: 10,
+    justifyContent: "center",
   },
-
   optionActive: {
-    borderColor: COLORS.mainOrange,
-    backgroundColor: COLORS.mainOrange,
+    borderColor: BRAND_ORANGE,
+    backgroundColor: BRAND_ORANGE,
   },
-
   optionText: {
-    color: "#333",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  optionTextActive: {
-    color: "#fff",
-  },
-
-  button: {
-    marginTop: 8,
-    backgroundColor: COLORS.mainOrange,
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  registerButton: {
-    marginTop: 24,
-    alignItems: "center",
-  },
-
-  forgotButton: {
-    marginTop: 16,
-    alignItems: "center",
-  },
-
-  registerText: {
-    color: COLORS.mainOrange,
+    color: "#111827",
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "bold",
+    letterSpacing: -0.2,
+  },
+  optionTextActive: {
+    color: "#FFFFFF",
+  },
+  button: {
+    marginTop: 2,
+    minHeight: 54,
+    flexDirection: "row",
+    backgroundColor: BRAND_ORANGE,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "bold",
+    letterSpacing: -0.4,
+  },
+  forgotButton: {
+    alignSelf: "flex-end",
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  linkText: {
+    color: "#111827",
+    fontSize: 13,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
+  switchRow: {
+    marginTop: 22,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    columnGap: 5,
+  },
+  switchPrompt: {
+    color: "#626973",
+    fontSize: 13,
+  },
+  registerButton: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  registerText: {
+    color: "#111827",
+    fontSize: 15,
+    fontWeight: "bold",
+    letterSpacing: -0.3,
   },
   errorText: {
-    color: "red",
+    color: "#B42318",
     fontSize: 14,
-    textAlign: "center",
+    lineHeight: 20,
   },
 });
