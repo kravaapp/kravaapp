@@ -1,11 +1,6 @@
-import {
-  ActionButton,
-  AdminCard,
-  AdminSkeleton,
-  Pill,
-  initials,
-} from "@/components/admin/AdminUi";
+import { AdminSkeleton, initials } from "@/components/admin/AdminUi";
 import { COLORS } from "@/components/ClientHeader";
+import KravaLogo from "@/components/KravaLogo";
 import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
@@ -26,6 +21,7 @@ import {
   GraduationCap,
   LayoutGrid,
   LogOut,
+  Mail,
   Search,
   Users,
 } from "lucide-react-native";
@@ -45,11 +41,11 @@ const roleLabel = (role: string) =>
   role === "Admin" ? "Administrador" : role === "Aluno" ? "Aluno" : "Professor";
 const RoleIcon = ({ role }: { role: string }) =>
   role === "Admin" ? (
-    <LayoutGrid color="#fff" size={21} />
+    <LayoutGrid color={COLORS.mainOrange} size={21} />
   ) : role === "Aluno" ? (
-    <GraduationCap color="#fff" size={21} />
+    <GraduationCap color={COLORS.mainOrange} size={21} />
   ) : (
-    <Users color="#fff" size={21} />
+    <Users color={COLORS.mainOrange} size={21} />
   );
 const currency = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -140,33 +136,35 @@ export default function SelectTenant() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.topbar}>
-        <View>
-          <Text style={styles.brand}>KRAVA</Text>
-          <Text style={styles.heading}>Escolha seu CT</Text>
-        </View>
+        <KravaLogo size={36} showWordmark />
         <TouchableOpacity
           onPress={signOut}
           style={styles.logout}
           accessibilityLabel="Sair"
+          accessibilityRole="button"
         >
           <LogOut size={18} color={COLORS.foreground} />
         </TouchableOpacity>
       </View>
+      <View style={styles.intro}>
+        <Text style={styles.heading}>onde vamos treinar<Text style={styles.headingAccent}>?</Text></Text>
+        <Text style={styles.introSubtitle}>Entre no seu CT ou encontre um novo lugar para começar.</Text>
+      </View>
       <View style={styles.tabs}>
         <Tab
-          label="Meus CTs"
+          label="meus CTs"
           active={activeTab === "linked"}
           onPress={() => setActiveTab("linked")}
         />
         {canViewInvitations && (
           <Tab
-            label="Convites"
+            label="convites"
             active={activeTab === "invitations"}
             onPress={() => setActiveTab("invitations")}
           />
         )}
         <Tab
-          label="Explorar"
+          label="explorar"
           active={activeTab === "catalog"}
           onPress={() => setActiveTab("catalog")}
         />
@@ -177,13 +175,14 @@ export default function SelectTenant() {
       >
         {activeTab === "linked" && (
           <Section
-            title="Seus vínculos"
-            subtitle="Entre em um centro de treinamento que já faz parte."
+            title="seus CTs"
+            subtitle="Escolha um centro para continuar."
           >
             {selectTenantState.availableTenants.length === 0 ? (
-              <Text style={styles.emptyDark}>
-                Você ainda não possui vínculos ativos.
-              </Text>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>Nenhum CT por aqui.</Text>
+                <Text style={styles.emptyDark}>{canViewInvitations ? "Veja seus convites ou explore os CTs públicos." : "Explore os CTs públicos para encontrar um lugar para treinar."}</Text>
+              </View>
             ) : (
               selectTenantState.availableTenants.map((tenant) => (
                 <TouchableOpacity
@@ -191,8 +190,11 @@ export default function SelectTenant() {
                   disabled={selecting || !tenant.isActive}
                   onPress={() => enterTenant(tenant.tenantId)}
                   activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: selecting || !tenant.isActive, busy: selecting }}
+                  accessibilityLabel={`Entrar em ${tenant.tenantName} como ${roleLabel(tenant.role)}`}
                 >
-                  <AdminCard
+                  <View
                     style={[
                       styles.rowCard,
                       !tenant.isActive || selecting ? styles.disabled : {},
@@ -205,12 +207,9 @@ export default function SelectTenant() {
                       <Text style={styles.cardTitle}>{tenant.tenantName}</Text>
                       <Text style={styles.muted}>{roleLabel(tenant.role)}</Text>
                     </View>
-                    <Pill
-                      label={tenant.isActive ? "Ativo" : "Inativo"}
-                      tone={tenant.isActive ? "success" : "neutral"}
-                    />
+                    {!tenant.isActive && <Text style={styles.inactiveLabel}>inativo</Text>}
                     <ChevronRight size={18} color={COLORS.mutedForeground} />
-                  </AdminCard>
+                  </View>
                 </TouchableOpacity>
               ))
             )}
@@ -222,55 +221,62 @@ export default function SelectTenant() {
 
         {canViewInvitations && activeTab === "invitations" && (
           <Section
-            title="Convites pendentes"
-            subtitle="Convites enviados para o e-mail da sua conta."
+            title="convites"
+            subtitle="CTs que convidaram você para treinar."
           >
             {invitationsLoading ? (
-              <AdminSkeleton height={88} radius={8} />
+              <AdminSkeleton height={136} radius={16} />
             ) : invitationsError ? (
               <Text style={styles.error}>
                 Não foi possível carregar seus convites.
               </Text>
             ) : invitations.length === 0 ? (
-              <Text style={styles.emptyDark}>Nenhum convite pendente.</Text>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>Nenhum convite pendente.</Text>
+                <Text style={styles.emptyDark}>Quando um CT convidar você, ele aparecerá aqui.</Text>
+              </View>
             ) : (
               invitations.map((invitation) => (
-                <AdminCard key={invitation.id} style={styles.inviteCard}>
-                  <View style={styles.grow}>
-                    <Text style={styles.cardTitle}>{invitation.ctName}</Text>
-                    <Text style={styles.muted}>
-                      Convite para entrar como {roleLabel(invitation.role)}
-                    </Text>
-                    <Text style={styles.date}>
-                      {new Date(invitation.createdAtUtc).toLocaleDateString(
-                        "pt-BR",
-                      )}
-                    </Text>
+                <View key={invitation.id} style={styles.inviteCard}>
+                  <View style={styles.inviteTopRow}>
+                    <View style={styles.inviteIcon}><Mail size={19} color={COLORS.mainOrange} /></View>
+                    <View style={styles.grow}>
+                      <Text style={styles.cardTitle}>{invitation.ctName}</Text>
+                      <Text style={styles.muted}>Convite para entrar como {roleLabel(invitation.role)}</Text>
+                    </View>
                   </View>
-                  <ActionButton
-                    label={isAccepting ? "Aceitando..." : "Aceitar"}
-                    icon={<Check size={14} color="#fff" />}
-                    onPress={async () => {
-                      if (isAccepting) return;
-                      try {
-                        await acceptInvitation({
-                          id: invitation.id,
-                          ctId: invitation.ctId,
-                          ctName: invitation.ctName,
-                          role: invitation.role,
-                        });
-                        toast({
-                          title: "Convite aceito! Você já pode entrar no CT.",
-                        });
-                      } catch {
-                        toast({
-                          title: "Não foi possível aceitar o convite.",
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                  />
-                </AdminCard>
+                  <View style={styles.inviteBottomRow}>
+                    <Text style={styles.date}>Enviado em {new Date(invitation.createdAtUtc).toLocaleDateString("pt-BR")}</Text>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: isAccepting, busy: isAccepting }}
+                      disabled={isAccepting}
+                      style={[styles.acceptButton, isAccepting && styles.disabled]}
+                      onPress={async () => {
+                        if (isAccepting) return;
+                        try {
+                          await acceptInvitation({
+                            id: invitation.id,
+                            ctId: invitation.ctId,
+                            ctName: invitation.ctName,
+                            role: invitation.role,
+                          });
+                          toast({
+                            title: "Convite aceito! Você já pode entrar no CT.",
+                          });
+                        } catch {
+                          toast({
+                            title: "Não foi possível aceitar o convite.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                    >
+                      <Text style={styles.acceptButtonText}>{isAccepting ? "aceitando..." : "aceitar"}</Text>
+                      <Check size={15} color={COLORS.white} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               ))
             )}
           </Section>
@@ -278,31 +284,33 @@ export default function SelectTenant() {
 
         {activeTab === "catalog" && (
           <Section
-            title="Explorar CTs"
-            subtitle="Conheça centros públicos e solicite sua entrada."
+            title="explorar CTs"
+            subtitle="Conheça centros públicos e peça para entrar."
           >
             <View style={styles.searchBox}>
               <Search size={17} color={COLORS.mutedForeground} />
               <TextInput
                 value={search}
                 onChangeText={setSearch}
-                placeholder="Buscar centro de treinamento..."
+                placeholder="Buscar CT"
                 placeholderTextColor={COLORS.mutedForeground}
                 style={styles.searchInput}
+                accessibilityLabel="Buscar CT público"
               />
             </View>
             {catalogLoading ? (
               Array.from({ length: 3 }).map((_, index) => (
-                <AdminSkeleton key={index} height={105} radius={8} />
+                <AdminSkeleton key={index} height={105} radius={16} />
               ))
             ) : catalogError ? (
               <Text style={styles.error}>
                 Não foi possível carregar o catálogo.
               </Text>
             ) : visibleCatalog.length === 0 ? (
-              <Text style={styles.emptyDark}>
-                Nenhum CT público encontrado.
-              </Text>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>Nenhum CT encontrado.</Text>
+                <Text style={styles.emptyDark}>Tente buscar por outro nome.</Text>
+              </View>
             ) : (
               visibleCatalog.map((tenant) => (
                 <CatalogCard
@@ -332,6 +340,8 @@ function Tab({
     <TouchableOpacity
       onPress={onPress}
       style={[styles.tab, active && styles.tabActive]}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
     >
       <Text style={[styles.tabText, active && styles.tabTextActive]}>
         {label}
@@ -368,8 +378,8 @@ function CatalogCard({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.75}>
-      <AdminCard style={styles.catalogCard}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel={`Ver ${tenant.name}`}>
+      <View style={styles.catalogCard}>
         {tenant.logoUrl ? (
           <Image
             source={{ uri: publicImageUrl(tenant.logoUrl) ?? undefined }}
@@ -380,16 +390,16 @@ function CatalogCard({
             <Text style={styles.logoText}>{initials(tenant.name)}</Text>
           </View>
         )}
-        <View style={styles.grow}>
+        <View style={styles.catalogInfo}>
           <Text style={styles.cardTitle}>{tenant.name}</Text>
           <View style={styles.pills}>
             {(tenant.modalities ?? []).map((item, index) => (
-              <Pill key={`${item}-${index}`} label={item} tone="primary" />
+              <View key={`${item}-${index}`} style={styles.modalityChip}><Text style={styles.modalityChipText}>{item}</Text></View>
             ))}
           </View>
         </View>
         <ChevronRight size={18} color={COLORS.mutedForeground} />
-      </AdminCard>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -430,23 +440,24 @@ function CatalogDetails({
           onPress={onClose}
           style={styles.backButton}
           accessibilityLabel="Voltar para explorar CTs"
+          accessibilityRole="button"
         >
           <ArrowLeft size={20} color={COLORS.foreground} />
         </TouchableOpacity>
         <View style={styles.grow}>
-          <Text style={styles.detailEyebrow}>EXPLORAR CTS</Text>
+          <Text style={styles.detailEyebrow}>explorar CTs</Text>
           <Text style={styles.detailHeaderTitle} numberOfLines={1}>
             {tenant?.name || "Detalhes do CT"}
           </Text>
         </View>
       </View>
-      <ScrollView contentContainerStyle={styles.details}>
+      <ScrollView contentContainerStyle={styles.details} showsVerticalScrollIndicator={false}>
         {isLoading ? (
-          <AdminSkeleton height={420} radius={8} />
+          <AdminSkeleton height={420} radius={18} />
         ) : error || !tenant ? (
           <View style={styles.errorState}>
             <Text style={styles.error}>Não foi possível carregar este CT.</Text>
-            <ActionButton label="Voltar" onPress={onClose} />
+            <TouchableOpacity accessibilityRole="button" style={styles.joinButton} onPress={onClose}><Text style={styles.joinButtonText}>voltar</Text></TouchableOpacity>
           </View>
         ) : (
           <>
@@ -483,13 +494,13 @@ function CatalogDetails({
               </View>
               <View style={[styles.pills, styles.heroPills]}>
                 {(tenant.modalities ?? []).map((item, index) => (
-                  <Pill key={`${item}-${index}`} label={item} tone="primary" />
+                  <View key={`${item}-${index}`} style={styles.modalityChip}><Text style={styles.modalityChipText}>{item}</Text></View>
                 ))}
               </View>
             </View>
 
             <View style={styles.detailSectionHeader}>
-              <Text style={styles.detailTitle}>Planos disponíveis</Text>
+              <Text style={styles.detailTitle}>planos disponíveis</Text>
               <Text style={styles.detailSubtitle}>
                 Selecione um plano para enviar junto à solicitação.
               </Text>
@@ -506,6 +517,8 @@ function CatalogDetails({
                   <TouchableOpacity
                     key={plan.id}
                     activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
                     onPress={() => {
                       setPlanId(selected ? null : plan.id);
                       setRequested(false);
@@ -535,14 +548,14 @@ function CatalogDetails({
                     <View style={styles.featuresList}>
                       {plan.description ? (
                         <View style={styles.featureItem}>
-                          <Check size={14} color={COLORS.success} />
+                          <Check size={16} color={COLORS.mainOrange} />
                           <Text style={styles.featureText}>
                             {plan.description}
                           </Text>
                         </View>
                       ) : null}
                       <View style={styles.featureItem}>
-                        <Check size={14} color={COLORS.success} />
+                        <Check size={16} color={COLORS.mainOrange} />
                         <Text style={styles.featureText}>
                           {modalities || "Modalidades informadas pelo CT"}
                         </Text>
@@ -556,7 +569,7 @@ function CatalogDetails({
             {(tenant.avulsos ?? []).length > 0 && (
               <View style={styles.avulsosSection}>
                 <View style={styles.detailSectionHeader}>
-                  <Text style={styles.detailTitle}>Aulas avulsas</Text>
+                  <Text style={styles.detailTitle}>aulas avulsas</Text>
                   <Text style={styles.detailSubtitle}>
                     Valores publicados por modalidade.
                   </Text>
@@ -588,6 +601,8 @@ function CatalogDetails({
               <TouchableOpacity
                 disabled={isJoining || !accessToken}
                 onPress={join}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isJoining || !accessToken, busy: isJoining }}
                 style={[
                   styles.joinButton,
                   (isJoining || !accessToken) && styles.disabled,
@@ -610,163 +625,174 @@ function CatalogDetails({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8fafc" },
+  safe: { flex: 1, backgroundColor: COLORS.white },
   topbar: {
     paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 14,
+    paddingTop: 12,
+    paddingBottom: 8,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
-  brand: { color: COLORS.mainOrange, fontSize: 11, fontWeight: "900" },
-  heading: { color: COLORS.foreground, fontSize: 22, fontWeight: "800", marginTop: 2 },
+  intro: { paddingHorizontal: 20, paddingTop: 23, paddingBottom: 22 },
+  heading: { color: COLORS.foreground, fontSize: 30, fontWeight: "800", letterSpacing: -1.2, lineHeight: 35 },
+  headingAccent: { color: COLORS.mainOrange },
+  introSubtitle: { color: COLORS.mutedForeground, fontSize: 14, lineHeight: 21, marginTop: 7, maxWidth: 320 },
   logout: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
   },
   tabs: {
-    height: 46,
+    minHeight: 52,
     flexDirection: "row",
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.white,
+    gap: 5,
+    marginHorizontal: 20,
+    padding: 5,
+    borderRadius: 14,
+    backgroundColor: "#F3F4F6",
   },
   tab: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    minHeight: 42,
+    borderRadius: 10,
   },
-  tabActive: { borderBottomColor: COLORS.mainOrange },
-  tabText: { color: COLORS.mutedForeground, fontSize: 13, fontWeight: "600" },
-  tabTextActive: { color: COLORS.foreground },
-  content: { padding: 16, paddingBottom: 36 },
-  section: { gap: 11 },
-  sectionTitle: { color: COLORS.foreground, fontSize: 17, fontWeight: "800" },
-  sectionSubtitle: { color: COLORS.mutedForeground, fontSize: 11, lineHeight: 16 },
-  muted: { color: COLORS.mutedForeground, fontSize: 11, lineHeight: 16 },
-  grow: { flex: 1 },
+  tabActive: { backgroundColor: COLORS.mainOrange },
+  tabText: { color: COLORS.foreground, fontSize: 13, fontWeight: "700" },
+  tabTextActive: { color: COLORS.white },
+  content: { paddingHorizontal: 20, paddingTop: 26, paddingBottom: 40, flexGrow: 1 },
+  section: { gap: 13 },
+  sectionTitle: { color: COLORS.foreground, fontSize: 20, fontWeight: "800", letterSpacing: -0.5 },
+  sectionSubtitle: { color: COLORS.mutedForeground, fontSize: 13, lineHeight: 19, marginTop: 3, marginBottom: 5 },
+  muted: { color: COLORS.mutedForeground, fontSize: 13, lineHeight: 19, marginTop: 3 },
+  grow: { flex: 1, minWidth: 0 },
   rowCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 11,
-    borderRadius: 8,
+    gap: 13,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 16,
+    padding: 16,
+    backgroundColor: COLORS.white,
   },
   roleIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLORS.mainOrange,
+    backgroundColor: "#FFF2E9",
   },
-  cardTitle: { color: COLORS.foreground, fontSize: 13, fontWeight: "700" },
+  cardTitle: { color: COLORS.foreground, fontSize: 16, fontWeight: "800", letterSpacing: -0.3 },
+  inactiveLabel: { color: COLORS.mutedForeground, fontSize: 11, fontWeight: "700" },
   disabled: { opacity: 0.5 },
   error: {
     color: COLORS.destructive,
-    backgroundColor: "#fee2e2",
-    padding: 11,
-    borderRadius: 8,
-    fontSize: 12,
-  },
-  empty: {
-    color: COLORS.mutedForeground,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-    borderRadius: 8,
-    textAlign: "center",
-    fontSize: 12,
-  },
-  emptyDark: {
-    color: COLORS.mutedForeground,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
+    backgroundColor: "#FEF2F2",
+    padding: 14,
+    borderRadius: 12,
     fontSize: 13,
     lineHeight: 19,
-    textAlign: "center",
+  },
+  empty: { color: COLORS.mutedForeground, fontSize: 13, lineHeight: 19, padding: 18, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 16 },
+  emptyState: { padding: 22, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 16, backgroundColor: COLORS.white, gap: 4 },
+  emptyTitle: { color: COLORS.foreground, fontSize: 17, fontWeight: "800" },
+  emptyDark: {
+    color: COLORS.mutedForeground,
+    fontSize: 13,
+    lineHeight: 19,
   },
   inviteCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 8,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 16,
+    padding: 16,
+    backgroundColor: COLORS.white,
   },
-  date: { color: COLORS.mutedForeground, fontSize: 10, marginTop: 3 },
+  inviteTopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  inviteIcon: { width: 46, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF2E9" },
+  inviteBottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 },
+  acceptButton: { minHeight: 44, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 10, backgroundColor: COLORS.mainOrange },
+  acceptButtonText: { color: COLORS.white, fontSize: 13, fontWeight: "800" },
+  date: { color: COLORS.mutedForeground, fontSize: 12 },
   searchBox: {
-    minHeight: 44,
+    minHeight: 50,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderColor: "#DDE1E5",
+    borderRadius: 12,
+    paddingHorizontal: 14,
     backgroundColor: COLORS.white,
   },
-  searchInput: { flex: 1, color: COLORS.foreground, fontSize: 13 },
+  searchInput: { flex: 1, color: COLORS.foreground, fontSize: 14 },
   catalogCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderRadius: 8,
+    borderRadius: 16,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: COLORS.white,
   },
-  logo: { width: 52, height: 52, borderRadius: 8 },
+  catalogInfo: { flex: 1, minWidth: 0 },
+  logo: { width: 54, height: 54, borderRadius: 12 },
   logoFallback: {
-    width: 52,
-    height: 52,
-    borderRadius: 8,
-    backgroundColor: COLORS.subOrange,
+    width: 54,
+    height: 54,
+    borderRadius: 12,
+    backgroundColor: "#FFF2E9",
     alignItems: "center",
     justifyContent: "center",
   },
-  logoText: { color: COLORS.mainOrange, fontWeight: "800" },
-  pills: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginTop: 6 },
-  detailSafe: { flex: 1, backgroundColor: "#f8fafc" },
+  logoText: { color: COLORS.mainOrange, fontWeight: "800", fontSize: 16 },
+  pills: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
+  modalityChip: { paddingHorizontal: 9, paddingVertical: 5, backgroundColor: "#FFF2E9", borderRadius: 8 },
+  modalityChipText: { color: COLORS.foreground, fontSize: 11, fontWeight: "700" },
+  detailSafe: { flex: 1, backgroundColor: COLORS.white },
   detailHeader: {
-    minHeight: 72,
+    minHeight: 76,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 12,
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: "#E5E7EB",
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
   },
-  detailEyebrow: { color: COLORS.mainOrange, fontSize: 10, fontWeight: "800" },
+  detailEyebrow: { color: COLORS.mainOrange, fontSize: 11, fontWeight: "800" },
   detailHeaderTitle: {
     color: COLORS.foreground,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "800",
+    letterSpacing: -0.5,
     marginTop: 1,
   },
   details: {
-    padding: 16,
-    gap: 14,
+    padding: 20,
+    gap: 18,
     paddingBottom: 40,
     width: "100%",
     maxWidth: 760,
@@ -776,66 +802,64 @@ const styles = StyleSheet.create({
   tenantHero: {
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
+    borderColor: "#E5E7EB",
+    borderRadius: 18,
     overflow: "hidden",
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
-  banner: { width: "100%", aspectRatio: 16 / 6, backgroundColor: "#e5e7eb" },
+  banner: { width: "100%", aspectRatio: 16 / 6, backgroundColor: "#F3F4F6" },
   bannerFallback: {
     width: "100%",
     aspectRatio: 16 / 6,
-    backgroundColor: COLORS.subOrange,
-    borderBottomWidth: 3,
-    borderBottomColor: COLORS.mainOrange,
+    backgroundColor: COLORS.mainOrange,
   },
   tenantIdentity: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    gap: 14,
+    paddingHorizontal: 18,
+    paddingTop: 18,
   },
   detailLogo: {
-    width: 58,
-    height: 58,
-    borderRadius: 8,
+    width: 60,
+    height: 60,
+    borderRadius: 13,
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "#E5E7EB",
   },
   detailLogoFallback: {
-    width: 58,
-    height: 58,
-    borderRadius: 8,
-    backgroundColor: COLORS.subOrange,
+    width: 60,
+    height: 60,
+    borderRadius: 13,
+    backgroundColor: "#FFF2E9",
     alignItems: "center",
     justifyContent: "center",
   },
   detailLogoText: { color: COLORS.mainOrange, fontSize: 17, fontWeight: "800" },
-  tenantName: { color: COLORS.foreground, fontSize: 20, fontWeight: "800" },
+  tenantName: { color: COLORS.foreground, fontSize: 22, fontWeight: "800", letterSpacing: -0.6 },
   description: {
     color: COLORS.mutedForeground,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 5,
   },
-  heroPills: { paddingHorizontal: 16 },
-  detailSectionHeader: { gap: 2, marginTop: 4 },
-  detailTitle: { color: COLORS.foreground, fontSize: 17, fontWeight: "800" },
+  heroPills: { paddingHorizontal: 18, marginTop: 15 },
+  detailSectionHeader: { gap: 4, marginTop: 8 },
+  detailTitle: { color: COLORS.foreground, fontSize: 20, fontWeight: "800", letterSpacing: -0.5 },
   detailSubtitle: {
     color: COLORS.mutedForeground,
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 19,
   },
   plan: {
     backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     borderWidth: 1,
-    borderColor: COLORS.subOrange,
+    borderColor: "#E5E7EB",
   },
-  planSelected: { borderWidth: 2, borderColor: COLORS.mainOrange },
+  planSelected: { borderWidth: 2, borderColor: COLORS.mainOrange, backgroundColor: "#FFFAF7" },
   planTopRow: {
     minHeight: 24,
     flexDirection: "row",
@@ -846,8 +870,9 @@ const styles = StyleSheet.create({
   planName: {
     flex: 1,
     color: COLORS.foreground,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "800",
+    letterSpacing: -0.4,
   },
   selectedBadge: {
     flexDirection: "row",
@@ -856,74 +881,74 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.mainOrange,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 9,
   },
-  selectedBadgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
-  priceRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 4 },
-  planPrice: { color: COLORS.foreground, fontSize: 24, fontWeight: "800" },
+  selectedBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  priceRow: { flexDirection: "row", alignItems: "flex-end", marginTop: 9 },
+  planPrice: { color: COLORS.foreground, fontSize: 27, fontWeight: "800", letterSpacing: -0.7 },
   priceSuffix: {
     color: COLORS.mutedForeground,
     fontSize: 11,
     paddingBottom: 4,
   },
   planFrequency: {
-    color: COLORS.mainOrange,
-    fontSize: 12,
+    color: COLORS.mutedForeground,
+    fontSize: 13,
     fontWeight: "700",
-    marginTop: 3,
+    marginTop: 2,
   },
   featuresList: {
-    gap: 7,
-    marginTop: 12,
-    paddingTop: 12,
+    gap: 10,
+    marginTop: 16,
+    paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: "#E5E7EB",
   },
   featureItem: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   featureText: {
     flex: 1,
     color: COLORS.foreground,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 13,
+    lineHeight: 19,
   },
-  avulsosSection: { gap: 8 },
+  avulsosSection: { gap: 10 },
   avulso: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 13,
-    borderRadius: 8,
+    borderColor: "#E5E7EB",
+    padding: 16,
+    borderRadius: 14,
   },
-  avulsoPrice: { color: COLORS.mainOrange, fontSize: 15, fontWeight: "800" },
+  avulsoPrice: { color: COLORS.foreground, fontSize: 16, fontWeight: "800" },
   success: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    padding: 13,
+    padding: 15,
     backgroundColor: COLORS.successSurface,
-    borderRadius: 8,
+    borderRadius: 14,
   },
   successText: {
     flex: 1,
     color: COLORS.success,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
   },
   joinButton: {
-    minHeight: 46,
+    minHeight: 52,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: COLORS.mainOrange,
-    borderRadius: 6,
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    paddingHorizontal: 18,
   },
   joinButtonText: {
     color: "#fff",
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
     textAlign: "center",
   },
 });
