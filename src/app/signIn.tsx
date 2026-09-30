@@ -22,11 +22,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { ArrowRight, Eye, EyeOff } from "lucide-react-native";
+import { ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const EMAIL_NOT_CONFIRMED = "Auth.EmailNotConfirmed";
 const BRAND_ORANGE = "#E85C07";
+const REGISTER_STEPS = ["seus dados", "contato", "acesso"] as const;
 
 /** Login bloqueado por e-mail ainda não confirmado — leva para o código OTP. */
 function isEmailNotConfirmed(error: unknown) {
@@ -40,6 +41,7 @@ function isEmailNotConfirmed(error: unknown) {
 export default function Login() {
   const { toast } = useToast();
   const [mode, setMode] = useState<"login" | "register">("login");
+  const [registerStep, setRegisterStep] = useState(0);
   const [name, setName] = useState("");
   const [cpf, setCpf] = useState("");
   const [birthDate, setBirthDate] = useState("");
@@ -57,6 +59,31 @@ export default function Login() {
   const { login, isLoading } = useLogin();
   const { selfRegister, isLoading: isRegistering } = useSelfRegister();
   const busy = isLoading || isRegistering;
+
+  const getStepError = (step: number) => {
+    if (step === 0) {
+      if (!name.trim()) return "Informe seu nome completo.";
+      if (!toIsoDate(birthDate)) return "Informe uma data de nascimento válida.";
+      if (!sex) return "Selecione uma opção para sexo.";
+    }
+    if (step === 1) {
+      if (onlyDigits(cpf).length !== 11) return "Informe um CPF com 11 dígitos.";
+      if (!/^\d{10,11}$/.test(onlyDigits(phone))) return "Informe um telefone válido.";
+      if (!selfRegisterSchema.shape.email.safeParse(email).success) return "Informe um e-mail válido.";
+    }
+    if (step === 2) {
+      if (!senha) return "Crie uma senha para sua conta.";
+      if (!confirmPassword) return "Confirme sua senha.";
+      if (senha !== confirmPassword) return "As senhas não coincidem.";
+    }
+    return "";
+  };
+
+  const nextRegisterStep = () => {
+    const error = getStepError(registerStep);
+    setRegistrationError(error);
+    if (!error) setRegisterStep((step) => Math.min(step + 1, REGISTER_STEPS.length - 1));
+  };
 
   const handleLogin = async () => {
     if (busy) return;
@@ -84,6 +111,11 @@ export default function Login() {
 
   const handleRegister = async () => {
     if (busy) return;
+    const stepError = getStepError(registerStep);
+    if (stepError) {
+      setRegistrationError(stepError);
+      return;
+    }
     const isoBirthDate = toIsoDate(birthDate);
     const request = selfRegisterSchema.safeParse({
       name,
@@ -95,20 +127,10 @@ export default function Login() {
       phone: onlyDigits(phone),
     });
     if (!request.success) {
-      const invalidFields = [
-        !name.trim() && "nome",
-        onlyDigits(cpf).length !== 11 && "CPF",
-        !isoBirthDate && "data de nascimento",
-        !sex && "sexo",
-        !/^\d{10,11}$/.test(onlyDigits(phone)) && "telefone",
-        !email.trim() && "e-mail",
-        !senha && "senha",
-      ].filter(Boolean);
-      setRegistrationError(
-        invalidFields.length
-          ? `Preencha corretamente: ${invalidFields.join(", ")}.`
-          : "Verifique os dados informados.",
-      );
+      const invalidField = String(request.error.issues[0]?.path[0] ?? "");
+      if (["name", "birthDate", "sex"].includes(invalidField)) setRegisterStep(0);
+      else if (["cpf", "phone", "email"].includes(invalidField)) setRegisterStep(1);
+      setRegistrationError("Revise os dados desta etapa.");
       return;
     }
     if (senha !== confirmPassword) {
@@ -119,6 +141,7 @@ export default function Login() {
     try {
       await selfRegister(request.data);
       setMode("login");
+      setRegisterStep(0);
       setName("");
       setCpf("");
       setBirthDate("");
@@ -146,7 +169,8 @@ export default function Login() {
   return (
     <SafeAreaView style={styles.container}>
       <ScreenScrollView
-        contentContainerStyle={styles.scrollContent}
+        key={`${mode}-${registerStep}`}
+        contentContainerStyle={[styles.scrollContent, mode === "register" && styles.registerScrollContent]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
@@ -154,25 +178,44 @@ export default function Login() {
             <KravaLogo size={38} showWordmark />
           </View>
 
-          <View style={styles.hero}>
-            <Text style={styles.title}>
+          {mode === "register" && (
+            <View style={styles.stepsSection}>
+              <View style={styles.stepsTrack} accessible accessibilityLabel={`Etapa ${registerStep + 1} de ${REGISTER_STEPS.length}: ${REGISTER_STEPS[registerStep]}`}>
+                {REGISTER_STEPS.map((label, index) => (
+                  <View key={label} style={[styles.stepLine, index <= registerStep && styles.stepLineActive]} />
+                ))}
+              </View>
+            </View>
+          )}
+
+          <View style={[styles.hero, mode === "register" && styles.registerHero]}>
+            <Text style={[styles.title, mode === "register" && styles.registerTitle]}>
               {mode === "login" ? (
                 <>bom te ver{"\n"}de volta<Text style={styles.titleAccent}>.</Text></>
+              ) : registerStep === 0 ? (
+                "dados pessoais"
+              ) : registerStep === 1 ? (
+                "contato"
               ) : (
-                <>vamos{"\n"}treinar<Text style={styles.titleAccent}>.</Text></>
+                "acesso"
               )}
             </Text>
             <Text style={styles.subtitle}>
               {mode === "login"
                 ? "Entre para agendar sua próxima aula."
-                : "Encontre um centro de treino e agende suas aulas."}
+                : registerStep === 0
+                  ? "Nome, nascimento e sexo."
+                  : registerStep === 1
+                    ? "CPF, telefone e e-mail."
+                    : "Defina e confirme sua senha."}
             </Text>
           </View>
 
           <View style={styles.form}>
+            <View style={[styles.fields, mode === "register" && styles.registerFields]}>
             {mode === "register" && (
               <>
-                <View style={styles.inputGroup}>
+                {registerStep === 0 && <View style={styles.inputGroup}>
                   <Text style={styles.label}>nome completo</Text>
                   <TextInput
                     style={styles.input}
@@ -184,9 +227,9 @@ export default function Login() {
                       setRegistrationError("");
                     }}
                   />
-                </View>
+                </View>}
 
-                <View style={styles.inputGroup}>
+                {registerStep === 1 && <View style={styles.inputGroup}>
                   <Text style={styles.label}>CPF</Text>
                   <TextInput
                     style={styles.input}
@@ -199,9 +242,9 @@ export default function Login() {
                       setRegistrationError("");
                     }}
                   />
-                </View>
+                </View>}
 
-                <View style={styles.inputGroup}>
+                {registerStep === 0 && <View style={styles.inputGroup}>
                   <Text style={styles.label}>data de nascimento</Text>
                   <TextInput
                     style={styles.input}
@@ -214,9 +257,9 @@ export default function Login() {
                       setRegistrationError("");
                     }}
                   />
-                </View>
+                </View>}
 
-                <View style={styles.inputGroup}>
+                {registerStep === 1 && <View style={styles.inputGroup}>
                   <Text style={styles.label}>telefone</Text>
                   <TextInput
                     style={styles.input}
@@ -229,9 +272,9 @@ export default function Login() {
                       setRegistrationError("");
                     }}
                   />
-                </View>
+                </View>}
 
-                <View style={styles.inputGroup}>
+                {registerStep === 0 && <View style={styles.inputGroup}>
                   <Text style={styles.label}>sexo</Text>
                   <View style={styles.options}>
                     {[
@@ -244,6 +287,8 @@ export default function Login() {
                     ].map((option) => (
                       <TouchableOpacity
                         key={option.value}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: sex === option.value }}
                         style={[
                           styles.option,
                           sex === option.value && styles.optionActive,
@@ -264,11 +309,11 @@ export default function Login() {
                       </TouchableOpacity>
                     ))}
                   </View>
-                </View>
+                </View>}
 
               </>
             )}
-            <View style={styles.inputGroup}>
+            {(mode === "login" || registerStep === 1) && <View style={styles.inputGroup}>
               <Text style={styles.label}>e-mail</Text>
               <TextInput
                 style={[styles.input, focusedField === "email" && styles.inputFocused]}
@@ -288,9 +333,9 @@ export default function Login() {
                   setRegistrationError("");
                 }}
               />
-            </View>
+            </View>}
 
-            <View style={styles.inputGroup}>
+            {(mode === "login" || registerStep === 2) && <View style={styles.inputGroup}>
               <Text style={styles.label}>senha</Text>
               <View style={styles.passwordWrapper}>
                 <TextInput
@@ -324,16 +369,19 @@ export default function Login() {
                   )}
                 </TouchableOpacity>
               </View>
-            </View>
+            </View>}
 
-            {mode === "register" && (
+            {mode === "register" && registerStep === 2 && (
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>confirmar senha</Text>
                 <View style={styles.passwordWrapper}>
                   <TextInput
                     style={[styles.input, styles.passwordInput]}
                     placeholder="••••••••"
+                    placeholderTextColor="#7B818A"
                     secureTextEntry={!showConfirmPassword}
+                    autoComplete="new-password"
+                    accessibilityLabel="Confirmar senha"
                     value={confirmPassword}
                     onChangeText={(value) => {
                       setConfirmPassword(value);
@@ -359,6 +407,7 @@ export default function Login() {
                 </View>
               </View>
             )}
+            </View>
 
             {(mode === "login" ? loginError : registrationError) && (
               <Text style={styles.errorText} accessibilityLiveRegion="polite">
@@ -376,24 +425,40 @@ export default function Login() {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              style={[styles.button, busy && styles.buttonDisabled]}
-              onPress={mode === "login" ? handleLogin : handleRegister}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: busy, busy }}
-            >
-              {busy ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Text style={styles.buttonText}>
-                    {mode === "login" ? "entrar" : "criar conta"}
-                  </Text>
-                  <ArrowRight size={20} color="#FFFFFF" strokeWidth={2.5} />
-                </>
+            <View style={styles.actionsRow}>
+              {mode === "register" && registerStep > 0 && (
+                <TouchableOpacity
+                  style={styles.backStepButton}
+                  onPress={() => {
+                    setRegistrationError("");
+                    setRegisterStep((step) => step - 1);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Voltar à etapa anterior"
+                >
+                  <ArrowLeft size={19} color={COLORS.foreground} />
+                  <Text style={styles.backStepText}>voltar</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, busy && styles.buttonDisabled]}
+                onPress={mode === "login" ? handleLogin : registerStep === REGISTER_STEPS.length - 1 ? handleRegister : nextRegisterStep}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: busy, busy }}
+              >
+                {busy ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Text style={styles.buttonText}>
+                      {mode === "login" ? "entrar" : registerStep === REGISTER_STEPS.length - 1 ? "criar conta" : "continuar"}
+                    </Text>
+                    <ArrowRight size={20} color="#FFFFFF" strokeWidth={2.5} />
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.switchRow}>
@@ -405,6 +470,7 @@ export default function Login() {
               accessibilityRole="button"
               onPress={() => {
                 setMode((current) => (current === "login" ? "register" : "login"));
+                setRegisterStep(0);
                 setSenha("");
                 setConfirmPassword("");
                 setLoginError("");
@@ -435,6 +501,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 28,
   },
+  registerScrollContent: { justifyContent: "flex-start" },
   content: {
     width: "100%",
     maxWidth: 440,
@@ -443,10 +510,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  stepsSection: {
+    marginTop: 26,
+  },
+  stepsTrack: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  stepLine: { flex: 1, height: 5, borderRadius: 3, backgroundColor: "#E5E7EB" },
+  stepLineActive: { backgroundColor: BRAND_ORANGE },
   hero: {
     marginTop: 48,
     marginBottom: 32,
   },
+  registerHero: { marginTop: 24, marginBottom: 26 },
   title: {
     color: "#111827",
     fontSize: 38,
@@ -457,6 +534,7 @@ const styles = StyleSheet.create({
   titleAccent: {
     color: BRAND_ORANGE,
   },
+  registerTitle: { fontSize: 32, lineHeight: 38 },
   subtitle: {
     marginTop: 12,
     maxWidth: 300,
@@ -467,6 +545,8 @@ const styles = StyleSheet.create({
   form: {
     gap: 14,
   },
+  fields: { gap: 14 },
+  registerFields: { minHeight: 316 },
   inputGroup: {
     gap: 8,
   },
@@ -533,7 +613,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   button: {
-    marginTop: 2,
+    flex: 1,
     minHeight: 54,
     flexDirection: "row",
     backgroundColor: BRAND_ORANGE,
@@ -551,6 +631,19 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     letterSpacing: -0.4,
   },
+  actionsRow: { flexDirection: "row", gap: 10, marginTop: 2 },
+  backStepButton: {
+    minHeight: 54,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#D5D8DC",
+    borderRadius: 10,
+  },
+  backStepText: { color: "#111827", fontSize: 14, fontWeight: "700" },
   forgotButton: {
     alignSelf: "flex-end",
     minHeight: 44,
