@@ -2,13 +2,14 @@ import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from "react-native";
 
-import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
+import ClientHeader, { getInitials } from "@/components/ClientHeader";
 import { ConfirmBookingModal } from "@/components/ConfirmBookingModal";
 import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
@@ -16,7 +17,8 @@ import { useAuth } from "@/hooks/auth.hooks";
 import { useCreateSchedule, useDeleteSchedule, useSchedule, useUserNextClass, useUserWeekClasses } from "@/hooks/schedule.hooks";
 import { Token } from "@/types/auth.types";
 import { ScheduleOccurrenceType } from "@/types/schedules.types";
-import { Clock3, Dumbbell } from "lucide-react-native";
+import { ArrowRight, CalendarDays, Clock3, Dumbbell } from "lucide-react-native";
+import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 
@@ -30,6 +32,9 @@ const WEEK_DAYS = [
     "sexta-feira",
     "sábado",
 ];
+const BRAND_ORANGE = "#E85C07";
+const INK = "#111827";
+const MUTED = "#626973";
 
 export function getClassTime(date: string, time: string) {
     const [year, month, day] = date.split("-").map(Number);
@@ -126,110 +131,105 @@ export function getTimeUntilClass(date: string, time: string) {
 const getStudentLevelProps = (level?: string) => {
     switch (level?.toLowerCase()) {
         case 'avancado':
-            return { label: 'Avançado', color: '#f59e0b', backgroundColor: '#fef3c7' };
+            return { label: 'Avançado', color: INK, backgroundColor: '#FFF4E5' };
         case 'intermediario':
-            return { label: 'Intermediário', color: '#ea580c', backgroundColor: '#ffedd5' };
+            return { label: 'Intermediário', color: INK, backgroundColor: '#FFF0E7' };
         case 'iniciante':
         default:
-            return { label: 'Iniciante', color: '#16a34a', backgroundColor: '#dcfce7' };
+            return { label: 'Iniciante', color: INK, backgroundColor: '#E7F7EB' };
     }
 };
 
 const UserProfile = ({ user }: { user: Token | null }) => {
     const levelProps = getStudentLevelProps(user?.studentLevel);
+    const firstName = user?.userName?.trim().split(/\s+/)[0] || "aluno";
 
     return (
         <View style={styles.profile}>
             <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{getInitials(user?.userName || 'Usuario Name')}</Text>
+                <Text style={styles.avatarText}>{getInitials(user?.userName || "A").slice(0, 2)}</Text>
             </View>
 
-            <View>
+            <View style={styles.profileText}>
                 <View style={styles.userInfo}>
-                    <Text style={styles.title}>Olá, {user?.userName || 'Usuario Name'}</Text>
+                    <Text style={styles.title} numberOfLines={1}>olá, {firstName}</Text>
+                </View>
+                <View style={styles.profileMeta}>
+                    <Text style={styles.profileLocation} numberOfLines={1}>{user?.tenantName || 'Local não informado'}</Text>
                     <View style={[styles.subtitleContainer, { backgroundColor: levelProps.backgroundColor }]}>
                         <Text style={[styles.subtitle, { color: levelProps.color }]}>{levelProps.label}</Text>
                     </View>
                 </View>
-                <Text style={styles.location}>{user?.tenantName || 'Local não informado'}</Text>
             </View>
         </View>
     );
 };
 
 const NextClassCard = () => {
-
     const { userNextClass, isLoading, error } = useUserNextClass();
     const { deleteSchedule, isLoading: isCancelling } = useDeleteSchedule();
     const { toast } = useToast();
 
     if (isLoading) {
         return (
-            <View style={styles.cardBlue}>
+            <View style={styles.nextClassCard}>
                 <View style={styles.skeletonLabel} />
-                <View style={styles.row}>
-                    <View style={styles.skeletonIcon} />
-                    <View style={{ marginLeft: 10 }}>
-                        <View style={styles.skeletonTitle} />
-                        <View style={styles.skeletonSubtitle} />
-                    </View>
-                </View>
-                <View style={styles.bottomRow}>
-                    <View style={styles.row}>
-                        <View style={styles.skeletonBadge} />
-                        <View style={[styles.row, { marginLeft: 12 }]}>
-                            <View style={styles.skeletonTime} />
-                        </View>
-                    </View>
-                    <View style={styles.skeletonButton} />
-                </View>
+                <View style={styles.skeletonTitle} />
+                <View style={styles.skeletonSubtitle} />
+                <View style={styles.skeletonBadge} />
             </View>
         );
     }
 
     if (error) {
         return (
-            <View style={styles.cardBlue}>
-                <Text style={styles.cardLabel}>PRÓXIMA AULA</Text>
-                <View style={{ paddingVertical: 10, alignItems: 'center' }}>
-                    <Text style={styles.white}>Erro ao carregar a próxima aula</Text>
-                    <Text style={styles.graySmall}>{typeof error === 'string' ? error : 'Tente novamente mais tarde.'}</Text>
-                </View>
+            <View style={styles.nextClassCard}>
+                <Text style={styles.nextClassLabel}>próxima aula</Text>
+                <Text style={styles.nextClassTitle}>não foi possível carregar sua aula</Text>
+                <Text style={styles.nextClassDetail}>{typeof error === 'string' ? error : 'Tente novamente mais tarde.'}</Text>
             </View>
         );
     }
 
     if (!userNextClass?.aulaId) {
-        return null;
+        return (
+            <View style={styles.nextClassCard}>
+                <Text style={styles.nextClassLabel}>próxima aula</Text>
+                <Text style={styles.nextClassTitle}>seu próximo treino começa aqui.</Text>
+                <Text style={styles.nextClassDetail}>Escolha uma aula e reserve seu lugar.</Text>
+                <TouchableOpacity
+                    style={styles.nextClassAction}
+                    onPress={() => router.push("/schedule")}
+                    accessibilityRole="button"
+                >
+                    <Text style={styles.nextClassActionText}>ver aulas</Text>
+                    <ArrowRight size={17} color="#FFFFFF" />
+                </TouchableOpacity>
+            </View>
+        );
     }
 
     return (
-        <View style={styles.cardBlue}>
-            <Text style={styles.cardLabel}>PRÓXIMA AULA</Text>
-            <View style={styles.row}>
-                <Dumbbell size={24} color="#fff" />
-                <View style={{ marginLeft: 10 }}>
-                    <Text style={styles.white}>{userNextClass?.aulaName || 'Aula'} — {getClassTime(userNextClass?.ocorrenciaDate || '', userNextClass?.startTime || '')}</Text>
-                    <Text style={styles.gray}>Prof. {userNextClass?.professorName || 'Professor'} </Text>
-                </View>
+        <View style={styles.nextClassCard}>
+            <View style={styles.nextClassHeader}>
+                <Text style={styles.nextClassLabel}>próxima aula</Text>
+                <Dumbbell size={22} color="#FFFFFF" />
             </View>
-            <View style={styles.bottomRow}>
-                <View style={styles.row}>
-                    <Text
-                        style={userNextClass?.bookingStatus === 'FilaEspera' ? styles.badgeQueue : styles.badge}
-                    >
-                        {getClassStatus(userNextClass?.bookingStatus || '')}
-                    </Text>
-
-                    <View style={[styles.row, { marginLeft: 12 }]}>
-                        <Clock3 size={14} color="#9CA3AF" />
-                        <Text style={styles.graySmall}>Faltam {getTimeUntilClass(userNextClass?.ocorrenciaDate || '', userNextClass?.startTime || '')}</Text>
+            <Text style={styles.nextClassTitle}>{userNextClass.aulaName || 'Aula'}</Text>
+            <Text style={styles.nextClassDetail}>
+                {getClassTime(userNextClass.ocorrenciaDate || '', userNextClass.startTime || '')} · prof. {userNextClass.professorName || 'Professor'}
+            </Text>
+            <View style={styles.nextClassFooter}>
+                <View style={styles.nextClassMeta}>
+                    <Text style={styles.nextClassStatus}>{getClassStatus(userNextClass.bookingStatus || '')}</Text>
+                    <View style={styles.countdownRow}>
+                        <Clock3 size={14} color="#FFFFFF" />
+                        <Text style={styles.countdownText}>faltam {getTimeUntilClass(userNextClass.ocorrenciaDate || '', userNextClass.startTime || '')}</Text>
                     </View>
                 </View>
-
                 <TouchableOpacity
                     disabled={isCancelling}
-                    style={[styles.cancelButton, isCancelling && { opacity: 0.6 }]}
+                    style={[styles.cancelButton, isCancelling && styles.disabledButton]}
                     onPress={async () => {
                         try {
                             await deleteSchedule(userNextClass.bookingId);
@@ -238,8 +238,9 @@ const NextClassCard = () => {
                             toast({ title: "Não foi possível cancelar o agendamento.", variant: "destructive" });
                         }
                     }}
+                    accessibilityRole="button"
                 >
-                    <Text style={styles.cancelButtonText}>{isCancelling ? "Cancelando..." : "Cancelar"}</Text>
+                    <Text style={styles.cancelButtonText}>{isCancelling ? "cancelando..." : "cancelar"}</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -300,66 +301,46 @@ const WeekCalendar = () => {
 
     if (isLoading) {
         return (
-            <View style={styles.weekRow}>
-                {Array.from({ length: 7 }).map((_, index) => (
-                    <View key={index} style={styles.dayItem}>
-                        <View style={styles.skeletonDayLabel} />
-                        <View style={styles.skeletonCircle} />
-                    </View>
-                ))}
+            <View style={styles.weekCard}>
+                <View style={styles.weekRow}>
+                    {Array.from({ length: 7 }).map((_, index) => (
+                        <View key={index} style={styles.dayItem}>
+                            <View style={styles.skeletonDayLabel} />
+                            <View style={styles.skeletonCircle} />
+                        </View>
+                    ))}
+                </View>
             </View>
         );
     }
 
     return (
-        <View>
-            <View style={styles.weekRow}>
-                {daysWithClasses.map((d) => {
-                    return (
-                        <TouchableOpacity
-                            key={d.date}
-                            style={styles.dayItem}
-                            onPress={() => {
-                                if (!d.aula) return;
-                                setSelectedDate(selectedDate === d.date ? null : d.date);
-                            }}
-                        >
-                            <Text style={styles.dayLabel}>{d.label}</Text>
-                            <View
-                                style={[
-                                    styles.circle,
-                                    selectedDayData?.date === d.date
-                                        ? styles.active
-                                        : styles.inactive,
-                                ]}
-                            >
-                                <Text style={selectedDayData?.date === d.date ? styles.todayText : styles.dayText}>
-                                    {d.day}
-                                </Text>
-                            </View>
-                            {d.aula && (
-                                <View
-                                    style={[
-                                        styles.dot,
-                                        {
-                                            backgroundColor:
-                                                d.aula.status === "confirmado"
-                                                    ? COLORS.mainOrange
-                                                    : "#999",
-                                        },
-                                    ]}
-                                />
-                            )}
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
+        <View style={styles.weekCard}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.weekRow}>
+                {daysWithClasses.map((d) => (
+                    <TouchableOpacity
+                        key={d.date}
+                        style={styles.dayItem}
+                        disabled={!d.aula}
+                        onPress={() => setSelectedDate(selectedDate === d.date ? null : d.date)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${d.label}, ${d.day}: ${d.aula ? d.aula.modalidade : "sem aula"}`}
+                        accessibilityState={{ selected: selectedDate === d.date, disabled: !d.aula }}
+                    >
+                        <Text style={styles.dayLabel}>{d.label.toLowerCase()}</Text>
+                        <View style={[styles.circle, selectedDate === d.date && styles.active]}>
+                            <Text style={selectedDate === d.date ? styles.todayText : styles.dayText}>{d.day}</Text>
+                        </View>
+                        {d.aula && <View style={[styles.dot, d.aula.status === "confirmado" ? styles.dotConfirmed : styles.dotQueue]} />}
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
             {selectedDayData && selectedDayData.aula && (
-                <View style={styles.card}>
+                <View style={styles.selectedDayCard}>
                     <Text style={styles.cardTitle}>
                         {selectedDayData.aula.modalidade} • {selectedDayData.aula.horario}
                     </Text>
-                    <Text style={styles.location}>
+                    <Text style={styles.cardMeta}>
                         {selectedDayData.label}, {String(selectedDayData.day).padStart(2, '0')}/{selectedDayData.month}
                     </Text>
                 </View>
@@ -393,58 +374,47 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', o
 
     const isGenderAllowed = gender === 'Mixed' || gender === userGender;
     const isLevelAllowed = getLevelWeight(userLevel) >= getLevelWeight(level);
+    const isBlocked = aula.status?.toLowerCase() === "bloqueada";
 
     return (
-        <View style={[styles.card, aula.status === "Bloqueada" ? { opacity: 0.6 } : {}]}>
-            <View style={styles.rowBetween}>
-                <View style={styles.row}>
-                    <View style={{ marginRight: 16, width: 55 }}>
-                        <Text style={styles.time}>{aula.startTime.substring(0, 5)}</Text>
-                        <Text style={styles.location}>
-                            {(aula.modalityName || aula.aulaName).length > 12
-                                ? `${(aula.modalityName || aula.aulaName).substring(0, 12)}...`
-                                : (aula.modalityName || aula.aulaName)}
-                        </Text>
-                    </View>
-                    <View>
-                        <Text style={{ fontSize: 12, fontWeight: "600" }}>
-                            Prof. {aula.professorName}
-                        </Text>
-                        <Text style={styles.location}>
-                            {aula.confirmedCount !== undefined && aula.maxCapacity !== undefined ? `${aula.confirmedCount}/${aula.maxCapacity}` : "-/-"} vagas
-                        </Text>
-                    </View>
+        <View style={styles.classCard}>
+            <View style={styles.classTopRow}>
+                <View style={styles.timePill}>
+                    <Clock3 size={15} color={BRAND_ORANGE} />
+                    <Text style={styles.time}>{aula.startTime.substring(0, 5)}</Text>
                 </View>
-
-                <View style={{ alignItems: 'flex-end' }}>
-                    <StatusBadge status={aula.status?.toLowerCase() as BadgeStatus} />
-                    <View style={{ marginTop: 6 }}>
-                        {aula.subscriptionStatus ? (
-                            <Text style={{ color: COLORS.mainOrange, fontSize: 10, fontWeight: 'bold' }}>
-                                {aula.subscriptionStatus === 'Confirmado' ? 'Agendamento Confirmado ✓' :
-                                aula.subscriptionStatus === 'ListaEspera' ? 'Na Fila de Espera' :
-                                aula.subscriptionStatus === 'WaitlistPending' ? 'Aguardando Confirmação' :
-                                aula.subscriptionStatus === 'CheckedIn' ? 'Check-in Realizado' :
-                                aula.subscriptionStatus === 'Faltou' ? 'Faltou' : ''}
-                            </Text>
-                        ) : !isGenderAllowed ? (
-                            <Text style={{ color: '#ef4444', fontSize: 10, fontWeight: '600', fontStyle: 'italic' }}>
-                                Apenas {getGenderLabel(gender).substring(2)}
-                            </Text>
-                        ) : !isLevelAllowed ? (
-                            <Text style={{ color: '#ef4444', fontSize: 10, fontWeight: '600', fontStyle: 'italic' }}>
-                                Requer nível {capitalizeText(level)}
-                            </Text>
-                        ) : (
-                            <TouchableOpacity
-                                style={{ backgroundColor: COLORS.mainOrange, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}
-                                onPress={() => onBookPress(aula)}
-                            >
-                                <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>Agendar</Text>
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                </View>
+                <StatusBadge status={aula.status?.toLowerCase() as BadgeStatus} />
+            </View>
+            <Text style={styles.className}>{aula.modalityName || aula.aulaName}</Text>
+            <Text style={styles.classMeta}>
+                prof. {aula.professorName || "a definir"} · {aula.confirmedCount !== undefined && aula.maxCapacity !== undefined ? `${aula.confirmedCount}/${aula.maxCapacity}` : "-/-"} vagas
+            </Text>
+            <View style={styles.classFooter}>
+                {aula.subscriptionStatus ? (
+                    <Text style={styles.classNotice}>
+                        {aula.subscriptionStatus === 'Confirmado' ? 'agendamento confirmado ✓' :
+                        aula.subscriptionStatus === 'ListaEspera' ? 'na fila de espera' :
+                        aula.subscriptionStatus === 'WaitlistPending' ? 'aguardando confirmação' :
+                        aula.subscriptionStatus === 'CheckedIn' ? 'check-in realizado' :
+                        aula.subscriptionStatus === 'Faltou' ? 'faltou' : ''}
+                    </Text>
+                ) : isBlocked ? (
+                    <Text style={styles.classWarning}>aula bloqueada</Text>
+                ) : !isGenderAllowed ? (
+                    <Text style={styles.classWarning}>apenas {getGenderLabel(gender).substring(2).toLowerCase()}</Text>
+                ) : !isLevelAllowed ? (
+                    <Text style={styles.classWarning}>requer nível {capitalizeText(level).toLowerCase()}</Text>
+                ) : (
+                    <TouchableOpacity
+                        style={styles.bookButton}
+                        onPress={() => onBookPress(aula)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`agendar ${aula.modalityName || aula.aulaName} às ${aula.startTime.substring(0, 5)}`}
+                    >
+                        <Text style={styles.bookButtonText}>agendar</Text>
+                        <ArrowRight size={17} color="#FFFFFF" />
+                    </TouchableOpacity>
+                )}
             </View>
         </View>
     );
@@ -496,30 +466,49 @@ export default function Home() {
     });
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+        <SafeAreaView style={styles.screen}>
             <ClientHeader />
-            <View style={{ padding: 20, paddingBottom: 0 }}>
-                <UserProfile user={user} />
-                <NextClassCard />
-                <Text style={styles.sectionTitle}>AULAS DA SEMANA</Text>
-                <WeekCalendar />
-                <Text style={styles.sectionTitle}>AULAS DISPONÍVEIS AGORA</Text>
-                <Text style={styles.sectionSubtitle}>Abertas para agendamento</Text>
-                {scheduleLoading && <ActivityIndicator size="large" color={COLORS.mainOrange} />}
-            </View>
             <FlatList
-                style={{ flex: 1, backgroundColor: "#fff" }}
-                contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20, gap: 5 }}
-                data={scheduleLoading ? [] : (schedule?.items || [])}
+                style={styles.list}
+                contentContainerStyle={styles.listContent}
+                data={scheduleLoading ? [] : (schedule?.items || []).slice(0, 3)}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => <AvailableClassItem aula={item} userGender={user?.gender} userLevel={user?.studentLevel} onBookPress={handleBookPress} />}
                 showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    !scheduleLoading ? (
-                        <View style={{ alignItems: 'center', marginTop: 20 }}>
-                            <Text style={{ color: '#9ca3af' }}>Nenhuma aula disponível no momento</Text>
+                ListHeaderComponent={
+                    <View>
+                        <UserProfile user={user} />
+                        <NextClassCard />
+                        <Text style={styles.sectionTitle}>aulas da semana</Text>
+                        <WeekCalendar />
+                        <View style={styles.availableHeading}>
+                            <Text style={styles.sectionTitle}>aulas disponíveis</Text>
+                            <Text style={styles.sectionSubtitle}>abertas para agendamento</Text>
                         </View>
-                    ) : null
+                    </View>
+                }
+                ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                        {scheduleLoading ? (
+                            <ActivityIndicator color={BRAND_ORANGE} />
+                        ) : (
+                            <CalendarDays size={24} color={BRAND_ORANGE} />
+                        )}
+                        <Text style={styles.emptyText}>
+                            {scheduleLoading ? "carregando aulas..." : "nenhuma aula disponível no momento"}
+                        </Text>
+                    </View>
+                }
+                ListFooterComponent={
+                    <TouchableOpacity
+                        style={styles.seeAllButton}
+                        onPress={() => router.push("/schedule")}
+                        accessibilityRole="button"
+                        accessibilityLabel="Ver todas as aulas na tela de agendamento"
+                    >
+                        <Text style={styles.seeAllButtonText}>ver todas as aulas</Text>
+                        <ArrowRight size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
                 }
             />
             <ConfirmBookingModal
@@ -534,248 +523,405 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-    container: {
+    screen: {
         flex: 1,
-        backgroundColor: "#fff",
-        padding: 20,
+        backgroundColor: "#FFFFFF",
+    },
+    list: {
+        flex: 1,
+        backgroundColor: "#FFFFFF",
+    },
+    listContent: {
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        paddingBottom: 32,
     },
     profile: {
         flexDirection: "row",
-        marginBottom: 20,
+        alignItems: "center",
+        gap: 14,
+        marginBottom: 24,
     },
     avatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 25,
-        backgroundColor: COLORS.subOrange,
-        justifyContent: "center",
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        backgroundColor: BRAND_ORANGE,
         alignItems: "center",
-        marginRight: 10,
+        justifyContent: "center",
     },
     avatarText: {
+        color: "#FFFFFF",
+        fontSize: 16,
         fontWeight: "bold",
-        fontSize: 15,
-        color: COLORS.mainOrange,
+    },
+    profileText: {
+        flex: 1,
+        minWidth: 0,
     },
     userInfo: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 5,
     },
     title: {
-        fontSize: 20,
+        flexShrink: 1,
+        color: INK,
+        fontSize: 25,
         fontWeight: "bold",
+        letterSpacing: -0.6,
+    },
+    profileMeta: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 4,
+    },
+    profileLocation: {
+        flexShrink: 1,
+        color: MUTED,
+        fontSize: 13,
     },
     subtitleContainer: {
-        backgroundColor: "#ffefd4ff",
-        alignItems: "center",
+        minHeight: 24,
+        paddingHorizontal: 9,
         justifyContent: "center",
-        paddingHorizontal: 15,
-        paddingVertical: 0,
-        height: 20,
-        borderRadius: 15,
-        marginLeft: 5,
+        borderRadius: 8,
     },
     subtitle: {
-        color: "#f59e0b",
-        fontSize: 10,
-        textAlign: "center",
+        fontSize: 11,
         fontWeight: "bold",
     },
-    location: {
-        color: "#777",
-        fontSize: 12,
+    nextClassCard: {
+        backgroundColor: BRAND_ORANGE,
+        borderRadius: 18,
+        padding: 20,
+        marginBottom: 28,
     },
-    cardBlue: {
-        backgroundColor: "#0f172a",
-        borderRadius: 15,
-        padding: 15,
-        marginBottom: 20,
-    },
-    card: {
-        backgroundColor: "#fff",
-        padding: 15,
-        borderRadius: 15,
-        marginBottom: 10,
-        elevation: 2,
-    },
-    cardLabel: {
-        color: "#aaa",
-        fontSize: 10,
-        marginBottom: 10,
-        fontWeight: "bold",
-    },
-    cardTitle: {
-        fontWeight: "bold",
-    },
-    white: {
-        color: "#fff",
-        fontWeight: "bold",
-    },
-    gray: {
-        color: "#ccc",
-    },
-    graySmall: {
-        color: "#ccc",
-        fontSize: 12,
-    },
-    row: {
+    nextClassHeader: {
         flexDirection: "row",
         alignItems: "center",
-    },
-    bottomRow: {
-        marginTop: 15,
-        flexDirection: "row",
         justifyContent: "space-between",
-        alignItems: "center",
+        marginBottom: 12,
     },
-
-    cancelButton: {
-        borderWidth: 1,
-        borderColor: "#374151",
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-    },
-
-    cancelButtonText: {
-        color: "#6B7280",
+    nextClassLabel: {
+        color: "#FFFFFF",
         fontSize: 14,
-        fontWeight: "600",
+        fontWeight: "bold",
+        marginBottom: 10,
     },
-    rowBetween: {
+    nextClassTitle: {
+        color: "#FFFFFF",
+        fontSize: 24,
+        lineHeight: 29,
+        fontWeight: "bold",
+        letterSpacing: -0.5,
+    },
+    nextClassDetail: {
+        color: "#FFFFFF",
+        fontSize: 14,
+        lineHeight: 21,
+        marginTop: 8,
+    },
+    nextClassFooter: {
+        marginTop: 18,
+        paddingTop: 14,
+        borderTopWidth: 1,
+        borderTopColor: "#FFFFFF66",
         flexDirection: "row",
-        justifyContent: "space-between",
+        flexWrap: "wrap",
         alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
     },
-    badge: {
-        color: "#22c55e",
-        fontWeight: "bold",
-        marginRight: 10,
+    nextClassMeta: {
+        flex: 1,
+        minWidth: 170,
+        gap: 8,
     },
-    badgeQueue: {
-        color: "#f59e0b",
+    nextClassStatus: {
+        color: "#FFFFFF",
+        fontSize: 13,
         fontWeight: "bold",
-        marginRight: 10,
+    },
+    countdownRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+    },
+    countdownText: {
+        color: "#FFFFFF",
+        fontSize: 12,
+    },
+    cancelButton: {
+        minHeight: 48,
+        paddingHorizontal: 16,
+        borderWidth: 1,
+        borderColor: "#FFFFFF",
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    cancelButtonText: {
+        color: "#FFFFFF",
+        fontSize: 14,
+        fontWeight: "bold",
+    },
+    disabledButton: {
+        opacity: 0.6,
+    },
+    nextClassAction: {
+        alignSelf: "flex-start",
+        minHeight: 48,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 18,
+        paddingHorizontal: 16,
+        borderWidth: 1,
+        borderColor: "#FFFFFF",
+        borderRadius: 10,
+    },
+    nextClassActionText: {
+        color: "#FFFFFF",
+        fontSize: 14,
+        fontWeight: "bold",
     },
     sectionTitle: {
-        fontSize: 12,
+        color: INK,
+        fontSize: 21,
         fontWeight: "bold",
-        color: COLORS.grayLabels,
+        letterSpacing: -0.5,
+        marginBottom: 14,
     },
     sectionSubtitle: {
-        fontSize: 10,
-        marginBottom: 10,
-        color: COLORS.grayLabels,
+        color: MUTED,
+        fontSize: 13,
+        marginTop: -8,
+        marginBottom: 14,
+    },
+    availableHeading: {
+        marginTop: 2,
+    },
+    weekCard: {
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 28,
     },
     weekRow: {
+        flexGrow: 1,
         flexDirection: "row",
         justifyContent: "space-between",
-        marginBottom: 20,
+        gap: 3,
     },
     dayItem: {
+        width: 48,
+        minHeight: 76,
         alignItems: "center",
-    },
-    todayText: {
-        color: "#fff",
-        fontWeight: "bold",
-    },
-    dayText: {
-        color: COLORS.grayLabels,
-        fontWeight: "bold",
+        justifyContent: "center",
     },
     dayLabel: {
-        color: COLORS.grayLabels,
-        fontSize: 10,
+        color: MUTED,
+        fontSize: 11,
+        marginBottom: 5,
     },
     circle: {
         width: 36,
         height: 36,
-        borderRadius: 18,
-        justifyContent: "center",
+        borderRadius: 10,
+        backgroundColor: "#F3F4F6",
         alignItems: "center",
-        marginVertical: 5,
-    },
-    today: {
-        backgroundColor: COLORS.mainOrange,
+        justifyContent: "center",
     },
     active: {
-        backgroundColor: COLORS.mainOrange,
+        backgroundColor: BRAND_ORANGE,
     },
-    inactive: {
-        backgroundColor: "#eee",
-    },
-    dot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-    },
-    time: {
-        color: COLORS.mainOrange,
+    todayText: {
+        color: "#FFFFFF",
+        fontSize: 14,
         fontWeight: "bold",
     },
-    green: {
-        color: "#22c55e",
+    dayText: {
+        color: INK,
+        fontSize: 14,
+        fontWeight: "bold",
     },
-    red: {
-        color: "#ef4444",
+    dot: {
+        width: 5,
+        height: 5,
+        borderRadius: 3,
+        marginTop: 5,
+    },
+    dotConfirmed: {
+        backgroundColor: BRAND_ORANGE,
+    },
+    dotQueue: {
+        backgroundColor: MUTED,
+    },
+    selectedDayCard: {
+        borderTopWidth: 1,
+        borderTopColor: "#E5E7EB",
+        paddingTop: 14,
+        marginTop: 8,
+    },
+    cardTitle: {
+        color: INK,
+        fontSize: 15,
+        fontWeight: "bold",
+    },
+    cardMeta: {
+        color: MUTED,
+        fontSize: 12,
+        marginTop: 4,
+    },
+    classCard: {
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        backgroundColor: "#FFFFFF",
+    },
+    classTopRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+        marginBottom: 14,
+    },
+    timePill: {
+        minHeight: 32,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 10,
+        backgroundColor: "#FFF0E7",
+        borderRadius: 8,
+    },
+    time: {
+        color: INK,
+        fontSize: 14,
+        fontWeight: "bold",
+    },
+    className: {
+        color: INK,
+        fontSize: 18,
+        fontWeight: "bold",
+        letterSpacing: -0.3,
+    },
+    classMeta: {
+        color: MUTED,
+        fontSize: 13,
+        lineHeight: 19,
+        marginTop: 5,
+    },
+    classFooter: {
+        minHeight: 52,
+        alignItems: "flex-end",
+        justifyContent: "center",
+        marginTop: 14,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: "#E5E7EB",
+    },
+    classNotice: {
+        color: INK,
+        fontSize: 13,
+        fontWeight: "bold",
+    },
+    classWarning: {
+        color: "#B42318",
+        fontSize: 13,
+        fontWeight: "bold",
+    },
+    bookButton: {
+        minHeight: 48,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        paddingHorizontal: 16,
+        borderRadius: 10,
+        backgroundColor: BRAND_ORANGE,
+    },
+    bookButtonText: {
+        color: "#FFFFFF",
+        fontSize: 14,
+        fontWeight: "bold",
+    },
+    emptyState: {
+        minHeight: 110,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 16,
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 10,
+        padding: 20,
+    },
+    emptyText: {
+        color: MUTED,
+        fontSize: 14,
+        textAlign: "center",
+    },
+    seeAllButton: {
+        minHeight: 52,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 10,
+        marginTop: 6,
+        paddingHorizontal: 16,
+        borderRadius: 10,
+        backgroundColor: BRAND_ORANGE,
+    },
+    seeAllButtonText: {
+        color: "#FFFFFF",
+        fontSize: 15,
+        fontWeight: "bold",
+        letterSpacing: -0.3,
     },
     skeletonLabel: {
-        height: 12,
-        width: 80,
-        backgroundColor: '#334155',
+        width: 90,
+        height: 14,
         borderRadius: 4,
-        marginBottom: 10,
-    },
-    skeletonIcon: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: '#334155',
+        backgroundColor: "#FFFFFF66",
+        marginBottom: 18,
     },
     skeletonTitle: {
-        height: 16,
-        width: 150,
-        backgroundColor: '#334155',
+        width: "75%",
+        height: 24,
         borderRadius: 4,
-        marginBottom: 4,
+        backgroundColor: "#FFFFFF66",
+        marginBottom: 10,
     },
     skeletonSubtitle: {
-        height: 14,
-        width: 100,
-        backgroundColor: '#334155',
+        width: "58%",
+        height: 16,
         borderRadius: 4,
+        backgroundColor: "#FFFFFF66",
+        marginBottom: 20,
     },
     skeletonBadge: {
-        height: 14,
-        width: 80,
-        backgroundColor: '#334155',
-        borderRadius: 4,
-    },
-    skeletonTime: {
-        height: 14,
-        width: 60,
-        backgroundColor: '#334155',
-        borderRadius: 4,
-    },
-    skeletonButton: {
-        height: 36,
-        width: 80,
-        backgroundColor: '#334155',
-        borderRadius: 12,
+        width: 120,
+        height: 32,
+        borderRadius: 8,
+        backgroundColor: "#FFFFFF66",
     },
     skeletonDayLabel: {
-        width: 20,
+        width: 22,
         height: 10,
-        backgroundColor: '#e2e8f0',
         borderRadius: 4,
-        marginBottom: 2,
+        backgroundColor: "#E5E7EB",
+        marginBottom: 7,
     },
     skeletonCircle: {
         width: 36,
         height: 36,
-        borderRadius: 18,
-        backgroundColor: '#e2e8f0',
-        marginVertical: 5,
+        borderRadius: 10,
+        backgroundColor: "#E5E7EB",
     },
 });
