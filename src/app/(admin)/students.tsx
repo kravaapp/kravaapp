@@ -1024,6 +1024,7 @@ function InviteModal({
         requestError,
         "Não foi possível enviar o convite.",
       );
+      setEmailError(errInfo.description);
       toast({
         title: "Não foi possível enviar o convite",
         description: errInfo.description,

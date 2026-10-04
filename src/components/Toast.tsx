@@ -120,11 +120,12 @@ export function ToastProvider({ children }: PropsWithChildren) {
 const styles = StyleSheet.create({
   modalLayer: { flex: 1 },
   container: {
-    position: 'absolute',
+    position: Platform.OS === 'web' ? ('fixed' as any) : 'absolute',
     left: 16,
     right: 16,
     alignItems: 'center',
-    zIndex: 9999,
+    zIndex: 999999,
+    elevation: 999999,
   },
   toast: {
     width: '100%',
@@ -134,7 +135,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 2,
-    elevation: 6,
+    elevation: 999999,
+    zIndex: 999999,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
