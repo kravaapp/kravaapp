@@ -151,7 +151,7 @@ export const AdminSkeleton = ({
 };
 
 const styles = StyleSheet.create({
-  screen: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32, gap: 20 },
+  screen: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 110, gap: 20 },
   card: {
     backgroundColor: COLORS.white,
     borderWidth: 1,

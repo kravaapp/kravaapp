@@ -319,7 +319,7 @@ export default function AdminStudents() {
                 />
               </View>
               <ActionButton
-                label="Convidar professor"
+                label="Convidar"
                 icon={<Plus size={15} color="#fff" />}
                 onPress={() => setInvitingTeacher(true)}
               />
@@ -374,7 +374,7 @@ export default function AdminStudents() {
               />
             </View>
             <ActionButton
-              label="Convidar aluno"
+              label="Convidar"
               icon={<Plus size={15} color="#fff" />}
               onPress={() => setInviting(true)}
             />

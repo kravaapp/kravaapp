@@ -1,3 +1,26 @@
+import React, { ReactNode, useEffect, useState } from "react";
+import {
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import {
+  ArrowLeft,
+  Check,
+  Clock,
+  Pencil,
+  Plus,
+  ShieldAlert,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react-native";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import ScreenScrollView from "@/components/ScreenScrollView";
@@ -5,18 +28,15 @@ import { useToast } from "@/components/Toast";
 import {
   ActionButton,
   AdminCard,
+  AdminPageHeader,
   AdminScreen,
   AdminSkeleton,
-  AdminPageHeader,
   Pill,
   SectionTitle,
 } from "@/components/admin/AdminUi";
-import { ImageUploadField } from "@/components/admin/ImageUploadField";
-import { useCategories, useCategoryActions } from "@/hooks/categories.hooks";
 import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
 import { normalizeApiError } from "@/routes/apiError";
-import { AvulsoConfigType, SchedulingRuleType } from "@/types/settings.types";
-import { Category } from "@/types/categories.types";
+import { SchedulingRuleType } from "@/types/settings.types";
 import {
   maskCurrency,
   maskInteger,
@@ -25,30 +45,6 @@ import {
   parseCurrency,
   toCurrencyInput,
 } from "@/utils/masks";
-import {
-  Check,
-  Clock,
-  DollarSign,
-  Globe2,
-  Pencil,
-  Plus,
-  ShieldAlert,
-  Trash2,
-  Users,
-  X,
-} from "lucide-react-native";
-import { ReactNode, useEffect, useState } from "react";
-import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const ruleDescription = (rule: SchedulingRuleType) => {
@@ -67,95 +63,49 @@ export default function AdminSettings() {
   const { toast } = useToast();
   const {
     rules,
-    avulsoConfigs,
     tenantSettings,
-    catalogProfile,
     loading,
     hasError,
   } = useAdminSettings();
-  const { categories, isLoading: categoriesLoading } = useCategories();
-  const { createCategory, updateCategory, isSaving: isSavingCategory } = useCategoryActions();
   const {
     createRule,
     updateRule,
     deleteRule,
-    updateAvulso,
     updateTenant,
-    updateCatalogProfile,
     isCreatingRule,
     isUpdatingRule,
     isDeletingRule,
-    isUpdatingAvulso,
     isUpdatingTenant,
-    isUpdatingCatalogProfile,
   } = useSettingsActions();
-  const [editingRule, setEditingRule] = useState<SchedulingRuleType | null | undefined>(undefined);
-  const [editingCategory, setEditingCategory] = useState<Category | null | undefined>(undefined);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [prices, setPrices] = useState<Record<string, string>>({});
+
+  const [editingRule, setEditingRule] = useState<SchedulingRuleType | null | undefined>(
+    undefined,
+  );
   const [tenantEditing, setTenantEditing] = useState<string | null>(null);
   const [tenantValues, setTenantValues] = useState({
     cancellationTimeoutMinutes: "",
     noShowPenaltyFee: "",
     partnerCheckInLimit: "",
   });
-  const [profile, setProfile] = useState({
-    showInCatalog: false,
-    description: "",
-    bannerUrl: "",
-    modalities: [] as string[],
-  });
-  useEffect(() => {
-    setPrices(
-      Object.fromEntries(
-        avulsoConfigs.map((item) => [
-          item.modalidadeId,
-          toCurrencyInput(item.price),
-        ]),
-      ),
-    );
-  }, [avulsoConfigs]);
 
   useEffect(() => {
-    if (!tenantSettings) return;
-    setTenantValues({
-      cancellationTimeoutMinutes: maskInteger(
-        String(tenantSettings.cancellationTimeoutMinutes ?? ""),
-      ),
-      noShowPenaltyFee: toCurrencyInput(tenantSettings.noShowPenaltyFee),
-      partnerCheckInLimit: maskInteger(
-        String(tenantSettings.partnerCheckInLimit ?? ""),
-      ),
-    });
-  }, [tenantSettings]);
-
-  useEffect(() => {
-    if (!catalogProfile) return;
-    setProfile({
-      showInCatalog: catalogProfile.showInCatalog,
-      description: catalogProfile.description ?? "",
-      bannerUrl: catalogProfile.bannerUrl ?? "",
-      modalities: catalogProfile.modalities ?? [],
-    });
-  }, [catalogProfile]);
-
-  const saveCatalogProfile = async () => {
-    if (isUpdatingCatalogProfile || categoriesLoading) return;
-    try {
-      await updateCatalogProfile({
-        showInCatalog: profile.showInCatalog,
-        description: profile.description.trim() || null,
-        bannerUrl: profile.bannerUrl.trim() || null,
-        modalities: profile.modalities,
-      });
-      toast({ title: "Perfil público atualizado!" });
-    } catch {
-      toast({
-        title: "Não foi possível atualizar o perfil público.",
-        variant: "destructive",
+    if (tenantSettings) {
+      setTenantValues({
+        cancellationTimeoutMinutes:
+          tenantSettings.cancellationTimeoutMinutes !== undefined
+            ? String(tenantSettings.cancellationTimeoutMinutes)
+            : "",
+        noShowPenaltyFee:
+          tenantSettings.noShowPenaltyFee !== undefined
+            ? toCurrencyInput(tenantSettings.noShowPenaltyFee)
+            : "",
+        partnerCheckInLimit:
+          tenantSettings.partnerCheckInLimit !== undefined
+            ? String(tenantSettings.partnerCheckInLimit)
+            : "",
       });
     }
-  };
+  }, [tenantSettings]);
 
   const saveTenant = async () => {
     if (!tenantSettings) return;
@@ -193,31 +143,10 @@ export default function AdminSettings() {
         partnerCheckInLimit,
       });
       setTenantEditing(null);
-      toast({ title: "Configuração atualizada!" });
+      toast({ title: "Políticas do CT atualizadas!" });
     } catch {
       toast({
         title: "Não foi possível atualizar a configuração.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const saveAvulso = async (item: AvulsoConfigType, active = item.active) => {
-    const price = parseCurrency(prices[item.modalidadeId] ?? "");
-    if (!Number.isFinite(price) || price < 0) {
-      toast({ title: "Informe um preço válido.", variant: "destructive" });
-      return;
-    }
-    try {
-      await updateAvulso({
-        modalidadeId: item.modalidadeId,
-        config: { price, active },
-      });
-      setEditing(null);
-      toast({ title: "Configuração de aula avulsa atualizada!" });
-    } catch {
-      toast({
-        title: "Não foi possível atualizar a aula avulsa.",
         variant: "destructive",
       });
     }
@@ -228,139 +157,30 @@ export default function AdminSettings() {
       <ClientHeader />
       <ScreenScrollView>
         <AdminScreen>
-          <AdminPageHeader title="configurações" subtitle="Dados do CT e regras de operação" />
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Voltar"
+            >
+              <ArrowLeft size={20} color={COLORS.foreground} />
+            </TouchableOpacity>
+            <View style={styles.headerTextWrap}>
+              <AdminPageHeader
+                title="políticas do ct"
+                subtitle="Regras de agendamento, cancelamento e limites"
+              />
+            </View>
+          </View>
+
           {hasError && (
             <Text style={styles.error}>
               Algumas configurações não puderam ser carregadas.
             </Text>
           )}
-          <SettingsCard
-            icon={<Globe2 color={COLORS.mainOrange} size={20} />}
-            title="Perfil público"
-          >
-            {loading.catalogProfile ? (
-              <AdminSkeleton width="100%" height={250} radius={12} />
-            ) : catalogProfile ? (
-              <>
-                <View style={styles.rule}>
-                  <View style={styles.grow}>
-                    <Text style={styles.itemTitle}>Exibir no catálogo</Text>
-                    <Text style={styles.muted}>
-                      Permite que novos alunos encontrem este CT.
-                    </Text>
-                  </View>
-                  <Switch
-                    value={profile.showInCatalog}
-                    onValueChange={(showInCatalog) =>
-                      setProfile((current) => ({ ...current, showInCatalog }))
-                    }
-                    trackColor={{ true: COLORS.mainOrange }}
-                  />
-                </View>
-                <Text style={styles.fieldLabel}>Descrição</Text>
-                <TextInput
-                  value={profile.description}
-                  onChangeText={(description) =>
-                    setProfile((current) => ({ ...current, description }))
-                  }
-                  placeholder="Apresente seu centro de treinamento"
-                  multiline
-                  style={[styles.fullInput, styles.textarea]}
-                />
-                <ImageUploadField
-                  label="Banner do catálogo"
-                  value={profile.bannerUrl || null}
-                  category="banner"
-                  onChange={(bannerUrl) =>
-                    setProfile((current) => ({ ...current, bannerUrl }))
-                  }
-                />
-                <Text style={styles.fieldLabel}>Modalidades exibidas</Text>
-                {categoriesLoading ? (
-                  <AdminSkeleton width="100%" height={50} radius={10} />
-                ) : (
-                  <View style={styles.profileModalities}>
-                    {(categories ?? [])
-                      .filter((item) => item.isActive)
-                      .map((item) => {
-                        const selected = profile.modalities.includes(item.name);
-                        return (
-                          <TouchableOpacity
-                            key={item.id}
-                            onPress={() =>
-                              setProfile((current) => ({
-                                ...current,
-                                modalities: selected
-                                  ? current.modalities.filter(
-                                      (name) => name !== item.name,
-                                    )
-                                  : [...current.modalities, item.name],
-                              }))
-                            }
-                            style={[
-                              styles.dayOption,
-                              selected && styles.dayOptionActive,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.dayText,
-                                selected && styles.dayTextActive,
-                              ]}
-                            >
-                              {item.name}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                  </View>
-                )}
-                <ActionButton
-                  label={
-                    isUpdatingCatalogProfile || categoriesLoading
-                      ? "Aguarde..."
-                      : "Salvar perfil público"
-                  }
-                  icon={<Check size={14} color="#fff" />}
-                  onPress={saveCatalogProfile}
-                />
-              </>
-            ) : (
-              <Text style={styles.empty}>Perfil público indisponível.</Text>
-            )}
-          </SettingsCard>
-          <SettingsCard
-            icon={<Globe2 color={COLORS.mainOrange} size={20} />}
-            title="Modalidades"
-            action={
-              <ActionButton
-                label="Adicionar"
-                icon={<Plus size={14} color="#fff" />}
-                onPress={() => setEditingCategory(null)}
-              />
-            }
-          >
-            {categoriesLoading ? (
-              <AdminSkeleton width="100%" height={130} radius={12} />
-            ) : (categories ?? []).length === 0 ? (
-              <Text style={styles.empty}>Nenhuma modalidade cadastrada.</Text>
-            ) : (
-              (categories ?? []).map((category) => (
-                <View key={category.id} style={styles.rule}>
-                  <View style={styles.grow}>
-                    <Text style={styles.itemTitle}>{category.name || "Modalidade sem nome"}</Text>
-                    <Text style={styles.muted}>
-                      {category.description || "Sem descrição"} · capacidade padrão {category.defaultCapacity}
-                    </Text>
-                  </View>
-                  <Pill label={category.isActive ? "Ativa" : "Inativa"} tone={category.isActive ? "success" : "neutral"} />
-                  <TouchableOpacity onPress={() => setEditingCategory(category)} style={styles.edit}>
-                    <Pencil size={17} color={COLORS.mutedForeground} />
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
-          </SettingsCard>
+
+          {/* Regras de Agendamento */}
           <SettingsCard
             icon={<Clock color={COLORS.mainOrange} size={20} />}
             title="Regras de agendamento"
@@ -383,7 +203,10 @@ export default function AdminSettings() {
                     {ruleDescription(rule)}
                   </Text>
                   <Pill label="Ativa" tone="success" />
-                  <TouchableOpacity onPress={() => setEditingRule(rule)} style={styles.edit}>
+                  <TouchableOpacity
+                    onPress={() => setEditingRule(rule)}
+                    style={styles.edit}
+                  >
                     <Pencil size={17} color={COLORS.mutedForeground} />
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -410,75 +233,8 @@ export default function AdminSettings() {
               ))
             )}
           </SettingsCard>
-          <SettingsCard
-            icon={<DollarSign color={COLORS.mainOrange} size={20} />}
-            title="Aula avulsa"
-          >
-            <Text style={styles.muted}>
-              Configure a disponibilidade e o preço por modalidade.
-            </Text>
-            {loading.avulso ? (
-              <AdminSkeleton width="100%" height={160} radius={12} />
-            ) : avulsoConfigs.length === 0 ? (
-              <Text style={styles.empty}>
-                Nenhuma modalidade configurada para aula avulsa.
-              </Text>
-            ) : (
-              avulsoConfigs.map((item) => (
-                <View key={item.modalidadeId} style={styles.rule}>
-                  <View style={styles.grow}>
-                    <Text style={styles.itemTitle}>
-                      {item.modalidadeName || "Modalidade"}
-                    </Text>
-                    {editing === item.modalidadeId ? (
-                      <View style={styles.inputRow}>
-                        <Text>R$</Text>
-                        <TextInput
-                          value={prices[item.modalidadeId] ?? ""}
-                          onChangeText={(value) =>
-                            setPrices((current) => ({
-                              ...current,
-                              [item.modalidadeId]: maskCurrency(value),
-                            }))
-                          }
-                          keyboardType="number-pad"
-                          style={styles.input}
-                        />
-                        <Text style={styles.muted}>por aula</Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.muted}>
-                        R${" "}
-                        {item.price.toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                        })}{" "}
-                        por aula
-                      </Text>
-                    )}
-                  </View>
-                  {editing === item.modalidadeId ? (
-                    <ActionButton
-                      label={isUpdatingAvulso ? "Salvando..." : "Salvar"}
-                      icon={<Check size={14} color="#fff" />}
-                      onPress={() => saveAvulso(item)}
-                    />
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => setEditing(item.modalidadeId)}
-                      style={styles.edit}
-                    >
-                      <Pencil size={17} color={COLORS.mutedForeground} />
-                    </TouchableOpacity>
-                  )}
-                  <Switch
-                    value={item.active}
-                    onValueChange={(active) => saveAvulso(item, active)}
-                    trackColor={{ true: COLORS.mainOrange }}
-                  />
-                </View>
-              ))
-            )}
-          </SettingsCard>
+
+          {/* Regras de Cancelamento */}
           <SettingsCard
             icon={<ShieldAlert color={COLORS.destructive} size={20} />}
             title="Regras de cancelamento"
@@ -504,7 +260,7 @@ export default function AdminSettings() {
                   mask={maskInteger}
                 />
                 <EditableRow
-                  label="Multa por falta não cancelada"
+                  label="Multa por falta não cancelada (No-Show)"
                   value={tenantValues.noShowPenaltyFee}
                   suffix="reais"
                   editing={tenantEditing === "noShowPenaltyFee"}
@@ -524,6 +280,8 @@ export default function AdminSettings() {
               <Text style={styles.empty}>Configurações indisponíveis.</Text>
             )}
           </SettingsCard>
+
+          {/* Limites de Check-in por Parceiro */}
           <SettingsCard
             icon={<Users color={COLORS.mainOrange} size={20} />}
             title="Limites de check-in por parceiro"
@@ -532,7 +290,7 @@ export default function AdminSettings() {
               <AdminSkeleton width="100%" height={90} radius={12} />
             ) : tenantSettings ? (
               <EditableRow
-                label="Todos os parceiros"
+                label="Todos os parceiros (Gympass / Totalpass)"
                 value={tenantValues.partnerCheckInLimit}
                 suffix="check-in(s) por aluno"
                 editing={tenantEditing === "partnerCheckInLimit"}
@@ -551,11 +309,13 @@ export default function AdminSettings() {
               <Text style={styles.empty}>Configurações indisponíveis.</Text>
             )}
             <Text style={styles.info}>
-              ⓘ Estas configurações se aplicam a todos os alunos parceiros.
+              ⓘ Estas configurações se aplicam a todos os alunos parceiros no CT.
             </Text>
           </SettingsCard>
         </AdminScreen>
       </ScreenScrollView>
+
+      {/* Modal de Regra de Agendamento */}
       <RuleModal
         rule={editingRule}
         visible={editingRule !== undefined}
@@ -566,41 +326,16 @@ export default function AdminSettings() {
             if (editingRule) await updateRule({ id: editingRule.id, rule });
             else await createRule(rule);
             setEditingRule(undefined);
-            toast({ title: editingRule ? "Regra atualizada!" : "Regra de agendamento criada!" });
-          } catch (requestError) {
-            setEditingRule(undefined);
             toast({
-              title: normalizeApiError(
-                requestError,
-                editingRule
-                  ? "Não foi possível atualizar a regra."
-                  : "Não foi possível criar a regra.",
-              ).description,
-              variant: "destructive",
+              title: editingRule
+                ? "Regra atualizada!"
+                : "Regra de agendamento criada!",
             });
-          }
-        }}
-      />
-      <CategoryModal
-        category={editingCategory}
-        visible={editingCategory !== undefined}
-        saving={isSavingCategory}
-        onClose={() => setEditingCategory(undefined)}
-        onSave={async (data) => {
-          try {
-            if (editingCategory) await updateCategory({ id: editingCategory.id, data });
-            else {
-              const { isActive: _isActive, ...createData } = data;
-              await createCategory(createData);
-            }
-            setEditingCategory(undefined);
-            toast({ title: editingCategory ? "Modalidade atualizada!" : "Modalidade criada!" });
           } catch (requestError) {
-            setEditingCategory(undefined);
             toast({
               title: normalizeApiError(
                 requestError,
-                "Não foi possível salvar a modalidade.",
+                "Não foi possível salvar a regra de agendamento.",
               ).description,
               variant: "destructive",
             });
@@ -608,221 +343,6 @@ export default function AdminSettings() {
         }}
       />
     </SafeAreaView>
-  );
-}
-
-function RuleModal({
-  rule,
-  visible,
-  saving,
-  onClose,
-  onSave,
-}: {
-  rule: SchedulingRuleType | null | undefined;
-  visible: boolean;
-  saving: boolean;
-  onClose: () => void;
-  onSave: (rule: Omit<SchedulingRuleType, "id">) => void;
-}) {
-  const [releaseTime, setReleaseTime] = useState("");
-  const [targetOffset, setTargetOffset] = useState("");
-  const [targetHours, setTargetHours] = useState("");
-  const [selectedDays, setSelectedDays] = useState<number[]>([]);
-  const [errors, setErrors] = useState({ days: false, releaseTime: false, targetOffset: false });
-  useEffect(() => {
-    if (!visible) return;
-    setReleaseTime(rule?.releaseTime?.slice(0, 5) ?? "");
-    setTargetOffset(rule ? String(rule.targetOffset) : "");
-    setTargetHours(rule?.targetHours?.join(", ") ?? "");
-    setSelectedDays(rule?.daysOfWeek ?? []);
-    setErrors({ days: false, releaseTime: false, targetOffset: false });
-  }, [rule, visible]);
-  const submit = () => {
-    const offset = Number(targetOffset);
-    const nextErrors = {
-      days: selectedDays.length === 0,
-      releaseTime: !/^\d{2}:\d{2}$/.test(releaseTime),
-      targetOffset: !Number.isInteger(offset) || offset < 0,
-    };
-    if (Object.values(nextErrors).some(Boolean)) {
-      setErrors(nextErrors);
-      return;
-    }
-    onSave({
-      releaseTime,
-      targetOffset: offset,
-      daysOfWeek: selectedDays,
-      targetHours: targetHours
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
-    });
-  };
-  return (
-    <Modal
-      transparent
-      animationType="slide"
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <KeyboardAvoider>
-        <View style={styles.backdrop}>
-          <View style={styles.modal}>
-            <ScrollView
-              contentContainerStyle={styles.modalContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.header}>
-                <SectionTitle>{rule ? "Editar regra" : "Nova regra"}</SectionTitle>
-                <TouchableOpacity onPress={onClose}>
-                  <X color={COLORS.foreground} />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.fieldLabel}>Dias das aulas</Text>
-              <View style={styles.dayOptions}>
-                {days.map((day, index) => (
-                  <TouchableOpacity
-                    key={day}
-                    onPress={() => {
-                      setSelectedDays((current) =>
-                        current.includes(index)
-                          ? current.filter((value) => value !== index)
-                          : [...current, index],
-                      );
-                      setErrors((current) => ({ ...current, days: false }));
-                    }}
-                    style={[
-                      styles.dayOption,
-                      selectedDays.includes(index) && styles.dayOptionActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.dayText,
-                        selectedDays.includes(index) && styles.dayTextActive,
-                      ]}
-                    >
-                      {day}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {errors.days ? <Text style={styles.fieldError}>Selecione pelo menos um dia.</Text> : null}
-              <Text style={styles.fieldLabel}>Liberar às</Text>
-              <TextInput
-                value={releaseTime}
-                onChangeText={(value) => {
-                  setReleaseTime(maskTime(value));
-                  setErrors((current) => ({ ...current, releaseTime: false }));
-                }}
-                placeholder="08:00"
-                keyboardType="number-pad"
-                style={[styles.fullInput, errors.releaseTime && styles.inputError]}
-              />
-              {errors.releaseTime ? <Text style={styles.fieldError}>Informe um horário no formato HH:MM.</Text> : null}
-              <Text style={styles.fieldLabel}>Antecedência em dias</Text>
-              <TextInput
-                value={targetOffset}
-                onChangeText={(value) => {
-                  setTargetOffset(maskInteger(value));
-                  setErrors((current) => ({ ...current, targetOffset: false }));
-                }}
-                placeholder="7"
-                keyboardType="number-pad"
-                style={[styles.fullInput, errors.targetOffset && styles.inputError]}
-              />
-              {errors.targetOffset ? <Text style={styles.fieldError}>Informe uma quantidade de dias válida.</Text> : null}
-              <Text style={styles.fieldLabel}>Horários das aulas (opcional)</Text>
-              <TextInput
-                value={targetHours}
-                onChangeText={(value) => setTargetHours(maskTimeList(value))}
-                placeholder="18:00, 19:00"
-                keyboardType="number-pad"
-                style={styles.fullInput}
-              />
-              <ActionButton
-                label={saving ? "Salvando..." : rule ? "Salvar alterações" : "Criar regra"}
-                onPress={submit}
-              />
-            </ScrollView>
-          </View>
-        </View>
-      </KeyboardAvoider>
-    </Modal>
-  );
-}
-
-function CategoryModal({
-  category,
-  visible,
-  saving,
-  onClose,
-  onSave,
-}: {
-  category: Category | null | undefined;
-  visible: boolean;
-  saving: boolean;
-  onClose: () => void;
-  onSave: (data: { name: string | null; description: string | null; defaultCapacity: number; isActive: boolean }) => void;
-}) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [capacity, setCapacity] = useState("");
-  const [isActive, setIsActive] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!visible) return;
-    setName(category?.name ?? "");
-    setDescription(category?.description ?? "");
-    setCapacity(category ? String(category.defaultCapacity) : "");
-    setIsActive(category?.isActive ?? true);
-    setError("");
-  }, [category, visible]);
-
-  const submit = () => {
-    const defaultCapacity = Number(capacity);
-    if (!name.trim() || !Number.isInteger(defaultCapacity) || defaultCapacity <= 0) {
-      setError(!name.trim() ? "Informe o nome da modalidade." : "Informe uma capacidade padrão válida.");
-      return;
-    }
-    onSave({ name: name.trim(), description: description.trim() || null, defaultCapacity, isActive });
-  };
-
-  return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
-      <KeyboardAvoider>
-        <View style={styles.backdrop}>
-          <View style={styles.modal}>
-            <ScrollView
-              contentContainerStyle={styles.modalContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.header}>
-                <SectionTitle>{category ? "Editar modalidade" : "Nova modalidade"}</SectionTitle>
-                <TouchableOpacity onPress={onClose}><X color={COLORS.foreground} /></TouchableOpacity>
-              </View>
-              {error ? <Text style={styles.fieldError}>{error}</Text> : null}
-              <Text style={styles.fieldLabel}>Nome *</Text>
-              <TextInput value={name} onChangeText={(value) => { setName(value); setError(""); }} style={styles.fullInput} />
-              <Text style={styles.fieldLabel}>Descrição</Text>
-              <TextInput value={description} onChangeText={setDescription} style={[styles.fullInput, styles.textarea]} multiline />
-              <Text style={styles.fieldLabel}>Capacidade padrão *</Text>
-              <TextInput value={capacity} onChangeText={(value) => { setCapacity(maskInteger(value)); setError(""); }} keyboardType="number-pad" style={styles.fullInput} />
-              {category ? (
-                <View style={styles.rule}>
-                  <Text style={[styles.itemTitle, styles.grow]}>Modalidade ativa</Text>
-                  <Switch value={isActive} onValueChange={setIsActive} trackColor={{ true: COLORS.mainOrange }} />
-                </View>
-              ) : null}
-              <ActionButton label={saving ? "Salvando..." : category ? "Salvar alterações" : "Criar modalidade"} onPress={submit} />
-            </ScrollView>
-          </View>
-        </View>
-      </KeyboardAvoider>
-    </Modal>
   );
 }
 
@@ -882,7 +402,7 @@ function EditableRow({
           <View style={styles.inputRow}>
             <TextInput
               value={value}
-              onChangeText={(next) => onChange(mask(next))}
+              onChangeText={(val) => onChange(mask(val))}
               keyboardType="number-pad"
               style={styles.input}
             />
@@ -890,7 +410,7 @@ function EditableRow({
           </View>
         ) : (
           <Text style={styles.muted}>
-            {value} {suffix}
+            {value ? `${value} ${suffix}` : "Não configurado"}
           </Text>
         )}
       </View>
@@ -909,84 +429,238 @@ function EditableRow({
   );
 }
 
+function RuleModal({
+  rule,
+  visible,
+  saving,
+  onClose,
+  onSave,
+}: {
+  rule: SchedulingRuleType | null | undefined;
+  visible: boolean;
+  saving: boolean;
+  onClose: () => void;
+  onSave: (rule: Omit<SchedulingRuleType, "id">) => Promise<void>;
+}) {
+  const [offset, setOffset] = useState("1");
+  const [time, setTime] = useState("");
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [hours, setHours] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (rule) {
+      setOffset(String(rule.targetOffset));
+      setTime(rule.releaseTime?.slice(0, 5) || "");
+      setSelectedDays(rule.daysOfWeek ?? []);
+      setHours((rule.targetHours ?? []).map((h) => h.slice(0, 5)).join(", "));
+      setError("");
+    } else {
+      setOffset("1");
+      setTime("");
+      setSelectedDays([]);
+      setHours("");
+      setError("");
+    }
+  }, [rule, visible]);
+
+  const toggleDay = (day: number) => {
+    setSelectedDays((current) =>
+      current.includes(day)
+        ? current.filter((item) => item !== day)
+        : [...current, day].sort(),
+    );
+  };
+
+  const submit = () => {
+    const targetOffset = Number(offset);
+    if (!Number.isInteger(targetOffset) || targetOffset < 0) {
+      setError("Informe uma antecedência válida.");
+      return;
+    }
+    if (!time) {
+      setError("Informe o horário de liberação.");
+      return;
+    }
+    const targetHours = hours
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => (item.length === 5 ? `${item}:00` : item));
+    onSave({
+      targetOffset,
+      releaseTime: time.length === 5 ? `${time}:00` : time,
+      daysOfWeek: selectedDays,
+      targetHours,
+    });
+  };
+
+  return (
+    <Modal
+      transparent
+      animationType="slide"
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoider>
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <ScrollView
+              contentContainerStyle={styles.modalContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.header}>
+                <SectionTitle>
+                  {rule ? "Editar regra" : "Nova regra de agendamento"}
+                </SectionTitle>
+                <TouchableOpacity onPress={onClose}>
+                  <X color={COLORS.foreground} />
+                </TouchableOpacity>
+              </View>
+              {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+              <Text style={styles.fieldLabel}>
+                Liberar agendamento com quantos dias de antecedência? *
+              </Text>
+              <TextInput
+                value={offset}
+                onChangeText={(value) => {
+                  setOffset(maskInteger(value));
+                  setError("");
+                }}
+                keyboardType="number-pad"
+                style={styles.fullInput}
+              />
+              <Text style={styles.fieldLabel}>
+                Horário da liberação das vagas (HH:mm) *
+              </Text>
+              <TextInput
+                value={time}
+                onChangeText={(value) => {
+                  setTime(maskTime(value));
+                  setError("");
+                }}
+                keyboardType="number-pad"
+                placeholder="Ex: 06:00"
+                style={styles.fullInput}
+              />
+              <Text style={styles.fieldLabel}>Dias da semana</Text>
+              <View style={styles.days}>
+                {days.map((day, index) => {
+                  const selected = selectedDays.includes(index);
+                  return (
+                    <TouchableOpacity
+                      key={day}
+                      onPress={() => toggleDay(index)}
+                      style={[
+                        styles.dayOption,
+                        selected && styles.dayOptionActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.dayText,
+                          selected && styles.dayTextActive,
+                        ]}
+                      >
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={styles.fieldLabel}>
+                Horários específicos das aulas (opcional, separados por vírgula)
+              </Text>
+              <TextInput
+                value={hours}
+                onChangeText={(value) => setHours(maskTimeList(value))}
+                placeholder="Ex: 07:00, 19:00"
+                style={styles.fullInput}
+              />
+              <ActionButton
+                label={
+                  saving
+                    ? "Salvando..."
+                    : rule
+                      ? "Salvar alterações"
+                      : "Criar regra"
+                }
+                onPress={submit}
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </KeyboardAvoider>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.white },
-  error: {
-    backgroundColor: "#fee2e2",
-    color: COLORS.destructive,
-    padding: 12,
-    borderRadius: 12,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  header: {
+  safe: { flex: 1, backgroundColor: "#FAFAFA" },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
+    gap: 12,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  headerTextWrap: { flex: 1 },
+  error: { color: COLORS.destructive, fontSize: 13, fontWeight: "600" },
+  empty: { color: COLORS.mutedForeground, fontSize: 13 },
+  rule: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#ECEDEF",
+    paddingTop: 12,
+  },
+  grow: { flex: 1, gap: 4 },
+  itemTitle: { color: COLORS.foreground, fontSize: 14, fontWeight: "700" },
+  muted: { color: COLORS.mutedForeground, fontSize: 12 },
+  edit: { padding: 4 },
+  inputRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 70,
+    color: COLORS.foreground,
+    fontSize: 13,
   },
   cardHeader: {
     flexDirection: "row",
-    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
   },
   headerTitle: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 200,
-    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    flex: 1,
   },
-  titleContent: { flex: 1, minWidth: 0 },
+  titleContent: { flex: 1, gap: 2 },
   icon: {
-    width: 39,
-    height: 39,
-    flexShrink: 0,
-    borderRadius: 11,
-    backgroundColor: "#FFF0E6",
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#FFF7F1",
     alignItems: "center",
     justifyContent: "center",
   },
-  rule: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: "#F7F8FA",
-  },
-  grow: { flex: 1, gap: 3 },
-  itemTitle: { color: COLORS.foreground, fontSize: 13, fontWeight: "700" },
-  muted: { color: COLORS.mutedForeground, fontSize: 11, lineHeight: 16 },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    marginTop: 3,
-  },
-  input: {
-    width: 72,
-    height: 42,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    backgroundColor: "#fff",
-  },
-  edit: { padding: 8 },
-  info: {
-    color: COLORS.mainOrange,
-    fontSize: 11,
-    lineHeight: 17,
-    backgroundColor: "#FFF0E6",
-    padding: 11,
-    borderRadius: 10,
-  },
-  empty: { textAlign: "center", color: COLORS.mutedForeground, padding: 24 },
+  info: { color: COLORS.mutedForeground, fontSize: 12, fontStyle: "italic" },
   backdrop: {
     flex: 1,
     backgroundColor: COLORS.overlay,
@@ -996,40 +670,37 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    // Teto para o sheet poder encolher quando o teclado sobe; o padding foi
-    // para o contentContainer da ScrollView, que é quem rola agora — daí o
-    // overflow, para o conteúdo não passar por cima dos cantos arredondados.
-    maxHeight: "92%",
-    overflow: "hidden",
+    maxHeight: "90%",
   },
-  modalContent: {
-    padding: 20,
-    gap: 12,
+  modalContent: { padding: 20, gap: 14 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
+  fieldError: { color: COLORS.destructive, fontSize: 12, fontWeight: "600" },
   fieldLabel: { color: COLORS.foreground, fontSize: 12, fontWeight: "700" },
   fullInput: {
-    minHeight: 46,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: COLORS.foreground,
+    fontSize: 14,
   },
-  inputError: { borderColor: COLORS.destructive },
-  fieldError: { color: COLORS.destructive, fontSize: 11, fontWeight: "600" },
-  textarea: { minHeight: 90, paddingTop: 10, textAlignVertical: "top" },
-  profileModalities: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  dayOptions: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  days: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   dayOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
   },
   dayOptionActive: {
-    backgroundColor: COLORS.mainOrange,
     borderColor: COLORS.mainOrange,
+    backgroundColor: "#FFF7F1",
   },
-  dayText: { color: COLORS.mutedForeground, fontSize: 11, fontWeight: "700" },
-  dayTextActive: { color: COLORS.white },
+  dayText: { color: COLORS.mutedForeground, fontSize: 12, fontWeight: "600" },
+  dayTextActive: { color: COLORS.mainOrange, fontWeight: "800" },
 });

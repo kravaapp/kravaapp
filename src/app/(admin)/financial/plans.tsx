@@ -12,8 +12,10 @@ import {
 } from "@/components/admin/AdminUi";
 import { useCategories } from "@/hooks/categories.hooks";
 import { useAdminPlanActions, useAdminPlans } from "@/hooks/plans.hooks";
+import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import { AdminPlanType } from "@/types/plans.types";
+import { AvulsoConfigType } from "@/types/settings.types";
 import {
   maskCurrency,
   maskInteger,
@@ -21,13 +23,16 @@ import {
   toCurrencyInput,
 } from "@/utils/masks";
 import {
+  ArrowLeft,
   Check,
   ChevronLeft,
   ChevronRight,
+  DollarSign,
   Pencil,
   Plus,
   X,
 } from "lucide-react-native";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Modal,
@@ -46,21 +51,59 @@ const currency = (value: number) =>
   );
 
 export default function AdminPlans() {
+  const { toast } = useToast();
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<AdminPlanType | null | undefined>(
     undefined,
   );
   const { data, plans, isLoading, error } = useAdminPlans(page);
+  const { avulsoConfigs, loading: loadingSettings } = useAdminSettings();
+  const { updateAvulso, isUpdatingAvulso } = useSettingsActions();
+  const [editingAvulso, setEditingAvulso] = useState<string | null>(null);
+  const [prices, setPrices] = useState<Record<string, string>>({});
+
+  const saveAvulso = async (item: AvulsoConfigType, active = item.active) => {
+    const price = parseCurrency(prices[item.modalidadeId] ?? "");
+    if (!Number.isFinite(price) || price < 0) {
+      toast({ title: "Informe um preço válido.", variant: "destructive" });
+      return;
+    }
+    try {
+      await updateAvulso({
+        modalidadeId: item.modalidadeId,
+        config: { price, active },
+      });
+      setEditingAvulso(null);
+      toast({ title: "Aula avulsa atualizada com sucesso!" });
+    } catch {
+      toast({
+        title: "Não foi possível atualizar a aula avulsa.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <View style={styles.safe}>
       <ScreenScrollView>
         <AdminScreen>
           <View style={styles.pageHeader}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.backBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Voltar"
+            >
+              <ArrowLeft size={20} color={COLORS.foreground} />
+            </TouchableOpacity>
             <View style={styles.pageTitle}>
-              <AdminPageHeader title="planos" subtitle="Preços, duração e acesso às modalidades" />
+              <AdminPageHeader
+                title="planos e valores"
+                subtitle="Assinaturas de alunos e aulas avulsas"
+              />
             </View>
             <ActionButton
-              label="Novo plano"
+              label="Novo"
               icon={<Plus size={15} color="#fff" />}
               onPress={() => setEditing(null)}
             />
@@ -137,6 +180,83 @@ export default function AdminPlans() {
               />
             </View>
           )}
+
+          {/* Seção Integrada de Aulas Avulsas */}
+          <AdminCard style={styles.avulsoCard}>
+            <View style={styles.avulsoHeader}>
+              <View style={styles.avulsoIconWrap}>
+                <DollarSign size={20} color={COLORS.mainOrange} />
+              </View>
+              <View style={styles.grow}>
+                <Text style={styles.avulsoTitle}>Aulas Avulsas</Text>
+                <Text style={styles.avulsoSubtitle}>
+                  Disponibilidade e preço cobrado por aula individual
+                </Text>
+              </View>
+            </View>
+
+            {loadingSettings.avulso ? (
+              <AdminSkeleton width="100%" height={100} radius={8} />
+            ) : (avulsoConfigs ?? []).length === 0 ? (
+              <Text style={styles.empty}>
+                Nenhuma modalidade configurada para aula avulsa.
+              </Text>
+            ) : (
+              (avulsoConfigs ?? []).map((item) => (
+                <View key={item.modalidadeId} style={styles.avulsoRow}>
+                  <View style={styles.grow}>
+                    <Text style={styles.avulsoItemName}>
+                      {item.modalidadeName || "Modalidade"}
+                    </Text>
+                    {editingAvulso === item.modalidadeId ? (
+                      <View style={styles.avulsoInputRow}>
+                        <Text style={styles.currencyPrefix}>R$</Text>
+                        <TextInput
+                          value={prices[item.modalidadeId] ?? ""}
+                          onChangeText={(value) =>
+                            setPrices((current) => ({
+                              ...current,
+                              [item.modalidadeId]: maskCurrency(value),
+                            }))
+                          }
+                          keyboardType="number-pad"
+                          style={styles.avulsoInput}
+                        />
+                        <Text style={styles.metaText}>por aula</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.metaText}>
+                        R${" "}
+                        {item.price.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                        })}{" "}
+                        por aula
+                      </Text>
+                    )}
+                  </View>
+                  {editingAvulso === item.modalidadeId ? (
+                    <ActionButton
+                      label={isUpdatingAvulso ? "..." : "Salvar"}
+                      icon={<Check size={14} color="#fff" />}
+                      onPress={() => saveAvulso(item)}
+                    />
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setEditingAvulso(item.modalidadeId)}
+                      style={styles.iconButton}
+                    >
+                      <Pencil size={17} color={COLORS.mutedForeground} />
+                    </TouchableOpacity>
+                  )}
+                  <Switch
+                    value={item.active}
+                    onValueChange={(active) => saveAvulso(item, active)}
+                    trackColor={{ true: COLORS.mainOrange }}
+                  />
+                </View>
+              ))
+            )}
+          </AdminCard>
         </AdminScreen>
       </ScreenScrollView>
       <PlanModal
@@ -606,6 +726,78 @@ const styles = StyleSheet.create({
   },
   choiceText: { color: COLORS.foreground, fontSize: 11, fontWeight: "600" },
   choiceTextActive: { color: "#fff" },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  avulsoCard: {
+    marginTop: 8,
+    gap: 12,
+  },
+  avulsoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 4,
+  },
+  avulsoIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#FFF7ED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avulsoTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: COLORS.foreground,
+    letterSpacing: -0.3,
+  },
+  avulsoSubtitle: {
+    fontSize: 12,
+    color: COLORS.mutedForeground,
+  },
+  avulsoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#ECEDEF",
+  },
+  avulsoItemName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.foreground,
+  },
+  avulsoInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  currencyPrefix: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.foreground,
+  },
+  avulsoInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 80,
+    color: COLORS.foreground,
+    fontSize: 13,
+  },
 });
 
 /* A listagem nova pode omitir modalidadeIds; restrições existentes só são enviadas após alteração explícita. */
