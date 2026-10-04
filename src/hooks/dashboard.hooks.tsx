@@ -1,4 +1,5 @@
 import { DashboardRoutes } from "@/routes/dashboard.routes";
+import { StudentAtRiskType } from "@/types/dashboard.types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 type ApiError = Error & { data?: { detail?: string } };
@@ -115,5 +116,38 @@ export function usePartnerRequestActions() {
     approvePartnerRequest: approve.mutateAsync,
     rejectPartnerRequest: reject.mutateAsync,
     isLoading: approve.isPending || reject.isPending,
+  };
+}
+
+export function useChurnRiskActions() {
+  const queryClient = useQueryClient();
+  const routes = new DashboardRoutes();
+
+  const markContacted = useMutation({
+    mutationFn: ({ alunoId, result }: { alunoId: string; result: string }) =>
+      routes.markStudentContacted(alunoId, result),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-students-at-risk"] });
+    },
+  });
+
+  return {
+    markStudentContacted: markContacted.mutateAsync,
+    isLoading: markContacted.isPending,
+  };
+}
+
+export function useStudentsAtRisk() {
+  const routes = new DashboardRoutes();
+  const query = useQuery({
+    queryKey: ["admin-students-at-risk"],
+    queryFn: () => routes.getStudentsAtRisk(),
+  });
+
+  return {
+    studentsAtRisk: (query.data ?? []) as StudentAtRiskType[],
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+    error: query.error,
   };
 }
