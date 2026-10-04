@@ -23,8 +23,8 @@ export const selfRegisterSchema = z.object({
 });
 
 export const createInvitationSchema = z.object({
-  email: z.string().trim().email(),
-  role: z.literal("Aluno"),
+  email: z.string().trim().email("Informe um e-mail válido."),
+  role: z.enum(["Aluno", "Professor"]).default("Aluno"),
 });
 
 export const joinCatalogSchema = z.object({

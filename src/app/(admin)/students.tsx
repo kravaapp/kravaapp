@@ -992,14 +992,23 @@ function InviteModal({
 
   const submit = async () => {
     if (isLoading) return;
-    const invitation = createInvitationSchema.safeParse({
-      email,
-      role,
-    });
-    if (!invitation.success) {
-      setEmailError("Informe um e-mail válido.");
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setEmailError("Informe um e-mail.");
       return;
     }
+    const invitation = createInvitationSchema.safeParse({
+      email: cleanEmail,
+      role: role || "Aluno",
+    });
+    if (!invitation.success) {
+      const emailIssue = invitation.error.issues.find((i) =>
+        i.path.includes("email")
+      );
+      setEmailError(emailIssue?.message || "Informe um e-mail válido.");
+      return;
+    }
+    setEmailError("");
     try {
       await createInvitation(invitation.data);
       setEmail("");
@@ -1011,12 +1020,13 @@ function InviteModal({
       });
       onSuccess?.();
     } catch (requestError) {
-      onClose();
+      const errInfo = normalizeApiError(
+        requestError,
+        "Não foi possível enviar o convite.",
+      );
       toast({
-        title: normalizeApiError(
-          requestError,
-          "Não foi possível enviar o convite.",
-        ).description,
+        title: "Não foi possível enviar o convite",
+        description: errInfo.description,
         variant: "destructive",
       });
     }
