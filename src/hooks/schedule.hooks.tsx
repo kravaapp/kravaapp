@@ -109,6 +109,21 @@ export function useClassFormOptions() {
     };
 }
 
+export function useProfessors() {
+    const routes = new ScheduleRoutes();
+    const query = useQuery({
+        queryKey: ["professors", "active"],
+        queryFn: () => routes.getProfessors(),
+    });
+
+    return {
+        professors: query.data ?? [],
+        isLoading: query.isLoading,
+        error: query.error ? "Não foi possível carregar os professores." : null,
+        refetch: query.refetch,
+    };
+}
+
 export function useCreateAula() {
     const queryClient = useQueryClient();
     const mutation = useMutation({

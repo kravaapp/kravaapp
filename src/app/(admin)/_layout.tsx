@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const MENU_ITEMS = {
   index: { label: "Painel", Icon: LayoutGrid },
-  students: { label: "Alunos", Icon: Users },
+  students: { label: "Membros", Icon: Users },
   classes: { label: "Aulas", Icon: Dumbbell },
   financial: { label: "Financeiro", Icon: Wallet },
   settings: { label: "Ajustes", Icon: Settings },
@@ -106,7 +106,7 @@ export default function ProtectedLayout() {
       <Tabs.Screen
         name="students"
         options={{
-          title: "Alunos",
+          title: "Membros",
           headerShown: false,
         }}
       />

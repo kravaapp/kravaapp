@@ -19,6 +19,7 @@ import {
 import { useCreateInvitation } from "@/hooks/auth.hooks";
 import { useCreateContract } from "@/hooks/contracts.hooks";
 import { usePlans } from "@/hooks/plans.hooks";
+import { useProfessors } from "@/hooks/schedule.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import {
   useJoinRequestActions,
@@ -43,7 +44,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   ScrollView,
@@ -96,7 +97,7 @@ const tone = (value?: string | null) =>
       : ("neutral" as const);
 
 export default function AdminStudents() {
-  const [section, setSection] = useState<"manage" | "requests">("manage");
+  const [section, setSection] = useState<"students" | "teachers" | "requests">("students");
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState("");
   const [status, setStatus] = useState("");
@@ -109,11 +110,19 @@ export default function AdminStudents() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedMethods, setSelectedMethods] = useState<string[]>([]);
   const [inviting, setInviting] = useState(false);
+  const [teacherSearch, setTeacherSearch] = useState("");
+  const [invitingTeacher, setInvitingTeacher] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(
     null,
   );
   const { toast } = useToast();
   const insets = useSafeAreaInsets();
+  const {
+    professors,
+    isLoading: professorsLoading,
+    error: professorsError,
+    refetch: refetchProfessors,
+  } = useProfessors();
   const {
     requests: joinRequests,
     isLoading: joinRequestsLoading,
@@ -137,6 +146,16 @@ export default function AdminStudents() {
   const items = alunos?.items ?? [];
   const activeFilterCount = [status, level, payment].filter(Boolean).length;
   useEffect(() => setPage(1), [search, level, status, payment]);
+
+  const filteredProfessors = useMemo(() => {
+    if (!teacherSearch.trim()) return professors;
+    const term = teacherSearch.toLowerCase();
+    return professors.filter(
+      (p) =>
+        (p.name?.toLowerCase().includes(term) ?? false) ||
+        (p.email?.toLowerCase().includes(term) ?? false)
+    );
+  }, [professors, teacherSearch]);
 
   const openFilters = () => {
     setDraftStatus(status);
@@ -180,15 +199,23 @@ export default function AdminStudents() {
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
       <View style={styles.pageNavigation}>
-        <AdminPageHeader title="alunos" subtitle="Cadastro e solicitações de entrada" />
+        <AdminPageHeader title="membros" subtitle="Gestão de alunos, professores e solicitações" />
         <View style={styles.internalTabs} accessibilityRole="tablist">
           <TouchableOpacity
             accessibilityRole="tab"
-            accessibilityState={{ selected: section === "manage" }}
-            style={[styles.internalTab, section === "manage" && styles.internalTabActive]}
-            onPress={() => setSection("manage")}
+            accessibilityState={{ selected: section === "students" }}
+            style={[styles.internalTab, section === "students" && styles.internalTabActive]}
+            onPress={() => setSection("students")}
           >
-            <Text style={[styles.internalTabText, section === "manage" && styles.internalTabTextActive]}>Gerenciamento</Text>
+            <Text style={[styles.internalTabText, section === "students" && styles.internalTabTextActive]}>Alunos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="tab"
+            accessibilityState={{ selected: section === "teachers" }}
+            style={[styles.internalTab, section === "teachers" && styles.internalTabActive]}
+            onPress={() => setSection("teachers")}
+          >
+            <Text style={[styles.internalTabText, section === "teachers" && styles.internalTabTextActive]}>Professores</Text>
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityRole="tab"
@@ -276,6 +303,61 @@ export default function AdminStudents() {
                   </AdminCard>
                 );
               })
+            )}
+          </View>
+          ) : section === "teachers" ? (
+          <View style={styles.joinRequestsSection}>
+            <View style={styles.toolbar}>
+              <View style={styles.searchBox}>
+                <Search size={17} color={COLORS.mutedForeground} />
+                <TextInput
+                  value={teacherSearch}
+                  onChangeText={setTeacherSearch}
+                  placeholder="Buscar professor..."
+                  placeholderTextColor={COLORS.mutedForeground}
+                  style={styles.searchInput}
+                />
+              </View>
+              <ActionButton
+                label="Convidar professor"
+                icon={<Plus size={15} color="#fff" />}
+                onPress={() => setInvitingTeacher(true)}
+              />
+            </View>
+            {professorsError ? <Text style={styles.error}>{professorsError}</Text> : null}
+            {professorsLoading ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <AdminSkeleton key={index} height={92} radius={8} />
+              ))
+            ) : filteredProfessors.length === 0 ? (
+              <AdminCard>
+                <Text style={styles.empty}>
+                  {teacherSearch
+                    ? "Nenhum professor encontrado para essa busca."
+                    : "Nenhum professor vinculado ainda. Convide professores para ministrar aulas no CT."}
+                </Text>
+              </AdminCard>
+            ) : (
+              filteredProfessors.map((teacher) => (
+                <AdminCard key={teacher.userId} style={styles.studentCard}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {initials(teacher.name || teacher.email || "Professor")}
+                    </Text>
+                  </View>
+                  <View style={styles.grow}>
+                    <Text style={styles.name}>
+                      {teacher.name || "Professor sem nome"}
+                    </Text>
+                    <Text style={styles.secondary}>
+                      {teacher.email || "Sem e-mail"}
+                    </Text>
+                    <View style={styles.pills}>
+                      <Pill label={teacher.role || "Professor"} tone="primary" />
+                    </View>
+                  </View>
+                </AdminCard>
+              ))
             )}
           </View>
           ) : (
@@ -394,7 +476,17 @@ export default function AdminStudents() {
         initialMethods={selectedMethods}
         onClose={() => setSelectedId(null)}
       />
-      <InviteModal visible={inviting} onClose={() => setInviting(false)} />
+      <InviteModal
+        visible={inviting}
+        onClose={() => setInviting(false)}
+        role="Aluno"
+      />
+      <InviteModal
+        visible={invitingTeacher}
+        onClose={() => setInvitingTeacher(false)}
+        role="Professor"
+        onSuccess={() => refetchProfessors()}
+      />
       <Modal
         visible={filtersOpen}
         transparent
@@ -884,19 +976,25 @@ function StudentModal({
 function InviteModal({
   visible,
   onClose,
+  role = "Aluno",
+  onSuccess,
 }: {
   visible: boolean;
   onClose: () => void;
+  role?: "Aluno" | "Professor";
+  onSuccess?: () => void;
 }) {
   const { toast } = useToast();
   const { createInvitation, isLoading } = useCreateInvitation();
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
+  const isTeacher = role === "Professor";
+
   const submit = async () => {
     if (isLoading) return;
     const invitation = createInvitationSchema.safeParse({
       email,
-      role: "Aluno",
+      role,
     });
     if (!invitation.success) {
       setEmailError("Informe um e-mail válido.");
@@ -906,7 +1004,12 @@ function InviteModal({
       await createInvitation(invitation.data);
       setEmail("");
       onClose();
-      toast({ title: "Convite enviado ao aluno!" });
+      toast({
+        title: isTeacher
+          ? "Convite enviado ao professor!"
+          : "Convite enviado ao aluno!",
+      });
+      onSuccess?.();
     } catch (requestError) {
       onClose();
       toast({
@@ -927,19 +1030,24 @@ function InviteModal({
     >
       <KeyboardAvoider style={styles.overlay}>
         <View style={styles.sheet}>
-          <ModalHeader title="Convidar aluno" onClose={onClose} />
+          <ModalHeader
+            title={isTeacher ? "Convidar professor" : "Convidar aluno"}
+            onClose={onClose}
+          />
           <ScrollView
             contentContainerStyle={styles.modalContent}
             keyboardShouldPersistTaps="handled"
           >
             <Field
-              label="E-mail do aluno *"
+              label={isTeacher ? "E-mail do professor *" : "E-mail do aluno *"}
               value={email}
               onChange={(value) => {
                 setEmail(value);
                 setEmailError("");
               }}
-              placeholder="aluno@exemplo.com"
+              placeholder={
+                isTeacher ? "professor@exemplo.com" : "aluno@exemplo.com"
+              }
               keyboardType="email-address"
               autoCapitalize="none"
               error={emailError}

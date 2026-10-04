@@ -13,7 +13,8 @@ import {
 } from "@/hooks/auth.hooks";
 import { CatalogTenantType } from "@/types/auth.types";
 import { publicImageUrl } from "@/utils/apiUrl";
-import { Redirect } from "expo-router";
+import { normalizeApiError } from "@/routes/apiError";
+import { Redirect, router } from "expo-router";
 import {
   ArrowLeft,
   Check,
@@ -97,30 +98,41 @@ export default function SelectTenant() {
     selectTenantState.availableTenants.map((item) => item.tenantId),
   );
   const visibleCatalog = tenants.filter((item) => !linkedIds.has(item.id));
-  const enterTenant = (tenantId: string) => {
+  const enterTenant = async (tenantId: string) => {
     if (selectTenantState.currentToken?.tenantId === tenantId) {
       signIn(selectTenantState.currentToken);
       return;
     }
 
-    const hasPermanentToken = !!(
-      user?.accessToken ?? selectTenantState.currentToken?.accessToken
-    );
-    if (hasPermanentToken) {
-      // O cliente HTTP acrescenta automaticamente o Bearer do usuário salvo.
-      // O preAuthToken só vale antes da primeira seleção de CT.
-      selectTenant({ preAuthToken: null, tenantId });
+    const permanentToken =
+      user?.accessToken ?? selectTenantState.currentToken?.accessToken;
+    const tokenToSend = permanentToken ?? selectTenantState.preAuthToken;
+
+    if (!tokenToSend) {
+      toast({
+        title: "Sessão expirada",
+        description: "Faça login novamente para acessar este CT.",
+        variant: "destructive",
+      });
+      router.replace("/signIn");
       return;
     }
 
-    if (!selectTenantState.preAuthToken) {
+    try {
+      await selectTenant({ preAuthToken: tokenToSend, tenantId });
+    } catch (err: any) {
+      const is401 = err?.status === 401 || err?.response?.status === 401;
       toast({
-        title: "Não foi possível acessar este vínculo. Entre novamente.",
+        title: is401 ? "Sessão expirada" : "Não foi possível entrar no CT",
+        description: is401
+          ? "Seu token de acesso expirou. Faça login novamente para continuar."
+          : normalizeApiError(err, "Não foi possível acessar este CT.").description,
         variant: "destructive",
       });
-      return;
+      if (is401) {
+        router.replace("/signIn");
+      }
     }
-    selectTenant({ preAuthToken: selectTenantState.preAuthToken, tenantId });
   };
 
   if (selectedCatalogId) {
