@@ -89,6 +89,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
   };
 
   const setSelectTenant = (data: SelectTenantState) => {
+    if (data.preAuthToken) {
+      setUser(null);
+      setIsAuthenticated(false);
+      AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+    }
     setSelectTenantState(data);
     AsyncStorage.setItem(TENANT_SELECTION_STORAGE_KEY, JSON.stringify(data));
     router.replace("/selectTenant");

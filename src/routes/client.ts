@@ -21,7 +21,11 @@ const api = ky.create({
           const requestPath = new URL(request.url).pathname;
           const isSelectingTenant = requestPath.endsWith("/auth/select-tenant");
 
-          if (user?.accessToken && !request.headers.has("Authorization")) {
+          if (
+            user?.accessToken &&
+            !isSelectingTenant &&
+            !request.headers.has("Authorization")
+          ) {
             request.headers.set(
               "Authorization",
               `Bearer ${user.accessToken}`
@@ -47,13 +51,13 @@ const api = ky.create({
       async ({ request, response }) => {
         if (response.status === 401) {
           const authState = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-          const isLoginRequest = new URL(request.url).pathname.endsWith(
-            "/auth/login",
-          );
+          const requestPath = new URL(request.url).pathname;
+          const isLoginRequest = requestPath.endsWith("/auth/login");
+          const isSelectTenantRequest = requestPath.endsWith("/auth/select-tenant");
 
-          // Credenciais inválidas no login também retornam 401. A tela deve
-          // permanecer montada para conseguir exibir o detalhe retornado.
-          if (authState && !isLoginRequest) {
+          // Credenciais inválidas no login ou seleção tratada não devem ejetar
+          // a tela antes do catch do componente conseguir exibir o erro.
+          if (authState && !isLoginRequest && !isSelectTenantRequest) {
             await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
             router.replace("/signIn");
           }

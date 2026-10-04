@@ -73,9 +73,9 @@ export default function SelectTenant() {
     error: catalogError,
   } = useCatalog(search);
   const token =
+    selectTenantState?.preAuthToken ??
     user?.accessToken ??
     selectTenantState?.currentToken?.accessToken ??
-    selectTenantState?.preAuthToken ??
     null;
   const roles = [
     user?.role,
@@ -99,14 +99,18 @@ export default function SelectTenant() {
   );
   const visibleCatalog = tenants.filter((item) => !linkedIds.has(item.id));
   const enterTenant = async (tenantId: string) => {
-    if (selectTenantState.currentToken?.tenantId === tenantId) {
+    if (
+      !selectTenantState.preAuthToken &&
+      selectTenantState.currentToken?.tenantId === tenantId
+    ) {
       signIn(selectTenantState.currentToken);
       return;
     }
 
-    const permanentToken =
-      user?.accessToken ?? selectTenantState.currentToken?.accessToken;
-    const tokenToSend = permanentToken ?? selectTenantState.preAuthToken;
+    const tokenToSend =
+      selectTenantState.preAuthToken ??
+      user?.accessToken ??
+      selectTenantState.currentToken?.accessToken;
 
     if (!tokenToSend) {
       toast({
