@@ -3,6 +3,12 @@ import { getHomeRoute } from "@/contexts/authContext";
 import { useAuth } from "@/hooks/auth.hooks";
 import { USER_ROLES } from "@/types/auth.types";
 import { Redirect, Tabs } from "expo-router";
+import {
+  CalendarIcon,
+  Clock,
+  CreditCardIcon,
+  HomeIcon,
+} from "lucide-react-native";
 
 export default function ProtectedLayout() {
   const { user } = useAuth();
@@ -37,6 +43,9 @@ export default function ProtectedLayout() {
         options={{
           title: "Início",
           headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <HomeIcon color={color} size={size} />
+          ),
         }}
       />
 
@@ -45,6 +54,9 @@ export default function ProtectedLayout() {
         options={{
           title: "Agendar",
           headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <CalendarIcon color={color} size={size} />
+          ),
         }}
       />
 
@@ -53,6 +65,9 @@ export default function ProtectedLayout() {
         options={{
           title: "Planos",
           headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <CreditCardIcon color={color} size={size} />
+          ),
         }}
       />
 
@@ -61,6 +76,9 @@ export default function ProtectedLayout() {
         options={{
           title: "Histórico",
           headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <Clock color={color} size={size} />
+          ),
         }}
       />
       <Tabs.Screen name="pendingPayments" options={{ href: null }} />

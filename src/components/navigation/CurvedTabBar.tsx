@@ -17,6 +17,19 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "@/components/ClientHeader";
 import { Tabs } from "expo-router";
+import {
+  CalendarIcon,
+  Clock,
+  CreditCardIcon,
+  HomeIcon,
+} from "lucide-react-native";
+
+const DEFAULT_ROUTE_ICONS: Record<string, React.ComponentType<{ color: string; size: number }>> = {
+  index: HomeIcon,
+  schedule: CalendarIcon,
+  paymentPlans: CreditCardIcon,
+  history: Clock,
+};
 
 export type CurvedTabBarProps = Parameters<
   NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>
@@ -165,14 +178,18 @@ export function CurvedTabBar({ state, descriptors, navigation }: CurvedTabBarPro
   const activeRoute = visibleRoutes[activeVisibleIndex];
   const activeDescriptor = activeRoute ? descriptors[activeRoute.key] : null;
   const renderActiveIcon = () => {
-    if (!activeDescriptor) return null;
-    const { options } = activeDescriptor;
-    if (options.tabBarIcon) {
+    if (!activeRoute) return null;
+    const { options } = activeDescriptor || {};
+    if (options?.tabBarIcon) {
       return options.tabBarIcon({
         focused: true,
         color: COLORS.white,
         size: 26,
       });
+    }
+    const FallbackIcon = DEFAULT_ROUTE_ICONS[activeRoute.name];
+    if (FallbackIcon) {
+      return <FallbackIcon color={COLORS.white} size={26} />;
     }
     return null;
   };
@@ -220,8 +237,9 @@ export function CurvedTabBar({ state, descriptors, navigation }: CurvedTabBarPro
       {/* 4. As 4 abas distribuídas perfeitamente ocupando 25% de largura cada */}
       <View style={styles.tabsRow} pointerEvents="box-none">
         {visibleRoutes.map((route, index) => {
-          const { options } = descriptors[route.key];
+          const { options } = descriptors[route.key] || {};
           const isFocused = activeVisibleIndex === index;
+          const FallbackIcon = DEFAULT_ROUTE_ICONS[route.name];
 
           const onPress = () => {
             const event = navigation.emit({
@@ -241,7 +259,7 @@ export function CurvedTabBar({ state, descriptors, navigation }: CurvedTabBarPro
               onPress={onPress}
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
+              accessibilityLabel={options?.tabBarAccessibilityLabel}
               testID={(options as any)?.tabBarTestID || `tab-${route.name}`}
               style={styles.tabButton}
             >
@@ -251,12 +269,15 @@ export function CurvedTabBar({ state, descriptors, navigation }: CurvedTabBarPro
                   isFocused && styles.focusedIconHidden,
                 ]}
               >
-                {options.tabBarIcon &&
+                {options?.tabBarIcon ? (
                   options.tabBarIcon({
                     focused: false,
                     color: COLORS.grayLabels,
                     size: 24,
-                  })}
+                  })
+                ) : FallbackIcon ? (
+                  <FallbackIcon color={COLORS.grayLabels} size={24} />
+                ) : null}
               </View>
             </Pressable>
           );
