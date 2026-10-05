@@ -24,6 +24,7 @@ import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { useCategories } from "@/hooks/categories.hooks";
 import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
 import { normalizeApiError } from "@/routes/apiError";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AdminProfile() {
   const { toast } = useToast();
@@ -72,9 +73,9 @@ export default function AdminProfile() {
   };
 
   return (
-    <View style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
-      <ScreenScrollView>
+      <ScreenScrollView style={styles.content}>
         <AdminScreen>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -205,12 +206,13 @@ export default function AdminProfile() {
           )}
         </AdminScreen>
       </ScreenScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FAFAFA" },
+  safe: { flex: 1, backgroundColor: COLORS.white },
+  content: { backgroundColor: "#FAFAFA" },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",

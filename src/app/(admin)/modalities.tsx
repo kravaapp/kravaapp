@@ -35,6 +35,7 @@ import { useCategories, useCategoryActions } from "@/hooks/categories.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import { Category } from "@/types/categories.types";
 import { maskInteger } from "@/utils/masks";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AdminModalities() {
   const { toast } = useToast();
@@ -45,9 +46,9 @@ export default function AdminModalities() {
   );
 
   return (
-    <View style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
-      <ScreenScrollView>
+      <ScreenScrollView style={styles.content}>
         <AdminScreen>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -144,7 +145,7 @@ export default function AdminModalities() {
           }
         }}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -301,7 +302,8 @@ function CategoryModal({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#FAFAFA" },
+  safe: { flex: 1, backgroundColor: COLORS.white },
+  content: { backgroundColor: "#FAFAFA" },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
