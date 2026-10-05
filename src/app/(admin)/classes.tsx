@@ -157,7 +157,16 @@ export default function AdminClasses() {
       <ClientHeader />
       <ScreenScrollView>
         <AdminScreen>
-          <AdminPageHeader title="aulas" subtitle="Ocorrências de hoje e grade semanal" />
+          <View style={styles.pageHeaderRow}>
+            <View style={styles.grow}>
+              <AdminPageHeader title="aulas" subtitle="Ocorrências de hoje e grade semanal" />
+            </View>
+            <ActionButton
+              label="Nova aula"
+              icon={<Plus size={15} color="#fff" />}
+              onPress={() => setNewClass(true)}
+            />
+          </View>
           <View style={styles.segment}>
             <TouchableOpacity
               onPress={() => setView("today")}
@@ -343,9 +352,6 @@ export default function AdminClasses() {
           )}
         </AdminScreen>
       </ScreenScrollView>
-      <TouchableOpacity style={styles.fab} onPress={() => setNewClass(true)}>
-        <Plus size={25} color="#fff" />
-      </TouchableOpacity>
       <ClassModal item={selected} onClose={() => setSelected(null)} />
       <NewClassModal
         visible={newClass}
@@ -947,6 +953,7 @@ function ClassModal({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
+  pageHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   segment: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -993,18 +1000,6 @@ const styles = StyleSheet.create({
   title: { color: COLORS.foreground, fontSize: 14, fontWeight: "700" },
   muted: { color: COLORS.mutedForeground, fontSize: 12 },
   count: { fontSize: 12, fontWeight: "700" },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 18,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: COLORS.mainOrange,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 5,
-  },
   weekRow: {
     flexDirection: "row",
     gap: 10,
