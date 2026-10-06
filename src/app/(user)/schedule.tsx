@@ -1,5 +1,7 @@
+import RefreshableFlatList from "@/components/RefreshableFlatList";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ClientHeader, { COLORS } from '@/components/ClientHeader';
@@ -227,6 +229,7 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
 };
 
 export default function Schedule() {
+    const refresh = useScreenRefresh([["categories"], ["schedule"]]);
   const { user } = useAuth();
   const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
   const { createSchedule, isLoading: isCreatingSchedule } = useCreateSchedule();
@@ -281,10 +284,10 @@ export default function Schedule() {
   });
 
   useEffect(() => {
-    if (categories?.length) {
+    if (categories?.length && !categories.some((category) => category.id === selectedCategory)) {
       setSelectedCategory(categories[0].id);
     }
-  }, [categories]);
+  }, [categories, selectedCategory]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
@@ -309,29 +312,27 @@ export default function Schedule() {
         />
       </View>
 
-      {scheduleLoading ? (
-        <View style={styles.loadingState}>
-          <ActivityIndicator size="large" color={COLORS.mainOrange} />
-        </View>
-      ) : scheduleError ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.errorTitle}>não foi possível carregar a agenda</Text>
-          <Text style={styles.emptyText}>{scheduleError}</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={schedule?.items || []}
+        <RefreshableFlatList {...refresh}
+          data={scheduleLoading || scheduleError ? [] : schedule?.items || []}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <ClassCard item={item} userGender={user?.gender} userLevel={user?.studentLevel} onBookPress={handleBookPress} key={item.id} />}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View style={styles.emptyState}>
+            scheduleLoading ? (
+              <View style={styles.loadingState}>
+                <ActivityIndicator size="large" color={COLORS.mainOrange} />
+              </View>
+            ) : scheduleError ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.errorTitle}>não foi possível carregar a agenda</Text>
+                <Text style={styles.emptyText}>{scheduleError}</Text>
+              </View>
+            ) : <View style={styles.emptyState}>
               <Text style={styles.emptyText}>nenhuma aula encontrada para este dia</Text>
             </View>
           }
         />
-      )}
       <ConfirmBookingModal
         visible={isModalVisible}
         selectedClass={selectedClass}

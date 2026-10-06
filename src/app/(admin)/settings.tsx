@@ -1,3 +1,5 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import React, { ReactNode, useEffect, useState } from "react";
 import {
   Modal,
@@ -23,7 +25,6 @@ import {
 } from "lucide-react-native";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
-import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -60,6 +61,7 @@ const ruleDescription = (rule: SchedulingRuleType) => {
 };
 
 export default function AdminSettings() {
+  const refresh = useScreenRefresh([["scheduling-rules"], ["tenant-settings"], ["avulso-configs"], ["catalog-profile"]]);
   const { toast } = useToast();
   const {
     rules,
@@ -89,7 +91,7 @@ export default function AdminSettings() {
   });
 
   useEffect(() => {
-    if (tenantSettings) {
+    if (tenantSettings && !tenantEditing) {
       setTenantValues({
         cancellationTimeoutMinutes:
           tenantSettings.cancellationTimeoutMinutes !== undefined
@@ -155,7 +157,7 @@ export default function AdminSettings() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
-      <ScreenScrollView>
+      <RefreshableScrollView {...refresh}>
         <AdminScreen>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -313,7 +315,7 @@ export default function AdminSettings() {
             </Text>
           </SettingsCard>
         </AdminScreen>
-      </ScreenScrollView>
+      </RefreshableScrollView>
 
       {/* Modal de Regra de Agendamento */}
       <RuleModal

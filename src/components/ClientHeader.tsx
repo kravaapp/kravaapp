@@ -1,4 +1,6 @@
 import { AuthContext } from "@/contexts/authContext";
+import { COLORS } from "@/constants/colors";
+export { COLORS } from "@/constants/colors";
 import { useUnreadNotificationCount } from "@/hooks/notifications.hooks";
 import { Token } from "@/types/auth.types";
 import { router } from "expo-router";
@@ -14,31 +16,6 @@ import {
 } from "react-native";
 import KravaLogo from "./KravaLogo";
 import { NotificationsModal } from "./NotificationsModal";
-
-export const COLORS = {
-  card: "#ffffff",
-  border: "#e5e7eb",
-  primary: "#6366f1",
-  primaryFg: "#ffffff",
-  foreground: "#111827",
-  mutedForeground: "#6b7280",
-  destructive: "#ef4444",
-  destructiveFg: "#ffffff",
-  overlay: "rgba(0,0,0,0.4)",
-  white: "#ffffff",
-  outline: "#d1d5db",
-  mainOrange: "#E85C07",
-  subOrange: "#fbdecd",
-  grayLabels: "#6b7280",
-  navy: "#0f172a",
-  navyForeground: "#ffffff",
-  warning: "#f59e0b",
-  warningSurface: "#fffbeb",
-  info: "#3b82f6",
-  infoSurface: "#dbeafe",
-  success: "#22c55e",
-  successSurface: "#dcfce7",
-};
 
 type DropdownProps = {
   visible: boolean;

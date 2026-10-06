@@ -1,3 +1,5 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import React, { useState } from "react";
 import {
   Modal,
@@ -20,7 +22,6 @@ import {
 } from "lucide-react-native";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
-import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -38,6 +39,7 @@ import { maskInteger } from "@/utils/masks";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AdminModalities() {
+  const refresh = useScreenRefresh([["categories"]]);
   const { toast } = useToast();
   const { categories, isLoading, error } = useCategories();
   const { createCategory, updateCategory, isSaving } = useCategoryActions();
@@ -48,7 +50,7 @@ export default function AdminModalities() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
-      <ScreenScrollView style={styles.content}>
+      <RefreshableScrollView {...refresh} style={styles.content}>
         <AdminScreen>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -119,7 +121,7 @@ export default function AdminModalities() {
             ))
           )}
         </AdminScreen>
-      </ScreenScrollView>
+      </RefreshableScrollView>
 
       {/* Modal de Criação / Edição */}
       <CategoryModal

@@ -1,4 +1,6 @@
 import { useNotificationActions, useNotifications } from "@/hooks/notifications.hooks";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
+import RefreshableFlatList from "@/components/RefreshableFlatList";
 import { NotificationDto } from "@/types/notifications.types";
 import { router } from "expo-router";
 import {
@@ -12,7 +14,6 @@ import {
 import React from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   Pressable,
   StyleSheet,
@@ -89,7 +90,8 @@ function getTypeConfig(type: string): TypeStyleConfig {
 }
 
 export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps) => {
-  const { notifications, isLoading, isRefetching, refetch } = useNotifications();
+  const refresh = useScreenRefresh([["notifications", "list"], ["notifications", "unread-count"]], { enabled: visible });
+  const { notifications, isLoading } = useNotifications();
   const { markAsRead, markAllAsRead, isMarkingAllRead } = useNotificationActions();
 
   const handleItemPress = async (item: NotificationDto) => {
@@ -176,29 +178,26 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
           </View>
 
           {/* Content */}
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#E85C07" />
-            </View>
-          ) : notifications.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Bell size={42} color="#D1D5DB" />
-              <Text style={styles.emptyTitle}>Nenhuma notificação</Text>
-              <Text style={styles.emptySubtitle}>
-                Avisos sobre aulas, pagamentos e fila de espera aparecerão aqui.
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={notifications}
+            <RefreshableFlatList {...refresh}
+              data={isLoading ? [] : notifications}
               keyExtractor={(item) => item.id}
               renderItem={renderItem}
-              contentContainerStyle={styles.listContent}
-              refreshing={isRefetching}
-              onRefresh={refetch}
+              contentContainerStyle={[styles.listContent, notifications.length === 0 && { flexGrow: 1 }]}
+              ListEmptyComponent={isLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#E85C07" />
+                </View>
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <Bell size={42} color="#D1D5DB" />
+                  <Text style={styles.emptyTitle}>Nenhuma notificação</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Avisos sobre aulas, pagamentos e fila de espera aparecerão aqui.
+                  </Text>
+                </View>
+              )}
               showsVerticalScrollIndicator={false}
             />
-          )}
         </Pressable>
       </Pressable>
     </Modal>

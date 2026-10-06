@@ -1,6 +1,7 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
-import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -36,7 +37,6 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Modal,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -51,6 +51,7 @@ const currency = (value: number) =>
   );
 
 export default function AdminPlans() {
+  const refresh = useScreenRefresh([["admin-plans"], ["avulso-configs"]]);
   const { toast } = useToast();
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<AdminPlanType | null | undefined>(
@@ -85,7 +86,7 @@ export default function AdminPlans() {
 
   return (
     <View style={styles.safe}>
-      <ScreenScrollView>
+      <RefreshableScrollView {...refresh}>
         <AdminScreen>
           <View style={styles.pageHeader}>
             <TouchableOpacity
@@ -258,7 +259,7 @@ export default function AdminPlans() {
             )}
           </AdminCard>
         </AdminScreen>
-      </ScreenScrollView>
+      </RefreshableScrollView>
       <PlanModal
         plan={editing}
         visible={editing !== undefined}
@@ -277,6 +278,7 @@ function PlanModal({
   visible: boolean;
   onClose: () => void;
 }) {
+  const modalRefresh = useScreenRefresh([["categories"]]);
   const { toast } = useToast();
   const { categories, isLoading: loadingCategories } = useCategories();
   const { createPlan, updatePlan, updateModalities, isSaving } =
@@ -394,7 +396,7 @@ function PlanModal({
                 <X size={20} color={COLORS.foreground} />
               </TouchableOpacity>
             </View>
-            <ScrollView
+            <RefreshableScrollView {...modalRefresh}
               contentContainerStyle={styles.form}
               keyboardShouldPersistTaps="handled"
             >
@@ -539,7 +541,7 @@ function PlanModal({
                 icon={<Check size={15} color="#fff" />}
                 onPress={save}
               />
-            </ScrollView>
+            </RefreshableScrollView>
           </View>
         </View>
       </KeyboardAvoider>

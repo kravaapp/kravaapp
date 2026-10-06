@@ -1,6 +1,7 @@
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
-import ScreenScrollView from "@/components/ScreenScrollView";
+import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -44,7 +45,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
   ScrollView,
@@ -98,6 +99,7 @@ const tone = (value?: string | null) =>
 
 export default function AdminStudents() {
   const [section, setSection] = useState<"students" | "teachers" | "requests">("students");
+  const refresh = useScreenRefresh([["alunos"], ["professors", "active"], ["tenant-join-requests"]]);
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState("");
   const [status, setStatus] = useState("");
@@ -230,7 +232,7 @@ export default function AdminStudents() {
           </TouchableOpacity>
         </View>
       </View>
-      <ScreenScrollView key={section} style={styles.contentScroll} keyboardShouldPersistTaps="handled">
+      <RefreshableScrollView {...refresh} key={section} testID="members-list" style={styles.contentScroll}>
         <AdminScreen>
           {section === "requests" ? (
           <View style={styles.joinRequestsSection}>
@@ -470,7 +472,7 @@ export default function AdminStudents() {
           </>
           )}
         </AdminScreen>
-      </ScreenScrollView>
+      </RefreshableScrollView>
       <StudentModal
         id={selectedId}
         initialMethods={selectedMethods}
@@ -592,6 +594,7 @@ function StudentModal({
   initialMethods: string[];
   onClose: () => void;
 }) {
+  const modalRefresh = useScreenRefresh([["aluno", id], ["aluno-history", id], ["plans", "list"]], { enabled: !!id });
   const { toast } = useToast();
   const { aluno, history, isLoading, historyLoading, hasError } =
     useAlunoDetails(id);
@@ -604,20 +607,26 @@ function StudentModal({
   } = useAlunoActions();
   const { plans, isLoading: plansLoading } = usePlans();
   const { createContract, isLoading: isCreatingContract } = useCreateContract();
-  const [form, setForm] = useState<AlunoType | null>(null);
+  const [form, setFormState] = useState<AlunoType | null>(null);
+  const formDirty = useRef(false);
+  const setForm = (value: Parameters<typeof setFormState>[0]) => {
+    formDirty.current = true;
+    setFormState(value);
+  };
   const [methods, setMethods] = useState<string[]>([]);
   const [planId, setPlanId] = useState("");
   const [startDate, setStartDate] = useState(todayInput);
   const [isPaidLocally, setIsPaidLocally] = useState(false);
   const [contractError, setContractError] = useState("");
+  useEffect(() => { formDirty.current = false; }, [id]);
   useEffect(() => {
-    if (aluno) {
+    if (aluno && !formDirty.current) {
       // O formulário trabalha com a data no formato do campo (DD/MM/AAAA);
       // a volta para AAAA-MM-DD acontece no save.
-      setForm({ ...aluno, birthDate: toDateInput(aluno.birthDate) });
-      setMethods(initialMethods);
+      setFormState({ ...aluno, birthDate: toDateInput(aluno.birthDate) });
     }
-  }, [aluno, initialMethods]);
+  }, [aluno]);
+  useEffect(() => { setMethods(initialMethods); }, [id, initialMethods]);
   const save = async () => {
     if (!id || !form) return;
     const birthDate = toIsoDate(form.birthDate ?? "");
@@ -731,7 +740,7 @@ function StudentModal({
             title={aluno?.userName || "Detalhes do aluno"}
             onClose={onClose}
           />
-          <ScrollView
+          <RefreshableScrollView {...modalRefresh}
             contentContainerStyle={styles.modalContent}
             keyboardShouldPersistTaps="handled"
           >
@@ -966,7 +975,7 @@ function StudentModal({
                 )}
               </>
             )}
-          </ScrollView>
+          </RefreshableScrollView>
         </View>
       </KeyboardAvoider>
     </Modal>

@@ -1,5 +1,7 @@
 import { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import MercadoPagoCard from "@/components/MercadoPagoCard";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/auth.hooks";
@@ -62,6 +64,7 @@ export default function PaymentScreen() {
 function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   // A navegação passa apenas o identificador e a página; os dados financeiros vêm da API.
   const { invoice: invoiceQuery, gateway, pay, refreshMembership, isPaying } = useInvoicePayment(id, page);
+  const refresh = useScreenRefresh([], { enabled: !!id && !isPaying, refetch: [invoiceQuery.refetch, gateway.refetch] });
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -242,7 +245,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom", "left", "right"]}>
       <KeyboardAvoider>
-        <ScrollView
+        <RefreshableScrollView {...refresh}
           ref={scrollRef}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
@@ -507,7 +510,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
           )}
           </View>
           </View>
-        </ScrollView>
+        </RefreshableScrollView>
       </KeyboardAvoider>
     </SafeAreaView>
   );

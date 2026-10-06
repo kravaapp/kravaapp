@@ -1,7 +1,8 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { AdminSkeleton, initials } from "@/components/admin/AdminUi";
 import { COLORS } from "@/components/ClientHeader";
 import KravaLogo from "@/components/KravaLogo";
-import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   useAuth,
@@ -29,7 +30,6 @@ import {
 import { useState } from "react";
 import {
   Image,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -55,6 +55,7 @@ const currency = (value: number) =>
 type TenantTab = "linked" | "invitations" | "catalog";
 
 export default function SelectTenant() {
+  const refresh = useScreenRefresh([["auth-catalog"], ["pending-invitations"]]);
   const { toast } = useToast();
   const { selectTenantState, signOut, signIn, user } = useAuth();
   const {
@@ -185,7 +186,7 @@ export default function SelectTenant() {
           onPress={() => setActiveTab("catalog")}
         />
       </View>
-      <ScreenScrollView
+      <RefreshableScrollView {...refresh}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
@@ -338,7 +339,7 @@ export default function SelectTenant() {
             )}
           </Section>
         )}
-      </ScreenScrollView>
+      </RefreshableScrollView>
     </SafeAreaView>
   );
 }
@@ -430,6 +431,7 @@ function CatalogDetails({
   onClose: () => void;
 }) {
   const { toast } = useToast();
+  const detailsRefresh = useScreenRefresh([["auth-catalog", "details", id]]);
   const { tenant, isLoading, error } = useCatalogTenant(id);
   const { requestToJoin, isJoining } = useCatalogActions(accessToken ?? "");
   const [planId, setPlanId] = useState<string | null>(null);
@@ -467,7 +469,7 @@ function CatalogDetails({
           </Text>
         </View>
       </View>
-      <ScrollView contentContainerStyle={styles.details} showsVerticalScrollIndicator={false}>
+      <RefreshableScrollView {...detailsRefresh} contentContainerStyle={styles.details} showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <AdminSkeleton height={420} radius={18} />
         ) : error || !tenant ? (
@@ -635,7 +637,7 @@ function CatalogDetails({
             )}
           </>
         )}
-      </ScrollView>
+      </RefreshableScrollView>
     </SafeAreaView>
   );
 }

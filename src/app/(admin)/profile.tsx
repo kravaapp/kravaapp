@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
+import React, { useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
   Switch,
@@ -10,7 +12,6 @@ import {
 import { router } from "expo-router";
 import { ArrowLeft, Check, Store } from "lucide-react-native";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
-import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -27,12 +28,13 @@ import { normalizeApiError } from "@/routes/apiError";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AdminProfile() {
+  const refresh = useScreenRefresh([["catalog-profile"], ["categories"]]);
   const { toast } = useToast();
   const { catalogProfile, loading } = useAdminSettings();
   const { updateCatalogProfile, isUpdatingCatalogProfile } = useSettingsActions();
   const { categories, isLoading: categoriesLoading } = useCategories();
 
-  const [profile, setProfile] = useState<{
+  const [profile, setProfileState] = useState<{
     showInCatalog: boolean;
     description: string;
     bannerUrl: string | null;
@@ -43,10 +45,15 @@ export default function AdminProfile() {
     bannerUrl: null,
     modalities: [],
   });
+  const profileDirty = useRef(false);
+  const setProfile = (value: Parameters<typeof setProfileState>[0]) => {
+    profileDirty.current = true;
+    setProfileState(value);
+  };
 
   useEffect(() => {
-    if (catalogProfile) {
-      setProfile({
+    if (catalogProfile && !profileDirty.current) {
+      setProfileState({
         showInCatalog: catalogProfile.showInCatalog ?? true,
         description: catalogProfile.description || "",
         bannerUrl: catalogProfile.bannerUrl || null,
@@ -63,6 +70,7 @@ export default function AdminProfile() {
         bannerUrl: profile.bannerUrl || null,
         modalities: profile.modalities,
       });
+      profileDirty.current = false;
       toast({ title: "Perfil do CT atualizado com sucesso!" });
     } catch (err) {
       toast({
@@ -75,7 +83,7 @@ export default function AdminProfile() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
-      <ScreenScrollView style={styles.content}>
+      <RefreshableScrollView {...refresh} style={styles.content}>
         <AdminScreen>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -205,7 +213,7 @@ export default function AdminProfile() {
             </AdminCard>
           )}
         </AdminScreen>
-      </ScreenScrollView>
+      </RefreshableScrollView>
     </SafeAreaView>
   );
 }

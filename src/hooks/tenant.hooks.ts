@@ -16,6 +16,7 @@ export function usePendingJoinRequests() {
   return {
     requests: query.data ?? [],
     isLoading: query.isLoading,
+    refetch: query.refetch,
     error: query.error
       ? (query.error as any).data?.detail ||
         query.error.message ||

@@ -1,5 +1,6 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
-import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import { getHomeRoute } from "@/contexts/authContext";
 import { useMeuPerfilAluno } from "@/hooks/alunos.hooks";
@@ -15,7 +16,7 @@ import {
 } from "@/utils/masks";
 import { Redirect, router } from "expo-router";
 import { ChevronLeft, Check } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -44,17 +45,23 @@ const normalizeSex = (value: string | null): ProfileForm["sex"] =>
   value === "M" || value === "F" ? value : null;
 
 export default function Profile() {
+  const refresh = useScreenRefresh([["aluno", "me"]]);
   const { user } = useAuth();
   const { toast } = useToast();
   const isStudent = user?.role === "Aluno";
   const { aluno, isLoading, error, updateMeuPerfil, isSaving } =
     useMeuPerfilAluno(isStudent);
-  const [form, setForm] = useState<ProfileForm>(emptyForm);
+  const [form, setFormState] = useState<ProfileForm>(emptyForm);
+  const formDirty = useRef(false);
+  const setForm = (value: Parameters<typeof setFormState>[0]) => {
+    formDirty.current = true;
+    setFormState(value);
+  };
   const [formError, setFormError] = useState("");
 
   useEffect(() => {
-    if (!aluno) return;
-    setForm({
+    if (!aluno || formDirty.current) return;
+    setFormState({
       cpf: maskCpf(aluno.cpf ?? ""),
       birthDate: toDateInput(aluno.birthDate),
       sex: normalizeSex(aluno.sex),
@@ -91,6 +98,7 @@ export default function Profile() {
         medicalNotes: aluno?.medicalNotes ?? null,
         photoUrl: aluno?.photoUrl ?? null,
       });
+      formDirty.current = false;
       toast({ title: "Perfil atualizado!" });
     } catch (requestError) {
       setFormError(
@@ -105,7 +113,7 @@ export default function Profile() {
   return (
     <SafeAreaView style={styles.safe}>
       <ClientHeader />
-      <ScreenScrollView contentContainerStyle={styles.content}>
+      <RefreshableScrollView {...refresh} contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
           <TouchableOpacity
             accessibilityLabel="Voltar"
@@ -213,7 +221,7 @@ export default function Profile() {
             </TouchableOpacity>
           </View>
         )}
-      </ScreenScrollView>
+      </RefreshableScrollView>
     </SafeAreaView>
   );
 }

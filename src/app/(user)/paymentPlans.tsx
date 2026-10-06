@@ -1,7 +1,6 @@
 import {
   ActivityIndicator,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +10,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import { useToast } from "@/components/Toast";
 import { useSubscribeContract } from "@/hooks/contracts.hooks";
@@ -237,6 +238,7 @@ export default function PaymentPlans() {
   const [subscribingPlanId, setSubscribingPlanId] = useState<string | null>(null);
   const { payments, error: paymentsError, refetch: refetchPayments } = usePayments();
   const { plans, isLoading, error } = usePlans();
+  const refresh = useScreenRefresh([["plans", "list"], ["plans", "current"]], { refetch: [refetchPayments] });
   const {
     currentPlan,
     isLoading: isLoadingCurrent,
@@ -289,7 +291,7 @@ export default function PaymentPlans() {
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ClientHeader />
 
-      <ScrollView
+      <RefreshableScrollView {...refresh}
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollPadding}
       >
@@ -389,7 +391,7 @@ export default function PaymentPlans() {
             <Text style={styles.btnSolidText}>Solicitar vinculação</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </RefreshableScrollView>
 
       <Modal visible={partnerModal} transparent animationType="fade" onRequestClose={() => setPartnerModal(false)}>
         <KeyboardAvoider style={styles.modalOverlay}>
