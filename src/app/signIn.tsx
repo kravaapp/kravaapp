@@ -59,6 +59,7 @@ export default function Login() {
   const { login, isLoading } = useLogin();
   const { selfRegister, isLoading: isRegistering } = useSelfRegister();
   const busy = isLoading || isRegistering;
+  const formError = mode === "login" ? loginError : registrationError;
 
   const getStepError = (step: number) => {
     if (step === 0) {
@@ -409,9 +410,9 @@ export default function Login() {
             )}
             </View>
 
-            {(mode === "login" ? loginError : registrationError) && (
+            {!!formError && (
               <Text style={styles.errorText} accessibilityLiveRegion="polite">
-                {mode === "login" ? loginError : registrationError}
+                {formError}
               </Text>
             )}
 
