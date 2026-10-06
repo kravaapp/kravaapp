@@ -18,8 +18,8 @@ export type CardPaymentFields = {
 };
 
 export type PayInvoiceRequest = PaymentCustomer & (
-  | { paymentMethod: "Pix" }
-  | ({ paymentMethod: "Cartao" } & CardPaymentFields)
+  | { method: "Pix" }
+  | ({ method: "CreditCard" } & CardPaymentFields)
 );
 
 export type PayInvoiceResponse = {

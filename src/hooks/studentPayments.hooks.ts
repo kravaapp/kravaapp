@@ -10,9 +10,9 @@ export function useInvoicePayment(id: string, page?: number) {
   const { user } = useAuth();
   const client = useQueryClient();
   const enabled = !!id && !!user?.tenantId && user.role === USER_ROLES.student;
-  const invoices = useQuery({
-    queryKey: ["payments", user?.tenantId, user?.userId, page ?? "default"],
-    queryFn: () => new PaymentsRoutes().getMyPayments(page),
+  const invoice = useQuery({
+    queryKey: ["payments", user?.tenantId, user?.userId, "invoice", id, page ?? "default"],
+    queryFn: () => new PaymentsRoutes().getMyInvoice(id, page),
     enabled,
     staleTime: 0,
   });
@@ -22,7 +22,7 @@ export function useInvoicePayment(id: string, page?: number) {
     enabled,
     staleTime: 0,
   });
-  const { refetch: refetchInvoices } = invoices;
+  const { refetch: refetchInvoices } = invoice;
   const { refetch: refetchGateway } = gateway;
   useFocusEffect(useCallback(() => {
     if (enabled) {
@@ -36,7 +36,6 @@ export function useInvoicePayment(id: string, page?: number) {
     gcTime: 0,
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["payments", user?.tenantId, user?.userId] });
-      void client.invalidateQueries({ queryKey: ["plans", "current"] });
     },
   });
   const pay = async (request: PayInvoiceRequest) => {
@@ -46,7 +45,16 @@ export function useInvoicePayment(id: string, page?: number) {
       mutation.reset();
     }
   };
-  return { invoices, gateway, pay, isPaying: mutation.isPending };
+  const refreshMembership = useCallback(() => Promise.all([
+    client.invalidateQueries({ queryKey: ["payments", user?.tenantId, user?.userId] }),
+    client.invalidateQueries({ queryKey: ["plans", "current", user?.tenantId, user?.userId] }),
+    client.invalidateQueries({ queryKey: ["aluno", "me"] }),
+    client.invalidateQueries({ queryKey: ["schedule"] }),
+    client.invalidateQueries({ queryKey: ["my-monthly-schedule"] }),
+    client.invalidateQueries({ queryKey: ["user-next-class"] }),
+    client.invalidateQueries({ queryKey: ["user-week-classes"] }),
+  ]), [client, user?.tenantId, user?.userId]);
+  return { invoice, gateway, pay, refreshMembership, isPaying: mutation.isPending };
 }
 
 export function usePayments(page?: number) {

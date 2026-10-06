@@ -9,6 +9,19 @@ export type ApiErrorInfo = {
 const NETWORK_FALLBACK =
   "Não foi possível conectar. Verifique sua internet e tente novamente.";
 
+const FRIENDLY_BY_CODE: Record<string, string> = {
+  "Payments.PaymentDeclined": "Pagamento Recusado",
+  "Membership.ContratoLongTermLock": "Você possui um plano com fidelidade vigente. Para trocar ou cancelar, fale com a recepção do CT.",
+  "Membership.PlanoInactive": "Este plano não está mais disponível para novas contratações.",
+  "Membership.AlunoNotFound": "Perfil de aluno não localizado.",
+  "Membership.PlanoNotFound": "Plano não encontrado.",
+  "Auth.EmailNotConfirmed": "Confirme seu e-mail para entrar.",
+  "Auth.UserNotFound": "Usuário não encontrado. Confira o e-mail informado.",
+  "Auth.WeakPassword": "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula, uma letra minúscula e um número.",
+  "Auth.InvalidOrExpiredResetCode": "Código de recuperação de senha inválido ou expirado. Solicite um novo código.",
+  "Auth.InvalidOrExpiredConfirmationCode": "Código de confirmação inválido ou expirado. Solicite um novo código.",
+};
+
 const FRIENDLY_BY_STATUS: Record<number, string> = {
   400: "Não foi possível concluir a operação. Verifique os dados e tente novamente.",
   401: "Sua sessão expirou. Entre novamente.",
@@ -35,12 +48,12 @@ function firstString(...values: unknown[]) {
  * por exemplo `{ detail: "...", errors: [{ code: "Auth.UserNotFound", ... }] }`.
  * Os erros de upload, por outro lado, vêm como `{ message: "..." }`.
  */
-function firstErrorEntry(data: Record<string, unknown>) {
-  if (!Array.isArray(data.errors)) return null;
-  for (const entry of data.errors) {
-    if (isRecord(entry)) return entry;
-  }
-  return null;
+function errorEntries(data: Record<string, unknown>) {
+  return Array.isArray(data.errors) ? data.errors.filter(isRecord) : [];
+}
+
+function isKnownErrorCode(code: string) {
+  return Object.hasOwn(FRIENDLY_BY_CODE, code) || code === "Payments.GatewayError";
 }
 
 /**
@@ -59,12 +72,21 @@ export function normalizeApiError(
     const gatewayDescription = getMercadoPagoErrorMessage(data);
 
     if (isRecord(data)) {
-      const entry = firstErrorEntry(data);
+      const entries = errorEntries(data);
+      const codes = [data.code, ...entries.map((entry) => entry.code)].flatMap((value) => {
+        const code = firstString(value);
+        return code ? [code] : [];
+      });
+      const code = codes.find(isKnownErrorCode) ?? codes[0] ?? null;
+      const entry = entries.find((entry) => firstString(entry.code) === code) ?? entries[0];
+      const friendlyDescription = code && Object.hasOwn(FRIENDLY_BY_CODE, code)
+        ? FRIENDLY_BY_CODE[code]
+        : undefined;
 
       return {
-        code: firstString(data.code, entry?.code),
+        code,
         description:
-          gatewayDescription ?? firstString(
+          friendlyDescription ?? gatewayDescription ?? firstString(
             data.message,
             data.description,
             data.detail,
