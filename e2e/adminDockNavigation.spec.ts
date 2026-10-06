@@ -92,13 +92,50 @@ test.describe("Admin Floating Dock & Launcher E2E Tests (Mobile)", () => {
     await expect(page.getByText("Modalidades")).toBeVisible();
     await expect(page.getByText("Políticas")).toBeVisible();
     await expect(page.getByText("Perfil CT")).toBeVisible();
-    await expect(page.getByText("Sair")).toBeVisible();
+    await expect(page.getByText("Churn Risk")).toBeVisible();
 
     await page.screenshot({
       path: "./e2e-screenshots/admin-02-launcher-open.png",
     });
 
-    // 9. Clica em "Modalidades" e valida a nova tela dedicada
+    // 9. Clica em "Churn Risk" e valida a nova tela dedicada
+    const itemChurn = page.getByText("Churn Risk");
+    await itemChurn.click({ force: true });
+    await page.waitForTimeout(1500);
+
+    await expect(
+      page.getByText("Motor de prevenção de evasão e retenção", { exact: false }),
+    ).toBeVisible({ timeout: 10000 });
+
+    await page.screenshot({
+      path: "./e2e-screenshots/admin-05-churn-screen.png",
+    });
+
+    // Clica no botão de ajuda da fórmula do score
+    const helpBtn = page.getByRole("button", { name: "Como o score é calculado" });
+    if (await helpBtn.isVisible()) {
+      await helpBtn.click({ force: true });
+      await page.waitForTimeout(600);
+      await expect(
+        page.getByText("Soma de 4 dimensões comportamentais", { exact: false }),
+      ).toBeVisible({ timeout: 5000 });
+      await page.screenshot({
+        path: "./e2e-screenshots/admin-06-churn-formula-modal.png",
+      });
+      const closeFormulaBtn = page.getByText("Entendi").first();
+      await closeFormulaBtn.click({ force: true });
+      await page.waitForTimeout(600);
+    }
+
+    // 10. Volta usando o botão de voltar da tela
+    const backBtn = page.getByRole("button", { name: "Voltar" });
+    await expect(backBtn).toBeVisible();
+    await backBtn.click({ force: true });
+    await page.waitForTimeout(1000);
+
+    // 11. Abre o Launcher novamente e navega para "Modalidades"
+    await plusButton.click({ force: true });
+    await page.waitForTimeout(600);
     const itemModalidades = page.getByText("Modalidades");
     await itemModalidades.click({ force: true });
     await page.waitForTimeout(1500);
@@ -111,13 +148,11 @@ test.describe("Admin Floating Dock & Launcher E2E Tests (Mobile)", () => {
       path: "./e2e-screenshots/admin-03-modalities-screen.png",
     });
 
-    // 10. Volta usando o botão de voltar da tela
-    const backBtn = page.getByRole("button", { name: "Voltar" });
-    await expect(backBtn).toBeVisible();
-    await backBtn.click({ force: true });
+    // Volta e navega para Perfil CT
+    const backBtn2 = page.getByRole("button", { name: "Voltar" });
+    await backBtn2.click({ force: true });
     await page.waitForTimeout(1000);
 
-    // 11. Abre o Launcher novamente e navega para "Perfil CT"
     await plusButton.click({ force: true });
     await page.waitForTimeout(600);
     const itemPerfil = page.getByText("Perfil CT");

@@ -40,6 +40,12 @@ export class DashboardRoutes {
         return await api.get("/analytics/churn").json<StudentAtRiskType[]>();
     }
 
+    async markStudentContacted(alunoId: string, result: string) {
+        return await api.post(`/analytics/churn/${alunoId}/contact`, {
+            json: { result },
+        });
+    }
+
     async getPartnerRequests(status?: string) {
         return await api.get("/membership/partner-requests", {
             searchParams: status ? { status } : undefined,

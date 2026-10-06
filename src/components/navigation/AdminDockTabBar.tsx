@@ -23,19 +23,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "@/components/ClientHeader";
 import { router, Tabs } from "expo-router";
 import {
+  AlertTriangle,
   Building2,
   Clock,
   CreditCard,
   Dumbbell,
   Globe2,
   LayoutGrid,
-  LogOut,
   Plus,
   Users,
   Wallet,
   X,
 } from "lucide-react-native";
-import { useAuth } from "@/hooks/auth.hooks";
+import { useStudentsAtRisk } from "@/hooks/dashboard.hooks";
 
 export type AdminDockTabBarProps = Parameters<
   NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>
@@ -88,11 +88,10 @@ const LAUNCHER_ITEMS = [
     Icon: Building2,
   },
   {
-    id: "logout",
-    label: "Sair",
-    route: null,
-    Icon: LogOut,
-    isDestructive: true,
+    id: "churn",
+    label: "Churn Risk",
+    route: "/(admin)/churn",
+    Icon: AlertTriangle,
   },
 ];
 
@@ -100,6 +99,7 @@ interface LauncherGridItemProps {
   item: (typeof LAUNCHER_ITEMS)[number];
   index: number;
   progress: SharedValue<number>;
+  badgeCount?: number;
   onPress: () => void;
 }
 
@@ -107,6 +107,7 @@ function LauncherGridItem({
   item,
   index,
   progress,
+  badgeCount,
   onPress,
 }: LauncherGridItemProps) {
   const pressScale = useSharedValue(1);
@@ -128,7 +129,6 @@ function LauncherGridItem({
   });
 
   const Icon = item.Icon;
-  const isDestructive = item.isDestructive;
 
   return (
     <Animated.View style={[styles.gridItem, itemAnimatedStyle]}>
@@ -149,25 +149,23 @@ function LauncherGridItem({
         <View
           style={[
             styles.gridIconWrap,
-            isDestructive && styles.destructiveIconWrap,
-            isPressed &&
-              (isDestructive
-                ? styles.destructiveIconPressed
-                : styles.gridIconPressed),
+            isPressed && styles.gridIconPressed,
           ]}
         >
           <Icon
             size={24}
-            color={isDestructive ? COLORS.destructive : COLORS.mainOrange}
+            color={COLORS.mainOrange}
             strokeWidth={2.2}
           />
+          {badgeCount !== undefined && badgeCount > 0 && (
+            <View style={styles.badgePill}>
+              <Text style={styles.badgePillText}>
+                {badgeCount > 99 ? "99+" : badgeCount}
+              </Text>
+            </View>
+          )}
         </View>
-        <Text
-          style={[
-            styles.gridLabel,
-            isDestructive && { color: COLORS.destructive },
-          ]}
-        >
+        <Text style={styles.gridLabel}>
           {item.label}
         </Text>
       </Pressable>
@@ -180,7 +178,8 @@ export function AdminDockTabBar({
   navigation,
 }: AdminDockTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { signOut } = useAuth();
+  const { studentsAtRisk } = useStudentsAtRisk();
+  const atRiskCount = studentsAtRisk?.length ?? 0;
   const [dockWidth, setDockWidth] = useState(0);
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -296,21 +295,6 @@ export function AdminDockTabBar({
     setTimeout(() => {
       router.push(route as any);
     }, 120);
-  };
-
-  const handleSignOut = () => {
-    closeLauncher();
-    Alert.alert("Sair do Krava", "Deseja realmente sair da sua conta?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Sair",
-        style: "destructive",
-        onPress: () => {
-          signOut();
-          router.replace("/signIn");
-        },
-      },
-    ]);
   };
 
   const ballStyle = useAnimatedStyle(() => {
@@ -432,10 +416,9 @@ export function AdminDockTabBar({
                 item={item}
                 index={index}
                 progress={launcherProgress}
+                badgeCount={item.id === "churn" ? atRiskCount : undefined}
                 onPress={() => {
-                  if (item.isDestructive) {
-                    handleSignOut();
-                  } else if (item.route) {
+                  if (item.route) {
                     handleNavigate(item.route);
                   }
                 }}
@@ -698,13 +681,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF7ED",
     borderColor: "#FFEDD5",
   },
-  destructiveIconWrap: {
-    backgroundColor: "#FFF1F2",
-    borderColor: "#FFE4E6",
+  badgePill: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    backgroundColor: "#DC2626",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+    elevation: 3,
   },
-  destructiveIconPressed: {
-    backgroundColor: "#FEE2E2",
-    borderColor: "#FECACA",
+  badgePillText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
   gridLabel: {
     fontSize: 12,
