@@ -1,7 +1,8 @@
 import { AuthContext } from "@/contexts/authContext";
+import { useUnreadNotificationCount } from "@/hooks/notifications.hooks";
 import { Token } from "@/types/auth.types";
 import { router } from "expo-router";
-import { Building2, LogOut, UserRound } from "lucide-react-native";
+import { Bell, Building2, LogOut, UserRound } from "lucide-react-native";
 import { useContext, useState } from "react";
 import {
   Modal,
@@ -12,6 +13,7 @@ import {
   View,
 } from "react-native";
 import KravaLogo from "./KravaLogo";
+import { NotificationsModal } from "./NotificationsModal";
 
 export const COLORS = {
   card: "#ffffff",
@@ -132,7 +134,9 @@ export const getInitials = (name: string) => {
 
 const AlunoHeader = () => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
   const { signOut, user, selectTenantState } = useContext(AuthContext);
+  const { unreadCount } = useUnreadNotificationCount();
 
   const handleLogout = () => {
     signOut();
@@ -143,16 +147,34 @@ const AlunoHeader = () => {
       <View style={styles.header}>
         <KravaLogo size={28} showWordmark={true} />
 
-        <TouchableOpacity
-          style={styles.avatarButton}
-          activeOpacity={0.8}
-          onPress={() => setDropdownVisible(true)}
-          accessibilityLabel="Abrir menu do perfil"
-        >
-          <Text style={styles.avatarText}>
-            {getInitials(user?.userName || "")}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.bellButton}
+            activeOpacity={0.7}
+            onPress={() => setNotificationsVisible(true)}
+            accessibilityLabel="Abrir notificações"
+          >
+            <Bell color={COLORS.foreground} size={18} />
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.avatarButton}
+            activeOpacity={0.8}
+            onPress={() => setDropdownVisible(true)}
+            accessibilityLabel="Abrir menu do perfil"
+          >
+            <Text style={styles.avatarText}>
+              {getInitials(user?.userName || "")}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ProfileDropdown
@@ -166,6 +188,11 @@ const AlunoHeader = () => {
           selectTenantState ? () => router.push("/selectTenant") : undefined
         }
         user={user}
+      />
+
+      <NotificationsModal
+        visible={notificationsVisible}
+        onClose={() => setNotificationsVisible(false)}
       />
     </>
   );
@@ -183,6 +210,41 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  bellButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F4F4F5",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  unreadBadge: {
+    position: "absolute",
+    top: -3,
+    right: -3,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+  unreadBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 9.5,
+    fontWeight: "800",
+    textAlign: "center",
+    lineHeight: 12,
   },
   avatarButton: {
     width: 32,

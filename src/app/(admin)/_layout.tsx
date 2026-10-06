@@ -88,6 +88,15 @@ export default function ProtectedLayout() {
           href: null,
         }}
       />
+
+      <Tabs.Screen
+        name="churn"
+        options={{
+          title: "Churn Risk",
+          headerShown: false,
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

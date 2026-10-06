@@ -409,7 +409,7 @@ export default function Login() {
             )}
             </View>
 
-            {(mode === "login" ? loginError : registrationError) && (
+            {!!(mode === "login" ? loginError : registrationError) && (
               <Text style={styles.errorText} accessibilityLiveRegion="polite">
                 {mode === "login" ? loginError : registrationError}
               </Text>
