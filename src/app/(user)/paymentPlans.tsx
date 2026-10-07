@@ -15,14 +15,14 @@ import KeyboardAvoider from "@/components/KeyboardAvoider";
 import PaymentInvoiceCard from "@/components/PaymentInvoiceCard";
 import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { useToast } from "@/components/Toast";
-import { useSubscribeContract } from "@/hooks/contracts.hooks";
+import { useCancelRecorrenciaAluno, useSubscribeContract } from "@/hooks/contracts.hooks";
 import { useCurrentPlan, usePlans } from "@/hooks/plans.hooks";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { usePayments } from "@/hooks/studentPayments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import { CurrentPlanType, PlanType } from "@/types/plans.types";
 import { router } from "expo-router";
-import { ArrowRight, Check, ChevronDown, CreditCard, Star, X } from "lucide-react-native";
+import { ArrowRight, Check, ChevronDown, CreditCard, ShieldAlert, Star, X } from "lucide-react-native";
 import { useRef, useState } from "react";
 
 const ProgressBar = ({ progress }: { progress: number }) => (
@@ -64,9 +64,11 @@ const CurrentPlanSkeleton = () => (
 const CurrentPlanCard = ({
   plan,
   onChangePlan,
+  onCancelRecorrencia,
 }: {
   plan: CurrentPlanType;
   onChangePlan?: () => void;
+  onCancelRecorrencia?: () => void;
 }) => {
   const hasLimit =
     plan.maxClassesPerMonth !== null && plan.maxClassesPerMonth > 0;
@@ -153,6 +155,26 @@ const CurrentPlanCard = ({
           <Text style={styles.changePlanButtonText}>Trocar de plano</Text>
           <ArrowRight size={16} color={COLORS.white} />
         </TouchableOpacity>
+      )}
+
+      {plan.autoRenew && onCancelRecorrencia && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.cancelRecorrenciaButton}
+          onPress={onCancelRecorrencia}
+        >
+          <Text style={styles.cancelRecorrenciaButtonText}>
+            Cancelar renovação automática
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {!plan.autoRenew && (
+        <View style={styles.autoRenewDisabledBadge}>
+          <Text style={styles.autoRenewDisabledText}>
+            Renovação desativada • Acesso garantido até {formatDate(plan.endDate)}
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -253,6 +275,7 @@ const PlanCard = ({
 export default function PaymentPlans() {
   const { toast } = useToast();
   const { subscribe, isLoading: isSubscribing } = useSubscribeContract();
+  const { cancelarRecorrencia, isLoading: isCancelingRecorrencia } = useCancelRecorrenciaAluno();
   const subscriptionInFlight = useRef(false);
   const [subscribingPlanId, setSubscribingPlanId] = useState<string | null>(null);
   const { payments, error: paymentsError, refetch: refetchPayments } = usePayments();
@@ -269,6 +292,7 @@ export default function PaymentPlans() {
   const [selectedPartner, setSelectedPartner] = useState<string | null>(null);
   const [partnerId, setPartnerId] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
   const handleSubscribe = async (plan: PlanType) => {
     if (subscriptionInFlight.current) return;
@@ -298,6 +322,27 @@ export default function PaymentPlans() {
     } finally {
       subscriptionInFlight.current = false;
       setSubscribingPlanId(null);
+    }
+  };
+
+  const handleConfirmCancelRecorrencia = async () => {
+    if (!currentPlan?.contratoId) return;
+    try {
+      await cancelarRecorrencia(currentPlan.contratoId);
+      toast({
+        title: "Renovação cancelada",
+        description: "A renovação automática foi cancelada. Seu acesso continua garantido até o fim do período pago.",
+      });
+      setCancelModalVisible(false);
+      refetchCurrent();
+    } catch (requestError) {
+      toast({
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível cancelar a renovação automática. Entre em contato com a recepção do CT.",
+        ).description,
+        variant: "destructive",
+      });
     }
   };
 
@@ -340,6 +385,7 @@ export default function PaymentPlans() {
           <CurrentPlanCard
             plan={currentPlan}
             onChangePlan={() => setPlansModalVisible(true)}
+            onCancelRecorrencia={() => setCancelModalVisible(true)}
           />
         ) : (
           <View style={styles.cardNavy}>
@@ -615,6 +661,53 @@ export default function PaymentPlans() {
             </TouchableOpacity>
           </View>
         </KeyboardAvoider>
+      </Modal>
+
+      {/* Modal de Confirmação de Cancelamento de Renovação Automática */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isCancelingRecorrencia && setCancelModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.cancelWarningIconContainer}>
+              <ShieldAlert size={32} color={COLORS.destructive} />
+            </View>
+            <Text style={styles.cancelModalTitle}>Cancelar renovação automática?</Text>
+            <Text style={styles.cancelModalDesc}>
+              Ao cancelar, você continuará com acesso liberado a todas as aulas até{" "}
+              <Text style={{ fontWeight: "700", color: COLORS.foreground }}>
+                {currentPlan ? formatDate(currentPlan.endDate) : "o fim do ciclo"}
+              </Text>
+              . Não haverá novas cobranças automáticas no seu cartão de crédito.
+            </Text>
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isCancelingRecorrencia }}
+              style={[styles.btnDestructiveSolid, isCancelingRecorrencia && { opacity: 0.6 }]}
+              disabled={isCancelingRecorrencia}
+              onPress={handleConfirmCancelRecorrencia}
+            >
+              {isCancelingRecorrencia ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.btnDestructiveSolidText}>Confirmar cancelamento</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              disabled={isCancelingRecorrencia}
+              style={styles.modalCancel}
+              onPress={() => setCancelModalVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>Manter assinatura</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -1050,6 +1143,70 @@ const styles = StyleSheet.create({
   },
   changePlanButtonText: {
     color: COLORS.white,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  cancelRecorrenciaButton: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelRecorrenciaButtonText: {
+    color: "rgba(255, 255, 255, 0.85)",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  autoRenewDisabledBadge: {
+    marginTop: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "rgba(0, 0, 0, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  autoRenewDisabledText: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  cancelWarningIconContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  cancelModalTitle: {
+    fontSize: 19,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+    color: COLORS.foreground,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  cancelModalDesc: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: COLORS.mutedForeground,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  btnDestructiveSolid: {
+    backgroundColor: COLORS.destructive,
+    minHeight: 48,
+    justifyContent: "center",
+    borderRadius: 12,
+    alignItems: "center",
+    width: "100%",
+  },
+  btnDestructiveSolidText: {
+    color: "#fff",
     fontSize: 14,
     fontWeight: "700",
   },

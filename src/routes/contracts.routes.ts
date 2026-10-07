@@ -12,4 +12,8 @@ export class ContractsRoutes {
   async createContract(contract: CreateContractType) {
     return api.post("/membership/contratos", { json: contract }).json<string>();
   }
+
+  async cancelarRecorrencia(contratoId: string) {
+    return api.post(`/membership/contratos/${contratoId}/cancelar-recorrencia`).json<void>();
+  }
 }

@@ -34,3 +34,20 @@ export function useCreateContract() {
 
   return { createContract: mutation.mutateAsync, isLoading: mutation.isPending };
 }
+
+export function useCancelRecorrenciaAluno() {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (contratoId: string) =>
+      new ContractsRoutes().cancelarRecorrencia(contratoId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["plans", "current"] });
+      void queryClient.invalidateQueries({ queryKey: ["plans"] });
+    },
+  });
+
+  return {
+    cancelarRecorrencia: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+  };
+}
