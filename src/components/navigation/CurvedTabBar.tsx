@@ -43,6 +43,12 @@ const NOTCH_HEIGHT = 44;
 // As 4 abas oficiais do menu do aluno
 const VISIBLE_TAB_NAMES = ["index", "schedule", "paymentPlans", "history"];
 
+// Mapeia rotas secundárias (sub-telas) para a aba correspondente na TabBar
+const TAB_PARENT_MAP: Record<string, string> = {
+  payment: "paymentPlans",
+  pendingPayments: "paymentPlans",
+};
+
 /**
  * Recorte côncavo suave (notch invertido)
  */
@@ -85,7 +91,8 @@ export function CurvedTabBar({ state, descriptors, navigation }: CurvedTabBarPro
 
   const numTabs = visibleRoutes.length || 4;
 
-  const activeRouteName = state.routes[state.index]?.name;
+  const currentRouteName = state.routes[state.index]?.name;
+  const activeRouteName = (currentRouteName && TAB_PARENT_MAP[currentRouteName]) || currentRouteName;
   const activeVisibleIndex = Math.max(
     0,
     visibleRoutes.findIndex((r) => r.name === activeRouteName)

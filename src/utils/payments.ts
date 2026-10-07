@@ -57,3 +57,64 @@ export function formatPaymentDate(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
+
+export type PaymentStatusConfig = {
+  label: string;
+  badgeBg: string;
+  badgeText: string;
+  iconBg: string;
+  iconColor: string;
+  isPaid: boolean;
+  canPay: boolean;
+};
+
+export function getPaymentStatusConfig(status: string): PaymentStatusConfig {
+  const value = (status || "").trim().toLowerCase();
+
+  if (isPaymentPaid(value)) {
+    return {
+      label: "Pago",
+      badgeBg: "#DCFCE7",
+      badgeText: "#16A34A",
+      iconBg: "#DCFCE7",
+      iconColor: "#16A34A",
+      isPaid: true,
+      canPay: false,
+    };
+  }
+
+  if (["overdue", "vencido", "vencida", "atrasado", "atrasada"].includes(value)) {
+    return {
+      label: "Atrasado",
+      badgeBg: "#FEE2E2",
+      badgeText: "#DC2626",
+      iconBg: "#FEE2E2",
+      iconColor: "#DC2626",
+      isPaid: false,
+      canPay: true,
+    };
+  }
+
+  if (["cancelado", "cancelada", "canceled", "cancelled"].includes(value)) {
+    return {
+      label: "Cancelado",
+      badgeBg: "#F3F4F6",
+      badgeText: "#6B7280",
+      iconBg: "#F3F4F6",
+      iconColor: "#6B7280",
+      isPaid: false,
+      canPay: false,
+    };
+  }
+
+  return {
+    label: "Pendente",
+    badgeBg: "#FEF3C7",
+    badgeText: "#D97706",
+    iconBg: "#FEF3C7",
+    iconColor: "#D97706",
+    isPaid: false,
+    canPay: true,
+  };
+}
+

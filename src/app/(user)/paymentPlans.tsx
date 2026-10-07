@@ -1,6 +1,7 @@
 import {
   ActivityIndicator,
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -10,17 +11,18 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
-import RefreshableScrollView from "@/components/RefreshableScrollView";
-import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
+import PaymentInvoiceCard from "@/components/PaymentInvoiceCard";
+import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { useToast } from "@/components/Toast";
 import { useSubscribeContract } from "@/hooks/contracts.hooks";
 import { useCurrentPlan, usePlans } from "@/hooks/plans.hooks";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { usePayments } from "@/hooks/studentPayments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
-import { router } from "expo-router";
 import { CurrentPlanType, PlanType } from "@/types/plans.types";
-import { ArrowRight, Check, ChevronDown, CreditCard, Star } from "lucide-react-native";
+import { router } from "expo-router";
+import { ArrowRight, Check, ChevronDown, CreditCard, Star, X } from "lucide-react-native";
 import { useRef, useState } from "react";
 
 const ProgressBar = ({ progress }: { progress: number }) => (
@@ -59,7 +61,13 @@ const CurrentPlanSkeleton = () => (
   </View>
 );
 
-const CurrentPlanCard = ({ plan }: { plan: CurrentPlanType }) => {
+const CurrentPlanCard = ({
+  plan,
+  onChangePlan,
+}: {
+  plan: CurrentPlanType;
+  onChangePlan?: () => void;
+}) => {
   const hasLimit =
     plan.maxClassesPerMonth !== null && plan.maxClassesPerMonth > 0;
   const progress = hasLimit
@@ -135,6 +143,17 @@ const CurrentPlanCard = ({ plan }: { plan: CurrentPlanType }) => {
           </Text>
         </View>
       </View>
+
+      {onChangePlan && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.changePlanButton}
+          onPress={onChangePlan}
+        >
+          <Text style={styles.changePlanButtonText}>Trocar de plano</Text>
+          <ArrowRight size={16} color={COLORS.white} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -245,6 +264,7 @@ export default function PaymentPlans() {
     error: currentError,
     refetch: refetchCurrent,
   } = useCurrentPlan();
+  const [plansModalVisible, setPlansModalVisible] = useState(false);
   const [partnerModal, setPartnerModal] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<string | null>(null);
   const [partnerId, setPartnerId] = useState("");
@@ -291,32 +311,16 @@ export default function PaymentPlans() {
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ClientHeader />
 
-      <RefreshableScrollView {...refresh}
+      <RefreshableScrollView
+        {...refresh}
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollPadding}
       >
         <Text style={styles.screenTitle}>planos</Text>
-        <Text style={styles.screenSubtitle}>Escolha o ritmo que combina com você.</Text>
-        {payments.length > 0 && (
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.pendingLink}
-            onPress={() => router.push("/(user)/pendingPayments")}
-          >
-            <Text style={styles.pendingLinkText}>Minhas pendências</Text>
-            <ArrowRight size={18} color={COLORS.mainOrange} />
-          </TouchableOpacity>
-        )}
-        {paymentsError && (
-          <View style={{ marginBottom: 20, gap: 8 }}>
-            <Text style={{ color: COLORS.destructive }}>
-              Não foi possível consultar suas pendências.
-            </Text>
-            <TouchableOpacity style={styles.btnSolid} onPress={() => refetchPayments()}>
-              <Text style={styles.btnSolidText}>Tentar novamente</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <Text style={styles.screenSubtitle}>
+          Acompanhe seu plano atual e cobranças.
+        </Text>
+
         {isLoadingCurrent ? (
           <CurrentPlanSkeleton />
         ) : currentError ? (
@@ -333,42 +337,113 @@ export default function PaymentPlans() {
             </TouchableOpacity>
           </View>
         ) : currentPlan ? (
-          <CurrentPlanCard plan={currentPlan} />
+          <CurrentPlanCard
+            plan={currentPlan}
+            onChangePlan={() => setPlansModalVisible(true)}
+          />
         ) : (
           <View style={styles.cardNavy}>
             <Text style={styles.navySubtitle}>SEU PLANO ATUAL</Text>
             <Text style={styles.navyDesc}>
-              Você ainda não possui um plano ativo.
+              Você ainda não possui um plano ativo. Escolha um plano abaixo para começar!
             </Text>
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>planos disponíveis</Text>
-        <Text style={styles.subscriptionNotice}>
-          O novo plano começará assim que o pagamento for confirmado.
-        </Text>
-        <View style={styles.plansContainer}>
-          {isLoading ? (
-            <ActivityIndicator
-              size="large"
-              color={COLORS.mainOrange}
-              style={{ marginVertical: 40 }}
-            />
-          ) : error ? (
-            <View style={{ alignItems: "center", marginVertical: 20 }}>
-              <Text style={{ color: "#ef4444" }}>Erro ao carregar planos</Text>
-              <Text style={{ color: "#6b7280", fontSize: 12 }}>{error}</Text>
+        {/* Se o usuário NÃO tiver plano ativo, mostra os planos disponíveis direto na tela */}
+        {!currentPlan && !isLoadingCurrent && (
+          <View style={styles.availablePlansSection}>
+            <Text style={styles.sectionTitle}>planos disponíveis</Text>
+            <Text style={styles.subscriptionNotice}>
+              O novo plano começará assim que o pagamento for confirmado.
+            </Text>
+            <View style={styles.plansContainer}>
+              {isLoading ? (
+                <ActivityIndicator
+                  size="large"
+                  color={COLORS.mainOrange}
+                  style={{ marginVertical: 40 }}
+                />
+              ) : error ? (
+                <View style={{ alignItems: "center", marginVertical: 20 }}>
+                  <Text style={{ color: "#ef4444" }}>Erro ao carregar planos</Text>
+                  <Text style={{ color: "#6b7280", fontSize: 12 }}>{error}</Text>
+                </View>
+              ) : (
+                plans?.filter((p) => p.isActive).map((p) => (
+                  <PlanCard
+                    key={p.id}
+                    plan={p}
+                    onSubscribe={handleSubscribe}
+                    disabled={isSubscribing || subscribingPlanId !== null}
+                    isSubscribing={subscribingPlanId === p.id}
+                  />
+                ))
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Seção de Cobranças */}
+        <View style={styles.invoicesSection}>
+          <View style={styles.invoicesHeaderRow}>
+            <Text style={styles.sectionTitle}>cobranças</Text>
+            {payments.length > 0 && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => router.push("/(user)/pendingPayments")}
+              >
+                <Text style={styles.seeAllText}>Ver todas</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {paymentsError ? (
+            <View style={styles.invoicesErrorCard}>
+              <Text style={{ color: COLORS.destructive, fontSize: 13 }}>
+                Não foi possível consultar suas cobranças.
+              </Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => refetchPayments()}
+              >
+                <Text style={styles.retryButtonText}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </View>
+          ) : payments.length === 0 ? (
+            <View style={styles.invoicesEmptyCard}>
+              <Text style={styles.invoicesEmptyTitle}>Tudo em dia!</Text>
+              <Text style={styles.invoicesEmptySubtitle}>
+                Você não possui cobranças ou pendências registradas.
+              </Text>
             </View>
           ) : (
-            plans?.filter((p) => p.isActive).map((p) => (
-              <PlanCard
-                key={p.id}
-                plan={p}
-                onSubscribe={handleSubscribe}
-                disabled={isSubscribing || subscribingPlanId !== null}
-                isSubscribing={subscribingPlanId === p.id}
-              />
-            ))
+            <View style={styles.invoicesList}>
+              {payments.slice(0, 5).map((payment) => (
+                <PaymentInvoiceCard
+                  key={payment.id}
+                  payment={payment}
+                  onPay={(p) =>
+                    router.push({
+                      pathname: "/(user)/payment",
+                      params: { id: p.id },
+                    })
+                  }
+                />
+              ))}
+              {payments.length > 5 && (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.viewMoreButton}
+                  onPress={() => router.push("/(user)/pendingPayments")}
+                >
+                  <Text style={styles.viewMoreButtonText}>
+                    Ver todas as cobranças ({payments.length})
+                  </Text>
+                  <ArrowRight size={16} color={COLORS.mainOrange} />
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
 
@@ -392,6 +467,72 @@ export default function PaymentPlans() {
           </TouchableOpacity>
         </View>
       </RefreshableScrollView>
+
+      {/* Modal Bottom Sheet para Trocar de Plano */}
+      <Modal
+        visible={plansModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPlansModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setPlansModalVisible(false)}
+          />
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.dragHandle} />
+            <View style={styles.bottomSheetHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.bottomSheetTitle}>Planos disponíveis</Text>
+                <Text style={styles.bottomSheetSubtitle}>
+                  Escolha um novo plano. Ele começará após confirmação do pagamento.
+                </Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={styles.bottomSheetClose}
+                onPress={() => setPlansModalVisible(false)}
+              >
+                <X size={20} color={COLORS.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.bottomSheetScroll}
+              contentContainerStyle={styles.bottomSheetScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {isLoading ? (
+                <ActivityIndicator
+                  size="large"
+                  color={COLORS.mainOrange}
+                  style={{ marginVertical: 32 }}
+                />
+              ) : error ? (
+                <View style={{ alignItems: "center", marginVertical: 20 }}>
+                  <Text style={{ color: COLORS.destructive }}>Erro ao carregar planos</Text>
+                  <Text style={{ color: COLORS.mutedForeground, fontSize: 12 }}>{error}</Text>
+                </View>
+              ) : (
+                plans?.filter((p) => p.isActive).map((p) => (
+                  <PlanCard
+                    key={p.id}
+                    plan={p}
+                    onSubscribe={(chosenPlan) => {
+                      setPlansModalVisible(false);
+                      handleSubscribe(chosenPlan);
+                    }}
+                    disabled={isSubscribing || subscribingPlanId !== null}
+                    isSubscribing={subscribingPlanId === p.id}
+                  />
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={partnerModal} transparent animationType="fade" onRequestClose={() => setPartnerModal(false)}>
         <KeyboardAvoider style={styles.modalOverlay}>
@@ -893,5 +1034,159 @@ const styles = StyleSheet.create({
     color: "#d97706",
     fontSize: 12,
     fontWeight: "500",
+  },
+  changePlanButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  changePlanButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  availablePlansSection: {
+    marginBottom: 8,
+  },
+  invoicesSection: {
+    marginBottom: 20,
+  },
+  invoicesHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.mainOrange,
+  },
+  invoicesList: {
+    gap: 10,
+  },
+  invoicesEmptyCard: {
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#EBECEF",
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+    gap: 4,
+  },
+  invoicesEmptyTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: COLORS.foreground,
+  },
+  invoicesEmptySubtitle: {
+    fontSize: 13,
+    color: COLORS.mutedForeground,
+  },
+  invoicesErrorCard: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+    backgroundColor: "#FEF2F2",
+    gap: 8,
+  },
+  retryButton: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: COLORS.mainOrange,
+  },
+  retryButtonText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  viewMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#EBECEF",
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+    gap: 6,
+    marginTop: 4,
+  },
+  viewMoreButtonText: {
+    color: COLORS.foreground,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    justifyContent: "flex-end",
+  },
+  bottomSheetContainer: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "85%",
+    paddingTop: 12,
+    paddingBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#E2E4E9",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  bottomSheetHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    marginBottom: 12,
+    gap: 12,
+  },
+  bottomSheetTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    color: COLORS.foreground,
+  },
+  bottomSheetSubtitle: {
+    fontSize: 13,
+    color: COLORS.mutedForeground,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  bottomSheetClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomSheetScroll: {
+    flexShrink: 1,
+  },
+  bottomSheetScrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    gap: 12,
   },
 });

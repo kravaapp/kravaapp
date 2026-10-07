@@ -255,11 +255,17 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
           <TouchableOpacity
             accessibilityRole="button"
             style={styles.back}
-            onPress={() => router.navigate("/(user)/pendingPayments")}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/(user)/paymentPlans");
+              }
+            }}
             disabled={submitting}
           >
             <ArrowLeft size={18} color={COLORS.mainOrange} />
-            <Text style={styles.backText}>Voltar às pendências</Text>
+            <Text style={styles.backText}>Voltar</Text>
           </TouchableOpacity>
           <Text style={styles.title}>pagamento</Text>
           <Text style={styles.subtitle}>Acompanhe e finalize sua cobrança.</Text>
