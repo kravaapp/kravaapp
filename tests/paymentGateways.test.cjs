@@ -62,6 +62,7 @@ function routesWith(api) {
   return load("src/routes/payments.routes.ts", {
     "./client": { __esModule: true, default: api },
     "@/utils/paymentGateways": helpers,
+    "@/schemas/payments.schemas": load("src/schemas/payments.schemas.ts"),
   }).PaymentsRoutes;
 }
 
@@ -140,7 +141,7 @@ test("successful PUT immediately updates tenant statuses, refetches and clears m
   await harness.hook.saveGateway("abacatepay", { apiKey: "key", webhookSecret: "secret", isActive: true });
   assert.equal(harness.cache().find((item) => item.isActive).gateway, "abacatepay");
   assert.doesNotMatch(JSON.stringify(harness.cache()), /apiKey|webhookSecret|secret/);
-  assert.equal(harness.invalidations(), 1);
+  assert.equal(harness.invalidations(), 2);
   assert.equal(harness.resets(), 1);
 });
 
@@ -175,6 +176,8 @@ function formHarness(props) {
     "@/components/ClientHeader": { COLORS: {} },
     "@/components/KeyboardAvoider": { __esModule: true, default: "KeyboardAvoider" },
     "@/components/ScreenScrollView": { __esModule: true, default: "ScreenScrollView" },
+    "@/components/RefreshableScrollView": { __esModule: true, default: "RefreshableScrollView" },
+    "@/hooks/screenRefresh.hooks": { useScreenRefresh: () => ({ refreshing: false, onRefresh: () => {} }) },
     "@/components/Toast": {},
     "@/components/admin/AdminUi": { ActionButton: "ActionButton" },
     "@/hooks/payments.hooks": {},

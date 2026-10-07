@@ -1,3 +1,5 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -160,6 +162,7 @@ const HistoryCard = ({
 };
 
 export default function History() {
+    const refresh = useScreenRefresh([["categories"], ["booking-user-history"], ["my-monthly-schedule"]]);
     const { categories, isLoading: categoriesLoading } = useCategories();
     const [filtroId, setFiltroId] = useState<string>('Todas');
     const [filtroName, setFiltroName] = useState<string>('Todas');
@@ -179,7 +182,7 @@ export default function History() {
     return (
         <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
             <ClientHeader />
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <RefreshableScrollView {...refresh} showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
                 <View style={styles.intro}>
                     <Text style={styles.screenTitle}>histórico</Text>
                     <Text style={styles.screenSubtitle}>Suas aulas e seu ritmo no mês.</Text>
@@ -220,7 +223,7 @@ export default function History() {
                         </View>
                     )}
                 </View>
-            </ScrollView>
+            </RefreshableScrollView>
         </SafeAreaView>
     );
 }

@@ -1,7 +1,6 @@
 import {
   ActivityIndicator,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +10,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import { useToast } from "@/components/Toast";
 import { useSubscribeContract } from "@/hooks/contracts.hooks";
@@ -237,6 +238,7 @@ export default function PaymentPlans() {
   const [subscribingPlanId, setSubscribingPlanId] = useState<string | null>(null);
   const { payments, error: paymentsError, refetch: refetchPayments } = usePayments();
   const { plans, isLoading, error } = usePlans();
+  const refresh = useScreenRefresh([["plans", "list"], ["plans", "current"]], { refetch: [refetchPayments] });
   const {
     currentPlan,
     isLoading: isLoadingCurrent,
@@ -253,13 +255,17 @@ export default function PaymentPlans() {
     subscriptionInFlight.current = true;
     setSubscribingPlanId(plan.id);
     try {
-      await subscribe({
+      const invoice = await subscribe({
         planoId: plan.id,
         cancelExistingActive: true,
-        immediate: true,
       });
       toast({
-        title: "Assinatura registrada!",
+        title: "Cobrança pendente",
+        description: "Conclua o pagamento para efetivar a assinatura.",
+      });
+      router.push({
+        pathname: "/(user)/payment",
+        params: { id: invoice.cobrancaId },
       });
     } catch (requestError) {
       toast({
@@ -285,7 +291,7 @@ export default function PaymentPlans() {
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ClientHeader />
 
-      <ScrollView
+      <RefreshableScrollView {...refresh}
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollPadding}
       >
@@ -338,6 +344,9 @@ export default function PaymentPlans() {
         )}
 
         <Text style={styles.sectionTitle}>planos disponíveis</Text>
+        <Text style={styles.subscriptionNotice}>
+          O novo plano começará assim que o pagamento for confirmado.
+        </Text>
         <View style={styles.plansContainer}>
           {isLoading ? (
             <ActivityIndicator
@@ -351,7 +360,7 @@ export default function PaymentPlans() {
               <Text style={{ color: "#6b7280", fontSize: 12 }}>{error}</Text>
             </View>
           ) : (
-            plans?.map((p) => (
+            plans?.filter((p) => p.isActive).map((p) => (
               <PlanCard
                 key={p.id}
                 plan={p}
@@ -382,7 +391,7 @@ export default function PaymentPlans() {
             <Text style={styles.btnSolidText}>Solicitar vinculação</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </RefreshableScrollView>
 
       <Modal visible={partnerModal} transparent animationType="fade" onRequestClose={() => setPartnerModal(false)}>
         <KeyboardAvoider style={styles.modalOverlay}>
@@ -471,6 +480,7 @@ export default function PaymentPlans() {
 }
 
 const styles = StyleSheet.create({
+  subscriptionNotice: { fontSize: 13, lineHeight: 19, color: COLORS.mutedForeground, marginBottom: 14 },
   screenTitle: { fontSize: 30, fontWeight: "800", letterSpacing: -1.2, color: COLORS.foreground, textTransform: "lowercase" },
   screenSubtitle: { fontSize: 14, lineHeight: 21, color: COLORS.mutedForeground, marginBottom: 22, marginTop: 4 },
   sectionTitle: { color: COLORS.foreground, fontSize: 19, fontWeight: "800", letterSpacing: -0.5, marginBottom: 14 },

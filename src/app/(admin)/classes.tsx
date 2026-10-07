@@ -1,6 +1,7 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
-import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -130,6 +131,7 @@ const statusTone = (status: string) => {
 };
 
 export default function AdminClasses() {
+  const refresh = useScreenRefresh([["today-occurrences"], ["aulas", "active"]]);
   const { toast } = useToast();
   const [view, setView] = useState<"today" | "week">("today");
   const [filter, setFilter] = useState<(typeof filters)[number]>("Todos");
@@ -155,9 +157,18 @@ export default function AdminClasses() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ClientHeader />
-      <ScreenScrollView>
+      <RefreshableScrollView {...refresh}>
         <AdminScreen>
-          <AdminPageHeader title="aulas" subtitle="Ocorrências de hoje e grade semanal" />
+          <View style={styles.pageHeaderRow}>
+            <View style={styles.grow}>
+              <AdminPageHeader title="aulas" subtitle="Ocorrências de hoje e grade semanal" />
+            </View>
+            <ActionButton
+              label="Nova aula"
+              icon={<Plus size={15} color="#fff" />}
+              onPress={() => setNewClass(true)}
+            />
+          </View>
           <View style={styles.segment}>
             <TouchableOpacity
               onPress={() => setView("today")}
@@ -342,11 +353,8 @@ export default function AdminClasses() {
             </AdminCard>
           )}
         </AdminScreen>
-      </ScreenScrollView>
-      <TouchableOpacity style={styles.fab} onPress={() => setNewClass(true)}>
-        <Plus size={25} color="#fff" />
-      </TouchableOpacity>
-      <ClassModal item={selected} onClose={() => setSelected(null)} />
+      </RefreshableScrollView>
+      <ClassModal item={selected ? todayOccurrences.find((item) => item.id === selected.id) ?? selected : null} onClose={() => setSelected(null)} />
       <NewClassModal
         visible={newClass}
         onClose={() => setNewClass(false)}
@@ -386,6 +394,7 @@ function NewClassModal({
   onSuccess: (count: number) => void;
   onError: (message: string) => void;
 }) {
+  const modalRefresh = useScreenRefresh([["modalidades", "active"], ["professors", "active"]]);
   const { modalidades, professors, isLoading, error } = useClassFormOptions();
   const { createAula, isLoading: isCreating } = useCreateAula();
   const [modalidadeId, setModalidadeId] = useState("");
@@ -474,7 +483,7 @@ function NewClassModal({
                 <X color={COLORS.foreground} />
               </TouchableOpacity>
             </View>
-            <ScrollView
+            <RefreshableScrollView {...modalRefresh}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
@@ -595,7 +604,7 @@ function NewClassModal({
                   />
                 </View>
               )}
-            </ScrollView>
+            </RefreshableScrollView>
           </View>
         </View>
       </KeyboardAvoider>
@@ -614,6 +623,7 @@ function EditClassModal({
   onSuccess: () => void;
   onError: (message: string) => void;
 }) {
+  const modalRefresh = useScreenRefresh([["modalidades", "active"], ["professors", "active"]]);
   const { modalidades, professors, isLoading, error } = useClassFormOptions();
   const { updateAula, isLoading: isUpdating } = useUpdateAula();
   const [modalidadeId, setModalidadeId] = useState("");
@@ -699,7 +709,7 @@ function EditClassModal({
                 <X color={COLORS.foreground} />
               </TouchableOpacity>
             </View>
-            <ScrollView
+            <RefreshableScrollView {...modalRefresh}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
@@ -791,7 +801,7 @@ function EditClassModal({
                   <ActionButton label={isUpdating ? "Salvando..." : "Salvar alterações"} onPress={submit} />
                 </View>
               )}
-            </ScrollView>
+            </RefreshableScrollView>
           </View>
         </View>
       </KeyboardAvoider>
@@ -862,6 +872,7 @@ function ClassModal({
   item: TodayOccurrenceType | null;
   onClose: () => void;
 }) {
+  const modalRefresh = useScreenRefresh([["attendance", item?.id]], { enabled: !!item });
   const [tab, setTab] = useState<"confirmed" | "waitlist">("confirmed");
   const { attendance, isLoading, error } = useAttendance({
     ocorrenciaId: item?.id ?? "",
@@ -905,7 +916,7 @@ function ClassModal({
               </Text>
             </TouchableOpacity>
           </View>
-          <ScrollView style={styles.peopleList}>
+          <RefreshableScrollView {...modalRefresh} style={styles.peopleList}>
             {isLoading ? (
               <AdminSkeleton width="100%" height={160} radius={12} />
             ) : error ? (
@@ -938,7 +949,7 @@ function ClassModal({
                   : "Nenhum aluno na lista de espera"}
               </Text>
             )}
-          </ScrollView>
+          </RefreshableScrollView>
         </View>
       </View>
     </Modal>
@@ -947,6 +958,7 @@ function ClassModal({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
+  pageHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   segment: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -993,18 +1005,6 @@ const styles = StyleSheet.create({
   title: { color: COLORS.foreground, fontSize: 14, fontWeight: "700" },
   muted: { color: COLORS.mutedForeground, fontSize: 12 },
   count: { fontSize: 12, fontWeight: "700" },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 18,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: COLORS.mainOrange,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 5,
-  },
   weekRow: {
     flexDirection: "row",
     gap: 10,

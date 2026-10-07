@@ -1,8 +1,9 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Image,
     Modal,
-    ScrollView,
     StyleSheet,
     Switch,
     Text,
@@ -15,7 +16,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Badge, BadgeVariant } from "@/components/Badge";
 import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { Progress } from "@/components/Progress";
-import ScreenScrollView from "@/components/ScreenScrollView";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
 import { alunos } from "@/data/mockData";
@@ -147,6 +147,7 @@ const ErrorState = ({ title, detail }: { title: string; detail: string }) => (
 );
 
 export default function AulaAoVivo() {
+    const refresh = useScreenRefresh([["today-occurrences"], ["attendance"]]);
     const { toast } = useToast();
     const [tab, setTab] = useState<TabKey>("chamada");
 
@@ -214,6 +215,17 @@ export default function AulaAoVivo() {
         setSalvandoPresenca({});
         setExtras([]);
     }, [ocorrenciaId]);
+
+    useEffect(() => {
+        if (!attendance) return;
+        setPresencaOverrides((previous) => {
+            const persisted = Object.keys(previous).filter((bookingId) => !isLocalBooking(bookingId) && !salvandoPresenca[bookingId]);
+            if (!persisted.length) return previous;
+            const next = { ...previous };
+            persisted.forEach((bookingId) => { delete next[bookingId]; });
+            return next;
+        });
+    }, [attendance]);
 
     const getStatus = (aluno: AttendanceStudentType): AttendanceStudentStatusType =>
         presencaOverrides[aluno.bookingId] ?? aluno.status;
@@ -334,7 +346,7 @@ export default function AulaAoVivo() {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
                 <ClientHeader />
-                <ChamadaSkeleton />
+                <RefreshableScrollView {...refresh}><ChamadaSkeleton /></RefreshableScrollView>
             </SafeAreaView>
         );
     }
@@ -343,7 +355,7 @@ export default function AulaAoVivo() {
         return (
             <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
                 <ClientHeader />
-                <EmptyState message="Nenhuma aula agendada para hoje" />
+                <RefreshableScrollView {...refresh}><EmptyState message="Nenhuma aula agendada para hoje" /></RefreshableScrollView>
             </SafeAreaView>
         );
     }
@@ -376,7 +388,7 @@ export default function AulaAoVivo() {
 
                 {tab === "chamada" && (
                     <View style={{ flex: 1 }}>
-                        <ScrollView
+                        <RefreshableScrollView {...refresh}
                             style={{ flex: 1 }}
                             contentContainerStyle={styles.tabContent}
                             showsVerticalScrollIndicator={false}
@@ -505,7 +517,7 @@ export default function AulaAoVivo() {
                                     })}
                                 </View>
                             )}
-                        </ScrollView>
+                        </RefreshableScrollView>
 
                         <View style={styles.footer}>
                             <TouchableOpacity
@@ -520,7 +532,7 @@ export default function AulaAoVivo() {
                 )}
 
                 {tab === "espera" && (
-                    <ScrollView
+                    <RefreshableScrollView {...refresh}
                         style={{ flex: 1 }}
                         contentContainerStyle={styles.tabContent}
                         showsVerticalScrollIndicator={false}
@@ -572,11 +584,11 @@ export default function AulaAoVivo() {
                                 ))}
                             </View>
                         )}
-                    </ScrollView>
+                    </RefreshableScrollView>
                 )}
 
                 {tab === "adicionar" && (
-                    <ScreenScrollView
+                    <RefreshableScrollView {...refresh}
                         style={{ flex: 1 }}
                         contentContainerStyle={styles.tabContent}
                         showsVerticalScrollIndicator={false}
@@ -708,7 +720,7 @@ export default function AulaAoVivo() {
                                 <Text style={styles.solidButtonText}>Adicionar à chamada</Text>
                             </TouchableOpacity>
                         </View>
-                    </ScreenScrollView>
+                    </RefreshableScrollView>
                 )}
             </View>
 

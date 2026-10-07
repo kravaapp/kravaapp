@@ -1,5 +1,6 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import {
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -129,6 +130,7 @@ const HomeSkeleton = () => (
 );
 
 export default function TeacherHome() {
+    const refresh = useScreenRefresh([["teacher-dashboard"], ["today-occurrences"]]);
     const { user } = useAuth();
     const { todayOccurrences, isLoading: isLoadingOccurrences, error } = useTodayOccurrences();
     const { teacherDashboard, isLoading: isLoadingDashboard } = useTeacherDashboard();
@@ -152,14 +154,12 @@ export default function TeacherHome() {
         <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
             <ClientHeader />
 
-            {isLoading ? (
-                <HomeSkeleton />
-            ) : (
-                <ScrollView
+                <RefreshableScrollView {...refresh}
                     style={{ flex: 1, backgroundColor: "#fff" }}
                     contentContainerStyle={{ paddingBottom: 20 }}
                     showsVerticalScrollIndicator={false}
                 >
+                    {isLoading ? <HomeSkeleton /> : <>
                     <View style={styles.navyBlock}>
                         <View style={styles.welcomeRow}>
                             <View style={styles.avatar}>
@@ -290,8 +290,8 @@ export default function TeacherHome() {
                             </View>
                         )}
                     </View>
-                </ScrollView>
-            )}
+                    </>}
+                </RefreshableScrollView>
         </SafeAreaView>
     );
 }

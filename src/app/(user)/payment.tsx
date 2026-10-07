@@ -1,5 +1,7 @@
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import MercadoPagoCard from "@/components/MercadoPagoCard";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/auth.hooks";
@@ -32,7 +34,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -62,9 +63,8 @@ export default function PaymentScreen() {
 
 function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   // A navegação passa apenas o identificador e a página; os dados financeiros vêm da API.
-  const { height: viewportHeight } = useWindowDimensions();
-  const compactViewport = viewportHeight < 620;
-  const { invoices, gateway, pay, isPaying } = useInvoicePayment(id, page);
+  const { invoice: invoiceQuery, gateway, pay, refreshMembership, isPaying } = useInvoicePayment(id, page);
+  const refresh = useScreenRefresh([], { enabled: !!id && !isPaying, refetch: [invoiceQuery.refetch, gateway.refetch] });
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -80,7 +80,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   const inFlight = useRef(false);
   const successNotified = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
-  const invoice = invoices.data?.items.find((item) => item.id === id);
+  const invoice = invoiceQuery.data;
   const paid =
     isPaymentPaid(result?.status ?? "") || isPaymentPaid(invoice?.status ?? "");
   const cardAvailable =
@@ -88,7 +88,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   const checkoutUrl = getCheckoutUrl(result?.paymentUrl);
   const isPixResult = method === "Pix" && !!result;
   const terminalFailure = ["failed", "rejected", "recusado", "cancelled", "canceled"].includes(result?.status.trim().toLowerCase() ?? "");
-  const { refetch: refetchInvoice } = invoices;
+  const { refetch: refetchInvoice } = invoiceQuery;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -97,23 +97,24 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   const completePayment = useCallback(() => {
     if (successNotified.current) return;
     successNotified.current = true;
+    void refreshMembership();
     toast({ title: "Pagamento aprovado!", description: "Sua cobrança foi paga." });
     router.replace("/(user)/paymentPlans");
-  }, [toast]);
+  }, [toast, refreshMembership]);
 
   useEffect(() => {
     if (paid) completePayment();
   }, [paid, completePayment]);
 
   useFocusEffect(useCallback(() => {
-    if (!isPixResult || paid || terminalFailure) return;
+    if (!invoice || !canPayInvoice(invoice.status) || paid) return;
     let active = true;
     let checking = false;
     const interval = setInterval(() => {
       if (checking) return;
       checking = true;
       void refetchInvoice().then((refreshed) => {
-        if (active && isPaymentPaid(refreshed.data?.items.find((item) => item.id === id)?.status ?? "")) {
+        if (active && !refreshed.error && isPaymentPaid(refreshed.data?.status ?? "")) {
           completePayment();
         }
       }).catch(() => {
@@ -124,7 +125,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
       active = false;
       clearInterval(interval);
     };
-  }, [isPixResult, paid, terminalFailure, id, refetchInvoice, completePayment]));
+  }, [invoice?.status, paid, refetchInvoice, completePayment]));
 
   const showError = (description: string) => {
     toast({ title: description, variant: "destructive" });
@@ -180,7 +181,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   const continuePayment = () => {
     const payer = customer();
     if (!payer) return;
-    void submit({ ...payer, paymentMethod: "Pix" });
+    void submit({ ...payer, method: "Pix" });
   };
 
   const continueToMethod = () => {
@@ -203,11 +204,11 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
 
   const onCardToken = async (fields: CardPaymentFields) => {
     if (cardCustomer)
-      await submit({ ...cardCustomer, paymentMethod: "Cartao", ...fields });
+      await submit({ ...cardCustomer, method: "CreditCard", ...fields });
   };
 
   const refreshPayment = async () => {
-    const refreshed = await invoices.refetch();
+    const refreshed = await invoiceQuery.refetch();
     if (refreshed.error)
       showError(
         normalizeApiError(
@@ -217,7 +218,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
       );
     else if (
       isPaymentPaid(
-        refreshed.data?.items.find((item) => item.id === id)?.status ?? "",
+        refreshed.data?.status ?? "",
       )
     ) {
       completePayment();
@@ -245,10 +246,11 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ClientHeader />
       <KeyboardAvoider>
-        <ScrollView
+        <RefreshableScrollView {...refresh}
           ref={scrollRef}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           <TouchableOpacity
             accessibilityRole="button"
@@ -262,16 +264,16 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
           <Text style={styles.title}>pagamento</Text>
           <Text style={styles.subtitle}>Acompanhe e finalize sua cobrança.</Text>
           <View style={styles.flow}>
-          {invoice && !paid && (result || canPayInvoice(invoice.status)) && (
+          {invoice && !paid && canPayInvoice(invoice.status) && (
             <>
-              <View style={[styles.summary, compactViewport && styles.summaryCompact]}>
+              <View style={styles.summary}>
                 <View style={styles.summaryMeta}>
-                  <Text style={[styles.summaryEyebrow, compactViewport && styles.summaryEyebrowCompact]}>COBRANÇA</Text>
-                  <Text style={[styles.summaryMuted, compactViewport && styles.summaryMutedCompact]}>Vence {formatPaymentDate(invoice.dueDate)}</Text>
+                  <Text style={styles.summaryEyebrow}>COBRANÇA</Text>
+                  <Text style={styles.summaryMuted}>Vence {formatPaymentDate(invoice.dueDate)}</Text>
                 </View>
-                <View style={[styles.summaryMain, compactViewport && styles.summaryMainCompact]}>
-                  <Text style={[styles.summaryHeading, compactViewport && styles.summaryHeadingCompact]} numberOfLines={1}>{invoice.description || "Cobrança"}</Text>
-                  <Text style={[styles.amount, compactViewport && styles.amountCompact]}>{invoice.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</Text>
+                <View style={styles.summaryMain}>
+                  <Text style={styles.summaryHeading} numberOfLines={1}>{invoice.description || "Cobrança"}</Text>
+                  <Text style={styles.amount}>{invoice.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</Text>
                 </View>
               </View>
               <View style={styles.stepsTrack} accessible accessibilityLabel={`Etapa ${result ? 3 : checkoutStep + 1} de ${PAYMENT_STEPS.length}: ${PAYMENT_STEPS[result ? 2 : checkoutStep]}`}>
@@ -283,7 +285,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
           )}
           {!id ? (
             <Text style={styles.error}>Cobrança inválida.</Text>
-          ) : invoices.isLoading || gateway.isLoading ? (
+          ) : invoiceQuery.isLoading || gateway.isLoading ? (
             <ActivityIndicator size="large" color={COLORS.mainOrange} />
           ) : paid ? (
             <View style={styles.messageContent}>
@@ -293,9 +295,9 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                 router.navigate("/(user)/pendingPayments"),
               )}
             </View>
-          ) : result ? (
+          ) : result && invoice && canPayInvoice(invoice.status) ? (
             <View style={isPixResult ? styles.pixResult : styles.messageContent}>
-              <Text style={[styles.heading, isPixResult && styles.pixText]}>
+              <Text style={styles.heading}>
                 {getPaymentResultMessage(result.status)}
               </Text>
               {!!result.pixQrCodeBase64 && (
@@ -314,7 +316,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
               )}
               {!!result.pixCopyPaste && (
                 <>
-                  <Text style={[styles.muted, styles.pixText]}>
+                  <Text style={styles.muted}>
                     Copie o código e pague pelo aplicativo do seu banco.
                   </Text>
                   {button("Copiar código Pix", () => {
@@ -326,7 +328,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                   })}
                 </>
               )}
-              {isPixResult && !terminalFailure && <Text style={[styles.muted, styles.pixText]}>Verificando pagamento automaticamente.</Text>}
+              {!terminalFailure && <Text style={styles.muted}>Verificando pagamento automaticamente.</Text>}
               {isPixResult && (
                 <TouchableOpacity
                   accessibilityRole="button"
@@ -366,7 +368,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                 () => {
                   void refreshPayment();
                 },
-                invoices.isFetching,
+                invoiceQuery.isFetching,
               )}
               {!isPixResult && ["rejected", "failed", "recusado"].includes(
                 result.status.toLowerCase(),
@@ -380,12 +382,12 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                 router.navigate("/(user)/pendingPayments"),
               )}
             </View>
-          ) : invoices.error || gateway.error ? (
+          ) : invoiceQuery.error || gateway.error ? (
             <View style={styles.messageContent}>
               <Text style={styles.error}>
                 {
                   normalizeApiError(
-                    invoices.error || gateway.error,
+                    invoiceQuery.error || gateway.error,
                     "Não foi possível carregar o pagamento.",
                   ).description
                 }
@@ -393,10 +395,10 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
               {button(
                 "Tentar novamente",
                 () => {
-                  void invoices.refetch();
+                  void invoiceQuery.refetch();
                   void gateway.refetch();
                 },
-                invoices.isFetching || gateway.isFetching,
+                invoiceQuery.isFetching || gateway.isFetching,
               )}
             </View>
           ) : !invoice ? (
@@ -509,7 +511,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
               </View>
           )}
           </View>
-        </ScrollView>
+        </RefreshableScrollView>
       </KeyboardAvoider>
     </SafeAreaView>
   );
@@ -525,44 +527,39 @@ const styles = StyleSheet.create({
   heading: { fontSize: 18, fontWeight: "800", letterSpacing: -0.5, color: COLORS.foreground },
   flow: { flexGrow: 1, justifyContent: "center", gap: 8 },
   summary: { minHeight: 104, paddingHorizontal: 18, paddingVertical: 12, justifyContent: "center", gap: 8, borderRadius: 18, backgroundColor: COLORS.mainOrange },
-  summaryCompact: { minHeight: 68, paddingHorizontal: 16, paddingVertical: 8, gap: 5, borderRadius: 16 },
   summaryMeta: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   summaryEyebrow: { fontSize: 11, fontWeight: "800", letterSpacing: 1, color: COLORS.white, opacity: 0.85 },
-  summaryEyebrowCompact: { fontSize: 10 },
   summaryMain: { gap: 2 },
-  summaryMainCompact: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   summaryHeading: { fontSize: 15, fontWeight: "700", color: COLORS.white },
-  summaryHeadingCompact: { flex: 1, minWidth: 0, fontSize: 14 },
   summaryMuted: { fontSize: 12, color: COLORS.white, opacity: 0.9 },
-  summaryMutedCompact: { fontSize: 11 },
-  stepsTrack: { flexDirection: "row", gap: 7, marginVertical: 4 },
+  stepsTrack: { flexDirection: "row", gap: 8 },
   stepLine: { flex: 1, height: 5, borderRadius: 3, backgroundColor: "#E5E7EB" },
   stepLineActive: { backgroundColor: COLORS.mainOrange },
-  stepContent: { gap: 8 },
-  messageContent: { gap: 12 },
+  stepContent: { gap: 14 },
+  messageContent: { gap: 14 },
   pixResult: {
-    gap: 8,
+    gap: 14,
     alignItems: "stretch",
     backgroundColor: COLORS.white,
   },
   amount: { fontSize: 30, fontWeight: "800", letterSpacing: -0.8, color: COLORS.white },
-  amountCompact: { fontSize: 25 },
-  muted: { fontSize: 12, lineHeight: 17, color: COLORS.mutedForeground },
-  pixText: { textAlign: "center" },
-  label: { color: COLORS.foreground, fontSize: 12, fontWeight: "700" },
-  field: { gap: 4 },
+  muted: { fontSize: 15, lineHeight: 22, color: COLORS.mutedForeground },
+  label: { color: COLORS.foreground, fontSize: 14, fontWeight: "bold", letterSpacing: -0.2 },
+  field: { gap: 8 },
   input: {
     borderWidth: 1,
-    borderColor: "#DCDDE1",
-    minHeight: 44,
-    paddingHorizontal: 12,
+    borderColor: "#D5D8DC",
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: 10,
     color: COLORS.foreground,
     backgroundColor: COLORS.white,
+    fontSize: 16,
   },
   row: { gap: 0, marginVertical: 2 },
   method: {
-    minHeight: 60,
+    minHeight: 72,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -572,23 +569,23 @@ const styles = StyleSheet.create({
   selected: { borderBottomColor: COLORS.mainOrange },
   methodText: { flex: 1, gap: 2 },
   methodTitle: { color: COLORS.foreground, fontSize: 14, fontWeight: "800" },
-  methodDescription: { color: COLORS.mutedForeground, fontSize: 11, lineHeight: 15 },
+  methodDescription: { color: COLORS.mutedForeground, fontSize: 13, lineHeight: 19 },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: "#B8BDC5", alignItems: "center", justifyContent: "center" },
   radioSelected: { borderColor: COLORS.mainOrange },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.mainOrange },
   button: {
-    minHeight: 44,
+    minHeight: 54,
     paddingHorizontal: 16,
     justifyContent: "center",
     borderRadius: 10,
     backgroundColor: COLORS.mainOrange,
     alignItems: "center",
   },
-  buttonText: { color: COLORS.white, fontWeight: "700", fontSize: 14 },
-  stepBack: { minHeight: 32, alignItems: "center", justifyContent: "center" },
+  buttonText: { color: COLORS.white, fontWeight: "bold", fontSize: 18, letterSpacing: -0.4 },
+  stepBack: { minHeight: 44, alignItems: "center", justifyContent: "center" },
   stepBackText: { color: COLORS.foreground, fontWeight: "700", fontSize: 13 },
-  changePayment: { alignSelf: "center", padding: 8 },
-  changePaymentText: { color: COLORS.mainOrange, fontWeight: "600", textAlign: "center" },
+  changePayment: { alignSelf: "flex-start", paddingVertical: 8 },
+  changePaymentText: { color: COLORS.mainOrange, fontWeight: "600" },
   disabled: { opacity: 0.4 },
   error: { color: COLORS.destructive, fontSize: 14 },
   qrCode: { width: 164, height: 164, maxWidth: "100%", alignSelf: "center" },

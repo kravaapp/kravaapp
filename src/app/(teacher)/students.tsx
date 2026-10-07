@@ -1,4 +1,6 @@
-import { useState } from "react";
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
+import { useEffect, useState } from "react";
 import {
     Modal,
     ScrollView,
@@ -117,6 +119,7 @@ const ModalityFilter = ({
 );
 
 export default function PerfilAluno() {
+    const refresh = useScreenRefresh([["categories"], ["alunos"]]);
     const [search, setSearch] = useState("");
     const [modalityId, setModalityId] = useState("Todos");
     const [selectedAluno, setSelectedAluno] = useState<AlunoSummaryType | null>(null);
@@ -131,6 +134,11 @@ export default function PerfilAluno() {
     });
 
     const items = alunos?.items ?? [];
+    useEffect(() => {
+        if (!selectedAluno) return;
+        const updated = items.find((item) => item.id === selectedAluno.id);
+        if (updated && updated !== selectedAluno) setSelectedAluno(updated);
+    }, [items, selectedAluno]);
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
@@ -156,16 +164,13 @@ export default function PerfilAluno() {
                 />
             </View>
 
-            {isLoading ? (
-                <ListSkeleton />
-            ) : (
-                <ScrollView
+                <RefreshableScrollView {...refresh}
                     style={{ flex: 1 }}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {items.length === 0 ? (
+                    {isLoading ? <ListSkeleton /> : items.length === 0 ? (
                         <Text style={styles.emptyText}>Nenhum aluno encontrado</Text>
                     ) : (
                         items.map((a) => (
@@ -198,8 +203,7 @@ export default function PerfilAluno() {
                             </TouchableOpacity>
                         ))
                     )}
-                </ScrollView>
-            )}
+                </RefreshableScrollView>
 
             <Modal
                 visible={!!selectedAluno}
@@ -218,7 +222,7 @@ export default function PerfilAluno() {
                         <View style={styles.sheet}>
                             <View style={styles.sheetHandle} />
 
-                            <ScrollView showsVerticalScrollIndicator={false}>
+                            <RefreshableScrollView {...refresh} showsVerticalScrollIndicator={false}>
                                 <View style={styles.sheetHeader}>
                                     <Avatar nome={selectedAluno.userName || "Aluno"} size={64} />
                                     <Text style={styles.sheetTitle}>{selectedAluno.userName || "Aluno"}</Text>
@@ -267,7 +271,7 @@ export default function PerfilAluno() {
                                         </View>
                                     </View>
                                 </View>
-                            </ScrollView>
+                            </RefreshableScrollView>
                         </View>
                     )}
                 </View>

@@ -1,7 +1,8 @@
+import RefreshableFlatList from "@/components/RefreshableFlatList";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
-    FlatList,
     ScrollView,
     StyleSheet,
     Text,
@@ -431,6 +432,7 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', o
 };
 
 export default function Home() {
+    const refresh = useScreenRefresh([["user-next-class"], ["user-week-classes"], ["schedule"]]);
     const { user } = useAuth();
     const { createSchedule, isLoading: isCreatingSchedule } = useCreateSchedule();
 
@@ -478,7 +480,7 @@ export default function Home() {
     return (
         <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
             <ClientHeader />
-            <FlatList
+            <RefreshableFlatList {...refresh}
                 style={styles.list}
                 contentContainerStyle={styles.listContent}
                 data={scheduleLoading ? [] : (schedule?.items || []).slice(0, 3)}

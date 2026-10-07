@@ -1,5 +1,6 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { COLORS } from "@/components/ClientHeader";
-import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   ActionButton,
@@ -57,6 +58,7 @@ const statusTone = (status?: string | null) => {
 };
 
 export default function AdminFinancial() {
+  const refresh = useScreenRefresh([["financial-summary"], ["contracts"], ["plans", "financial"], ["modalidades", "active"], ["tenant-settings"]]);
   const { toast } = useToast();
   const month = useMemo(() => format(new Date(), "yyyy-MM"), []);
   const {
@@ -75,7 +77,7 @@ export default function AdminFinancial() {
   const [editing, setEditing] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!settings) return;
+    if (!settings || editing) return;
     setGympass(toCurrencyInput(settings.gympassRepasse));
     setTotalpass(toCurrencyInput(settings.totalpassRepasse));
   }, [settings]);
@@ -168,7 +170,7 @@ export default function AdminFinancial() {
 
   return (
     <View style={styles.safe}>
-      <ScreenScrollView>
+      <RefreshableScrollView {...refresh}>
         <AdminScreen>
           <AdminPageHeader title="financeiro" subtitle="Receitas, repasses e contratos" />
           {hasError && (
@@ -323,7 +325,7 @@ export default function AdminFinancial() {
             )}
           </AdminCard>
         </AdminScreen>
-      </ScreenScrollView>
+      </RefreshableScrollView>
     </View>
   );
 }

@@ -1,3 +1,5 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -25,7 +27,6 @@ import {
   X,
 } from "lucide-react-native";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
-import ScreenScrollView from "@/components/ScreenScrollView";
 import { useToast } from "@/components/Toast";
 import {
   AdminCard,
@@ -45,6 +46,7 @@ const CONTACT_OUTCOMES = [
 ];
 
 export default function AdminChurnRiskScreen() {
+  const refresh = useScreenRefresh([["admin-students-at-risk"]]);
   const { toast } = useToast();
   const { studentsAtRisk, isLoading } = useStudentsAtRisk();
   const { markStudentContacted, isLoading: isSavingContact } =
@@ -198,7 +200,7 @@ export default function AdminChurnRiskScreen() {
   return (
     <View style={styles.safe}>
       <ClientHeader />
-      <ScreenScrollView>
+      <RefreshableScrollView {...refresh}>
         <AdminScreen>
           {/* Header da Tela com Botão Voltar e Botão de Ajuda */}
           <View style={styles.headerRow}>
@@ -425,7 +427,7 @@ export default function AdminChurnRiskScreen() {
             </View>
           )}
         </AdminScreen>
-      </ScreenScrollView>
+      </RefreshableScrollView>
 
       {/* Modal Explicativo da Fórmula Heurística */}
       <Modal

@@ -1,3 +1,5 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import { useToast } from "@/components/Toast";
 import {
@@ -83,6 +85,7 @@ const StudentSkeleton = () => (
 );
 
 export default function AdminDashboard() {
+  const refresh = useScreenRefresh([["admin-active-students"], ["admin-financial-dashboard"], ["admin-operational-dashboard"], ["admin-daily-attendance"], ["admin-students-at-risk"], ["admin-partner-requests"], ["today-occurrences"]]);
   const { toast } = useToast();
   const monthRange = useMemo(() => {
     const today = new Date();
@@ -199,7 +202,7 @@ export default function AdminDashboard() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ClientHeader />
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <RefreshableScrollView {...refresh} showsVerticalScrollIndicator={false}>
         <AdminScreen>
           <AdminPageHeader title="painel" subtitle="Visão geral do CT" />
           {hasError && (
@@ -408,7 +411,7 @@ export default function AdminDashboard() {
             })}
           </AdminCard>
         </AdminScreen>
-      </ScrollView>
+      </RefreshableScrollView>
     </SafeAreaView>
   );
 }

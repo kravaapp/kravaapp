@@ -1,3 +1,5 @@
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import ScreenScrollView from "@/components/ScreenScrollView";
@@ -22,6 +24,7 @@ type Editor = {
 };
 
 export default function AdminPaymentGateways() {
+  const refresh = useScreenRefresh([["payment-gateways"]]);
   const { toast } = useToast();
   const { configurations, hasData, isLoading, isRefreshing, error, refetch, saveGateway, isSaving } = usePaymentGateways();
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -48,7 +51,7 @@ export default function AdminPaymentGateways() {
 
   return (
     <View style={styles.screen}>
-      <ScreenScrollView>
+      <RefreshableScrollView {...refresh}>
         <AdminScreen>
           <AdminPageHeader title="gateways" subtitle="Configure como o CT recebe pagamentos" />
           {error && (
@@ -108,7 +111,7 @@ export default function AdminPaymentGateways() {
             </>
           ) : null}
         </AdminScreen>
-      </ScreenScrollView>
+      </RefreshableScrollView>
       {editor && (
         <GatewayModal
           editor={editor}

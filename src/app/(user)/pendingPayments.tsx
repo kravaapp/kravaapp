@@ -1,20 +1,23 @@
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import RefreshableScrollView from "@/components/RefreshableScrollView";
+import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { usePayments } from "@/hooks/studentPayments.hooks";
 import { canPayInvoice, formatPaymentDate, getPaymentType } from "@/utils/payments";
 import { router } from "expo-router";
 import { ArrowLeft, ArrowRight } from "lucide-react-native";
 import { useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function PendingPayments() {
   const [page, setPage] = useState<number>();
   const { data, payments, isLoading, isRefreshing, error, refetch } = usePayments(page);
+  const refresh = useScreenRefresh([], { refetch: [refetch] });
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <ClientHeader />
-      <ScrollView contentContainerStyle={styles.content}>
+      <RefreshableScrollView {...refresh} contentContainerStyle={styles.content}>
         <TouchableOpacity accessibilityRole="button" style={styles.back} onPress={() => router.navigate("/(user)/paymentPlans")}>
           <ArrowLeft size={18} color={COLORS.mainOrange} />
           <Text style={styles.backText}>Voltar aos planos</Text>
@@ -71,7 +74,7 @@ export default function PendingPayments() {
             </TouchableOpacity>
           </View>
         )}
-      </ScrollView>
+      </RefreshableScrollView>
     </SafeAreaView>
   );
 }

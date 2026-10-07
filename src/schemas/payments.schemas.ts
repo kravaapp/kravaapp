@@ -14,9 +14,9 @@ export const cardPaymentFieldsSchema = z.object({
 });
 
 // O parse seleciona somente os campos permitidos, inclusive em runtime.
-export const payInvoiceSchema = z.discriminatedUnion("paymentMethod", [
-  paymentCustomerSchema.extend({ paymentMethod: z.literal("Pix") }),
-  paymentCustomerSchema.extend({ paymentMethod: z.literal("Cartao"), ...cardPaymentFieldsSchema.shape }),
+export const payInvoiceSchema = z.discriminatedUnion("method", [
+  paymentCustomerSchema.extend({ method: z.literal("Pix") }),
+  paymentCustomerSchema.extend({ method: z.literal("CreditCard"), ...cardPaymentFieldsSchema.shape }),
 ]);
 
 export const gatewayConfigurationSchema = z.object({

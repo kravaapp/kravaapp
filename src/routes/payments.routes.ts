@@ -3,6 +3,7 @@ import {
   PayInvoiceRequest,
   PayInvoiceResponse,
   PaginatedPayments,
+  Payment,
   PaymentGateway,
   PaymentGatewayConfiguration,
   UpdatePaymentGateway,
@@ -27,6 +28,24 @@ export class PaymentsRoutes {
   async getMyPayments(page?: number): Promise<PaginatedPayments> {
     return api.get("/payments/my", page === undefined ? {} : { searchParams: { page } })
       .json<PaginatedPayments>();
+  }
+
+  async getMyInvoice(id: string, preferredPage?: number): Promise<Payment | null> {
+    const invoiceId = z.uuid().parse(id);
+    // A cobrança recém-criada pode estar em qualquer página da listagem do aluno.
+    if (preferredPage !== undefined && preferredPage !== 1) {
+      const preferred = await this.getMyPayments(preferredPage);
+      const invoice = preferred.items.find((item) => item.id === invoiceId);
+      if (invoice) return invoice;
+    }
+    let page = 1;
+    while (true) {
+      const result = await this.getMyPayments(page);
+      const invoice = result.items.find((item) => item.id === invoiceId);
+      if (invoice) return invoice;
+      if (!result.hasNextPage) return null;
+      page++;
+    }
   }
 
   async getGateways(): Promise<PaymentGatewayConfiguration[]> {
