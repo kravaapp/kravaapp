@@ -290,6 +290,7 @@ function PlanModal({
   const [maxClassesPerWeek, setMaxClassesPerWeek] = useState("0");
   const [maxClassesPerDay, setMaxClassesPerDay] = useState("0");
   const [allowsAll, setAllowsAll] = useState(true);
+  const [isRecurring, setIsRecurring] = useState(true);
   const [active, setActive] = useState(true);
   const [modalidadeIds, setModalidadeIds] = useState<string[]>([]);
   const [modalitiesDirty, setModalitiesDirty] = useState(false);
@@ -304,6 +305,7 @@ function PlanModal({
     setMaxClassesPerWeek(String(plan?.maxClassesPerWeek ?? 0));
     setMaxClassesPerDay(String(plan?.maxClassesPerDay ?? 0));
     setAllowsAll(plan?.allowsAllModalidades ?? true);
+    setIsRecurring(plan?.isRecurring ?? true);
     setActive(plan?.isActive ?? true);
     setModalidadeIds(plan?.modalidadeIds ?? []);
     setModalitiesDirty(false);
@@ -319,6 +321,7 @@ function PlanModal({
     maxClassesPerWeek,
     maxClassesPerDay,
     allowsAll,
+    isRecurring,
     modalidadeIds,
   ]);
 
@@ -348,6 +351,7 @@ function PlanModal({
       maxClassesPerWeek: weeklyLimit,
       maxClassesPerDay: dailyLimit,
       allowsAllModalidades: allowsAll,
+      isRecurring: isRecurring,
     };
     try {
       if (plan) {
@@ -521,6 +525,19 @@ function PlanModal({
                   )}
                 </View>
               )}
+              <View style={styles.switchRow}>
+                <View style={styles.grow}>
+                  <Text style={styles.label}>Recorrência automática (débito no cartão)</Text>
+                  <Text style={styles.muted}>
+                    Renova o plano periodicamente no gateway sem necessidade de pagamento manual avulso.
+                  </Text>
+                </View>
+                <Switch
+                  value={isRecurring}
+                  onValueChange={setIsRecurring}
+                  trackColor={{ true: COLORS.mainOrange }}
+                />
+              </View>
               {plan && (
                 <View style={styles.switchRow}>
                   <View style={styles.grow}>

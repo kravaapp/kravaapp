@@ -9,6 +9,7 @@ export type PlanType = {
     maxClassesPerWeek: number | null;
     maxClassesPerDay: number | null;
     allowsAllModalidades: boolean;
+    isRecurring: boolean;
     isActive: boolean;
     modalidadeIds: string[] | null;
 }
@@ -22,6 +23,7 @@ export type AdminPlanType = {
     maxClassesPerWeek?: number | null;
     maxClassesPerDay?: number | null;
     allowsAllModalidades: boolean;
+    isRecurring: boolean;
     isActive: boolean;
     modalidadeIds?: string[] | null;
 }
@@ -34,6 +36,7 @@ export type CreateAdminPlanType = {
     maxClassesPerWeek?: number | null;
     maxClassesPerDay?: number | null;
     allowsAllModalidades: boolean;
+    isRecurring: boolean;
 }
 
 export type UpdateAdminPlanType = CreateAdminPlanType & { isActive: boolean };

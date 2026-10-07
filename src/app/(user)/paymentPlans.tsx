@@ -243,6 +243,12 @@ const PlanCard = ({
         </View>
         <View style={styles.featureItem}>
           <Check size={16} color={COLORS.mainOrange} style={styles.featureIcon} />
+          <Text style={styles.featureText}>
+            {plan.isRecurring ? "Débito automático no cartão (recorrente)" : "Pagamento avulso (sem renovação automática)"}
+          </Text>
+        </View>
+        <View style={styles.featureItem}>
+          <Check size={16} color={COLORS.mainOrange} style={styles.featureIcon} />
           <Text style={styles.featureText}>{plan.description}</Text>
         </View>
       </View>
