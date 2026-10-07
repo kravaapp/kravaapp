@@ -1,4 +1,6 @@
+import { useAuth } from "@/hooks/auth.hooks";
 import { useNotificationActions, useNotifications } from "@/hooks/notifications.hooks";
+import { USER_ROLES } from "@/types/auth.types";
 import { NotificationDto } from "@/types/notifications.types";
 import { router } from "expo-router";
 import {
@@ -89,6 +91,7 @@ function getTypeConfig(type: string): TypeStyleConfig {
 }
 
 export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps) => {
+  const { user } = useAuth();
   const { notifications, isLoading, isRefetching, refetch } = useNotifications();
   const { markAsRead, markAllAsRead, isMarkingAllRead } = useNotificationActions();
 
@@ -99,14 +102,87 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
 
     onClose();
 
+    let payloadData: Record<string, any> | null = null;
+    if (item.payload) {
+      try {
+        payloadData = typeof item.payload === "string" ? JSON.parse(item.payload) : item.payload;
+      } catch {
+        payloadData = null;
+      }
+    }
+
+    const role = user?.role;
+    const isAdmin = role === USER_ROLES.admin || role === "Admin";
+    const isTeacher =
+      role === USER_ROLES.professor ||
+      role === USER_ROLES.instructor ||
+      role === "Professor" ||
+      role === "Instrutor";
+
+    // 1. Visão do Administrador
+    if (isAdmin) {
+      if (item.type === "PaymentDue" || item.type === "PaymentConfirmed") {
+        router.push("/(admin)/financial");
+      } else if (
+        item.type === "WaitlistPromoted" ||
+        item.type === "BookingConfirmed" ||
+        item.type === "ClassCancelled"
+      ) {
+        router.push("/(admin)/classes");
+      } else if (item.type === "General" || item.type === "Reengagement") {
+        if (
+          payloadData?.type === "churn_risk" ||
+          item.title?.toLowerCase().includes("churn") ||
+          item.message?.toLowerCase().includes("churn")
+        ) {
+          router.push("/(admin)/churn");
+        } else if (
+          payloadData?.alunoId ||
+          item.title?.toLowerCase().includes("inadimpl") ||
+          item.message?.toLowerCase().includes("inadimpl")
+        ) {
+          router.push("/(admin)/students");
+        }
+      }
+      return;
+    }
+
+    // 2. Visão do Professor / Instrutor
+    if (isTeacher) {
+      if (
+        item.type === "WaitlistPromoted" ||
+        item.type === "BookingConfirmed" ||
+        item.type === "ClassCancelled"
+      ) {
+        router.push("/(teacher)/classes");
+      }
+      return;
+    }
+
+    // 3. Visão do Aluno (padrão)
     if (item.type === "PaymentDue" || item.type === "PaymentConfirmed") {
-      router.push("/payment");
+      const invoiceId = payloadData?.cobrancaId || payloadData?.invoiceId || payloadData?.id;
+      const isValidUuid =
+        typeof invoiceId === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId);
+
+      if (isValidUuid) {
+        router.push({
+          pathname: "/(user)/payment",
+          params: { id: invoiceId },
+        });
+      } else {
+        router.push("/(user)/pendingPayments");
+      }
     } else if (
       item.type === "WaitlistPromoted" ||
       item.type === "BookingConfirmed" ||
-      item.type === "ClassCancelled"
+      item.type === "ClassCancelled" ||
+      item.type === "Reengagement"
     ) {
       router.push("/schedule");
+    } else if (item.type === "ContractExpiring") {
+      router.push("/(user)/paymentPlans");
     }
   };
 

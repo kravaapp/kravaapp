@@ -1,4 +1,4 @@
-import { COLORS } from "@/components/ClientHeader";
+import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import MercadoPagoCard from "@/components/MercadoPagoCard";
 import { useToast } from "@/components/Toast";
@@ -242,25 +242,25 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom", "left", "right"]}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <ClientHeader />
       <KeyboardAvoider>
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.topRow}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              style={styles.back}
-              onPress={() => router.navigate("/(user)/pendingPayments")}
-              disabled={submitting}
-            >
-              <ArrowLeft size={18} color={COLORS.mainOrange} />
-              <Text style={styles.backText}>pendências</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>pagamento</Text>
-          </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.back}
+            onPress={() => router.navigate("/(user)/pendingPayments")}
+            disabled={submitting}
+          >
+            <ArrowLeft size={18} color={COLORS.mainOrange} />
+            <Text style={styles.backText}>Voltar às pendências</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>pagamento</Text>
+          <Text style={styles.subtitle}>Acompanhe e finalize sua cobrança.</Text>
           <View style={styles.flow}>
           {invoice && !paid && (result || canPayInvoice(invoice.status)) && (
             <>
@@ -488,6 +488,9 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                           customerDocument={cardCustomer.customerDocument}
                           onToken={onCardToken}
                           onError={showError}
+                          onFallbackToPix={() => {
+                            setMethod("Pix");
+                          }}
                         />
                       </>
                     ) : (
@@ -514,11 +517,11 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.white },
-  content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8, gap: 6 },
-  topRow: { minHeight: 36, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
-  back: { flexDirection: "row", gap: 6, alignItems: "center", minHeight: 36 },
+  content: { padding: 20, paddingBottom: 40, gap: 16 },
+  back: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", minHeight: 36 },
   backText: { color: COLORS.foreground, fontWeight: "700", fontSize: 13 },
-  title: { fontSize: 23, fontWeight: "800", letterSpacing: -0.7, color: COLORS.foreground },
+  title: { fontSize: 30, fontWeight: "800", letterSpacing: -1.2, color: COLORS.foreground, textTransform: "lowercase" },
+  subtitle: { color: COLORS.mutedForeground, fontSize: 14, lineHeight: 21, marginTop: -12, marginBottom: 6 },
   heading: { fontSize: 18, fontWeight: "800", letterSpacing: -0.5, color: COLORS.foreground },
   flow: { flexGrow: 1, justifyContent: "center", gap: 8 },
   summary: { minHeight: 104, paddingHorizontal: 18, paddingVertical: 12, justifyContent: "center", gap: 8, borderRadius: 18, backgroundColor: COLORS.mainOrange },

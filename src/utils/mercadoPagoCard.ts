@@ -7,12 +7,13 @@ export type MercadoPagoCardProps = {
   customerDocument: string;
   onToken: (fields: CardPaymentFields) => Promise<void>;
   onError: (message: string) => void;
+  onFallbackToPix?: () => void;
 };
 
 const scriptValue = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
 
 /** Apenas os campos protegidos do MP recebem número, validade e CVV. */
-export function createMercadoPagoCardHtml(props: Omit<MercadoPagoCardProps, "onToken" | "onError">) {
+export function createMercadoPagoCardHtml(props: Omit<MercadoPagoCardProps, "onToken" | "onError" | "onFallbackToPix">) {
   return `<!doctype html><html lang="pt-BR"><head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <style>
@@ -48,7 +49,13 @@ export function createMercadoPagoCardHtml(props: Omit<MercadoPagoCardProps, "onT
         const expiry=mp.fields.create('expirationDate',{placeholder:'MM/AA'}).mount('expiry');
         const security=mp.fields.create('securityCode',{placeholder:'CVV'}).mount('security');
         [number,expiry,security].forEach(function(field){
-          field.on('ready',function(){ready++;updateButton();});
+          field.on('ready',function(){
+            ready++;
+            updateButton();
+            if(ready>=3){
+              send({type:'card-ready'});
+            }
+          });
           field.on('error',function(){showError('Não foi possível carregar os campos do cartão. Reabra o formulário.');});
         });
         document.getElementById('brand').textContent='Informe os dados do cartão.';
