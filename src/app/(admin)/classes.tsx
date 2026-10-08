@@ -413,7 +413,7 @@ function NewClassModal({
   useEffect(() => {
     if (!visible) return;
     setModalidadeId("");
-    setProfessorId("");
+    setProfessorId(professors.length > 0 ? professors[0].userId : "");
     setName("");
     setDaysOfWeek([]);
     setStartTime("");
@@ -423,7 +423,13 @@ function NewClassModal({
     setMinLevel(null);
     setAllowTrial(true);
     setValidationMessage("");
-  }, [visible]);
+  }, [visible, professors]);
+
+  useEffect(() => {
+    if (visible && !professorId && professors.length > 0) {
+      setProfessorId(professors[0].userId);
+    }
+  }, [visible, professors, professorId]);
 
   useEffect(() => {
     setValidationMessage("");
@@ -509,10 +515,16 @@ function NewClassModal({
                     label="Professor"
                     options={professors.map((item) => ({
                       id: item.userId,
-                      label: item.name || item.email || "Professor",
+                      label:
+                        item.role === "Admin"
+                          ? `${item.name || item.email} (Admin)`
+                          : item.role === "Instrutor"
+                            ? `${item.name || item.email} (Instrutor)`
+                            : item.name || item.email || "Professor",
                     }))}
                     value={professorId}
                     onChange={setProfessorId}
+                    emptyMessage="Nenhum professor ou instrutor disponível no CT."
                   />
                   <Text style={styles.label}>Nome da aula (opcional)</Text>
                   <TextInput
@@ -735,10 +747,16 @@ function EditClassModal({
                     label="Professor"
                     options={professors.map((option) => ({
                       id: option.userId,
-                      label: option.name || option.email || "Professor",
+                      label:
+                        option.role === "Admin"
+                          ? `${option.name || option.email} (Admin)`
+                          : option.role === "Instrutor"
+                            ? `${option.name || option.email} (Instrutor)`
+                            : option.name || option.email || "Professor",
                     }))}
                     value={professorId}
                     onChange={setProfessorId}
+                    emptyMessage="Nenhum professor ou instrutor disponível no CT."
                   />
                   <Text style={styles.label}>Nome da aula (opcional)</Text>
                   <TextInput value={name} onChangeText={setName} style={styles.input} />
@@ -814,25 +832,31 @@ function OptionField({
   options,
   value,
   onChange,
+  emptyMessage,
 }: {
   label: string;
   options: { id: string; label: string }[];
   value: string;
   onChange: (id: string) => void;
+  emptyMessage?: string;
 }) {
   return (
     <View>
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.options}>
-        {options.map((item) => (
-          <Option
-            key={item.id}
-            label={item.label}
-            active={value === item.id}
-            onPress={() => onChange(item.id)}
-          />
-        ))}
-      </View>
+      {options.length === 0 ? (
+        <Text style={styles.muted}>{emptyMessage || "Nenhuma opção disponível."}</Text>
+      ) : (
+        <View style={styles.options}>
+          {options.map((item) => (
+            <Option
+              key={item.id}
+              label={item.label}
+              active={value === item.id}
+              onPress={() => onChange(item.id)}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 }

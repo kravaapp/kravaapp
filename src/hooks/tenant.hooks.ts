@@ -65,3 +65,38 @@ export function useUploadTenantImage() {
 
   return { uploadImage: upload.mutateAsync, isUploading: upload.isPending };
 }
+
+export function useCtInvitations(role?: string) {
+  const query = useQuery({
+    queryKey: ["tenant-invitations", role ?? "all"],
+    queryFn: () => new TenantRoutes().getInvitations(role),
+  });
+
+  return {
+    invitations: query.data ?? [],
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+    error: query.error
+      ? (query.error as any).data?.detail ||
+        query.error.message ||
+        "Erro ao buscar convites"
+      : null,
+  };
+}
+
+export function useCancelCtInvitation() {
+  const client = useQueryClient();
+  const cancel = useMutation({
+    mutationFn: (id: string) => new TenantRoutes().cancelInvitation(id),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["tenant-invitations"] });
+      client.invalidateQueries({ queryKey: ["professors"] });
+    },
+  });
+
+  return {
+    cancelInvitation: cancel.mutateAsync,
+    isCancelling: cancel.isPending,
+  };
+}
+

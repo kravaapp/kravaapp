@@ -23,6 +23,8 @@ import { usePlans } from "@/hooks/plans.hooks";
 import { useProfessors } from "@/hooks/schedule.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import {
+  useCancelCtInvitation,
+  useCtInvitations,
   useJoinRequestActions,
   usePendingJoinRequests,
 } from "@/hooks/tenant.hooks";
@@ -99,7 +101,12 @@ const tone = (value?: string | null) =>
 
 export default function AdminStudents() {
   const [section, setSection] = useState<"students" | "teachers" | "requests">("students");
-  const refresh = useScreenRefresh([["alunos"], ["professors", "active"], ["tenant-join-requests"]]);
+  const refresh = useScreenRefresh([
+    ["alunos"],
+    ["professors", "active"],
+    ["tenant-join-requests"],
+    ["tenant-invitations"],
+  ]);
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState("");
   const [status, setStatus] = useState("");
@@ -114,6 +121,7 @@ export default function AdminStudents() {
   const [inviting, setInviting] = useState(false);
   const [teacherSearch, setTeacherSearch] = useState("");
   const [invitingTeacher, setInvitingTeacher] = useState(false);
+  const [cancellingInvitationId, setCancellingInvitationId] = useState<string | null>(null);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(
     null,
   );
@@ -125,6 +133,13 @@ export default function AdminStudents() {
     error: professorsError,
     refetch: refetchProfessors,
   } = useProfessors();
+  const {
+    invitations: teacherInvitations,
+    isLoading: teacherInvitationsLoading,
+    error: teacherInvitationsError,
+    refetch: refetchTeacherInvitations,
+  } = useCtInvitations("Professor");
+  const { cancelInvitation } = useCancelCtInvitation();
   const {
     requests: joinRequests,
     isLoading: joinRequestsLoading,
@@ -158,6 +173,30 @@ export default function AdminStudents() {
         (p.email?.toLowerCase().includes(term) ?? false)
     );
   }, [professors, teacherSearch]);
+
+  const filteredTeacherInvitations = useMemo(() => {
+    if (!teacherSearch.trim()) return teacherInvitations;
+    const term = teacherSearch.toLowerCase();
+    return teacherInvitations.filter(
+      (inv) => inv.email?.toLowerCase().includes(term) ?? false
+    );
+  }, [teacherInvitations, teacherSearch]);
+
+  const handleCancelInvitation = async (id: string) => {
+    setCancellingInvitationId(id);
+    try {
+      await cancelInvitation(id);
+      toast({ title: "Convite cancelado com sucesso." });
+      refetchTeacherInvitations();
+    } catch {
+      toast({
+        title: "Não foi possível cancelar o convite.",
+        variant: "destructive",
+      });
+    } finally {
+      setCancellingInvitationId(null);
+    }
+  };
 
   const openFilters = () => {
     setDraftStatus(status);
@@ -326,12 +365,16 @@ export default function AdminStudents() {
                 onPress={() => setInvitingTeacher(true)}
               />
             </View>
-            {professorsError ? <Text style={styles.error}>{professorsError}</Text> : null}
-            {professorsLoading ? (
+            {professorsError || teacherInvitationsError ? (
+              <Text style={styles.error}>
+                {professorsError || teacherInvitationsError}
+              </Text>
+            ) : null}
+            {professorsLoading || teacherInvitationsLoading ? (
               Array.from({ length: 4 }).map((_, index) => (
                 <AdminSkeleton key={index} height={92} radius={8} />
               ))
-            ) : filteredProfessors.length === 0 ? (
+            ) : filteredProfessors.length === 0 && filteredTeacherInvitations.length === 0 ? (
               <AdminCard>
                 <Text style={styles.empty}>
                   {teacherSearch
@@ -340,26 +383,73 @@ export default function AdminStudents() {
                 </Text>
               </AdminCard>
             ) : (
-              filteredProfessors.map((teacher) => (
-                <AdminCard key={teacher.userId} style={styles.studentCard}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {initials(teacher.name || teacher.email || "Professor")}
-                    </Text>
-                  </View>
-                  <View style={styles.grow}>
-                    <Text style={styles.name}>
-                      {teacher.name || "Professor sem nome"}
-                    </Text>
-                    <Text style={styles.secondary}>
-                      {teacher.email || "Sem e-mail"}
-                    </Text>
-                    <View style={styles.pills}>
-                      <Pill label={teacher.role || "Professor"} tone="primary" />
+              <>
+                {filteredTeacherInvitations.map((invitation) => {
+                  const cancelling = cancellingInvitationId === invitation.id;
+                  return (
+                    <AdminCard key={invitation.id} style={styles.studentCard}>
+                      <View style={[styles.avatar, { backgroundColor: "#FEF3C7" }]}>
+                        <Text style={[styles.avatarText, { color: "#D97706" }]}>
+                          {initials(invitation.email || "P")}
+                        </Text>
+                      </View>
+                      <View style={styles.grow}>
+                        <Text style={styles.name}>{invitation.email}</Text>
+                        <Text style={styles.secondary}>
+                          Convite enviado em{" "}
+                          {new Date(invitation.createdAtUtc).toLocaleDateString(
+                            "pt-BR",
+                          )}
+                        </Text>
+                        <View style={styles.pills}>
+                          <Pill label="Convite Pendente" tone="warning" />
+                          <Pill label={invitation.role || "Professor"} tone="neutral" />
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleCancelInvitation(invitation.id)}
+                        disabled={cancelling}
+                        style={[
+                          styles.rejectButton,
+                          cancelling && styles.disabled,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Cancelar convite"
+                      >
+                        <X size={14} color={COLORS.destructive} />
+                        <Text style={styles.rejectButtonText}>
+                          {cancelling ? "Cancelando..." : "Cancelar"}
+                        </Text>
+                      </TouchableOpacity>
+                    </AdminCard>
+                  );
+                })}
+
+                {filteredProfessors.map((teacher) => (
+                  <AdminCard key={teacher.userId} style={styles.studentCard}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>
+                        {initials(teacher.name || teacher.email || "Professor")}
+                      </Text>
                     </View>
-                  </View>
-                </AdminCard>
-              ))
+                    <View style={styles.grow}>
+                      <Text style={styles.name}>
+                        {teacher.name || "Professor sem nome"}
+                      </Text>
+                      <Text style={styles.secondary}>
+                        {teacher.email || "Sem e-mail"}
+                      </Text>
+                      <View style={styles.pills}>
+                        <Pill
+                          label={teacher.role || "Professor"}
+                          tone={teacher.role === "Admin" ? "warning" : "primary"}
+                        />
+                        <Pill label="Ativo" tone="success" />
+                      </View>
+                    </View>
+                  </AdminCard>
+                ))}
+              </>
             )}
           </View>
           ) : (
@@ -487,7 +577,10 @@ export default function AdminStudents() {
         visible={invitingTeacher}
         onClose={() => setInvitingTeacher(false)}
         role="Professor"
-        onSuccess={() => refetchProfessors()}
+        onSuccess={() => {
+          refetchProfessors();
+          refetchTeacherInvitations();
+        }}
       />
       <Modal
         visible={filtersOpen}

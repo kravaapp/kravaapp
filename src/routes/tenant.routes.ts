@@ -1,4 +1,7 @@
-import { PendingJoinRequestType } from "@/types/tenant.types";
+import {
+  CtInvitationSummaryType,
+  PendingJoinRequestType,
+} from "@/types/tenant.types";
 import {
   ImageUploadCategoryType,
   PickedImageType,
@@ -38,5 +41,14 @@ export class TenantRoutes {
 
   async rejectJoinRequest(id: string) {
     await api.post(`/tenant/join-requests/${id}/reject`);
+  }
+
+  async getInvitations(role?: string) {
+    const searchParams = role ? { role } : undefined;
+    return api.get("/tenant/invitations", { searchParams }).json<CtInvitationSummaryType[]>();
+  }
+
+  async cancelInvitation(id: string) {
+    await api.delete(`/tenant/invitations/${id}`);
   }
 }

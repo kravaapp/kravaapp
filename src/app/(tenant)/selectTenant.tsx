@@ -83,9 +83,7 @@ export default function SelectTenant() {
     selectTenantState?.currentToken?.role,
     ...(selectTenantState?.availableTenants.map((tenant) => tenant.role) ?? []),
   ];
-  const canViewInvitations = !roles.some((role) =>
-    ["Admin", "Professor", "Instrutor"].includes(role ?? ""),
-  );
+  const canViewInvitations = true;
   const {
     invitations,
     isLoading: invitationsLoading,
