@@ -28,4 +28,10 @@ export class NotificationsRoutes {
   async markAllAsRead(): Promise<void> {
     await api.patch("/notifications/read-all");
   }
+
+  async registerDeviceToken(token: string, platform: "ios" | "android" | "web"): Promise<void> {
+    await api.post("/notifications/device-token", {
+      json: { token, platform },
+    });
+  }
 }

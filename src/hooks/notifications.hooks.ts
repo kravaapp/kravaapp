@@ -74,3 +74,21 @@ export function useNotificationActions() {
     isMarkingAllRead: markAllRead.isPending,
   };
 }
+
+export function useRegisterDeviceToken() {
+  const mutation = useMutation({
+    mutationFn: ({
+      token,
+      platform,
+    }: {
+      token: string;
+      platform: "ios" | "android" | "web";
+    }) => routes.registerDeviceToken(token, platform),
+  });
+
+  return {
+    registerDeviceToken: mutation.mutateAsync,
+    isRegistering: mutation.isPending,
+  };
+}
+

@@ -10,12 +10,32 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "br.com.krava.app",
+      "associatedDomains": [
+        "applinks:kravaapp.com.br"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "br.com.krava.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "kravaapp.com.br",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E85C07",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
