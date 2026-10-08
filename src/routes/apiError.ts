@@ -20,6 +20,10 @@ const FRIENDLY_BY_CODE: Record<string, string> = {
   "Auth.WeakPassword": "A senha deve ter pelo menos 8 caracteres, uma letra maiúscula, uma letra minúscula e um número.",
   "Auth.InvalidOrExpiredResetCode": "Código de recuperação de senha inválido ou expirado. Solicite um novo código.",
   "Auth.InvalidOrExpiredConfirmationCode": "Código de confirmação inválido ou expirado. Solicite um novo código.",
+  "Auth.ProfessorHasActiveClasses": "Este professor possui turmas ativas ou aulas agendadas na grade. Reatribua as aulas antes de desvinculá-lo.",
+  "Auth.CannotRemoveLastAdmin": "Não é possível desvincular o único administrador ativo do CT.",
+  "Auth.CannotRemoveSelf": "Você não pode desvincular seu próprio usuário.",
+  "Membership.CannotRemoveSelf": "Você não pode desvincular sua própria conta.",
 };
 
 const FRIENDLY_BY_STATUS: Record<number, string> = {

@@ -124,6 +124,22 @@ export function useProfessors() {
     };
 }
 
+export function useRemoveProfessor() {
+    const queryClient = useQueryClient();
+    const mutation = useMutation({
+        mutationFn: (userId: string) => new ScheduleRoutes().deleteProfessor(userId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["professors"] });
+        },
+    });
+
+    return {
+        removeProfessor: mutation.mutateAsync,
+        isRemoving: mutation.isPending,
+        error: mutation.error,
+    };
+}
+
 export function useCreateAula() {
     const queryClient = useQueryClient();
     const mutation = useMutation({

@@ -1,6 +1,6 @@
 import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,7 +22,9 @@ import {
   HelpCircle,
   MessageCircle,
   PhoneCall,
+  RotateCcw,
   Search,
+  Settings as SettingsIcon,
   TrendingDown,
   X,
 } from "lucide-react-native";
@@ -35,7 +37,24 @@ import {
   AdminSkeleton,
 } from "@/components/admin/AdminUi";
 import { useChurnRiskActions, useStudentsAtRisk } from "@/hooks/dashboard.hooks";
+import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
 import { StudentAtRiskType } from "@/types/dashboard.types";
+
+export const DEFAULT_CHURN_MESSAGE =
+  "Olá, {nome}! Tudo bem? 🥊\n\nSentimos sua falta nos treinos do {ct} essa semana! Queremos muito te ver de volta aos treinos. Vamos marcar uma aula para você retomar o ritmo?";
+
+export function formatChurnReengageMessage(
+  template: string | null | undefined,
+  studentName: string,
+  ctName: string,
+): string {
+  const firstName = studentName.split(" ")[0] || "Aluno";
+  const base = template && template.trim().length > 0 ? template : DEFAULT_CHURN_MESSAGE;
+  return base
+    .replace(/\{nome\}/gi, firstName)
+    .replace(/\{aluno\}/gi, firstName)
+    .replace(/\{ct\}/gi, ctName);
+}
 
 const CONTACT_OUTCOMES = [
   "Prometeu voltar essa semana",
@@ -51,6 +70,8 @@ export default function AdminChurnRiskScreen() {
   const { studentsAtRisk, isLoading } = useStudentsAtRisk();
   const { markStudentContacted, isLoading: isSavingContact } =
     useChurnRiskActions();
+  const { tenantSettings } = useAdminSettings();
+  const { updateTenant, isUpdatingTenant } = useSettingsActions();
 
   // Estados de filtro e busca
   const [filterLevel, setFilterLevel] = useState<
@@ -58,8 +79,45 @@ export default function AdminChurnRiskScreen() {
   >("todos");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Modal de ajuda heurística
+  // Modal de ajuda heurística e configuração de mensagem
   const [showFormulaModal, setShowFormulaModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [reengageTemplate, setReengageTemplate] = useState("");
+
+  useEffect(() => {
+    if (tenantSettings) {
+      setReengageTemplate(
+        tenantSettings.churnReengageMessage || DEFAULT_CHURN_MESSAGE,
+      );
+    }
+  }, [tenantSettings]);
+
+  const handleSaveReengageTemplate = async () => {
+    if (!tenantSettings) return;
+    try {
+      await updateTenant({
+        name: tenantSettings.name,
+        slug: tenantSettings.slug,
+        logoUrl: tenantSettings.logoUrl,
+        address: tenantSettings.address,
+        contact: tenantSettings.contact,
+        gympassRepasse: tenantSettings.gympassRepasse,
+        totalpassRepasse: tenantSettings.totalpassRepasse,
+        waitlistTimeoutMinutes: tenantSettings.waitlistTimeoutMinutes,
+        cancellationTimeoutMinutes: tenantSettings.cancellationTimeoutMinutes,
+        noShowPenaltyFee: tenantSettings.noShowPenaltyFee,
+        partnerCheckInLimit: tenantSettings.partnerCheckInLimit,
+        churnReengageMessage: reengageTemplate.trim(),
+      });
+      setShowSettingsModal(false);
+      toast({ title: "Mensagem de reengajamento atualizada!" });
+    } catch {
+      toast({
+        title: "Não foi possível salvar a mensagem.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Modal de registro de contato
   const [selectedStudentForContact, setSelectedStudentForContact] =
@@ -110,9 +168,13 @@ export default function AdminChurnRiskScreen() {
   // Ação de Reengajamento (WhatsApp)
   const handleReengage = async (student: StudentAtRiskType) => {
     const studentName = student.alunoName || "Aluno";
-    const firstName = studentName.split(" ")[0];
+    const ctName = tenantSettings?.name || "nosso CT";
 
-    const message = `Olá, ${firstName}! Tudo bem? 🥊\n\nSentimos sua falta nos treinos da Krava essa semana! Queremos muito te ver de volta no tatame. Vamos marcar uma aula para você retomar o ritmo?`;
+    const message = formatChurnReengageMessage(
+      tenantSettings?.churnReengageMessage,
+      studentName,
+      ctName,
+    );
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `whatsapp://send?text=${encodedMessage}`;
     const webWhatsappUrl = `https://wa.me/?text=${encodedMessage}`;
@@ -220,14 +282,25 @@ export default function AdminChurnRiskScreen() {
               />
             </View>
 
-            <TouchableOpacity
-              onPress={() => setShowFormulaModal(true)}
-              style={styles.helpBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Como o score é calculado"
-            >
-              <HelpCircle size={18} color={COLORS.mainOrange} />
-            </TouchableOpacity>
+            <View style={styles.headerActionBtns}>
+              <TouchableOpacity
+                onPress={() => setShowSettingsModal(true)}
+                style={styles.helpBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Configurar mensagem de reengajamento"
+              >
+                <SettingsIcon size={18} color={COLORS.mainOrange} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowFormulaModal(true)}
+                style={styles.helpBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Como o score é calculado"
+              >
+                <HelpCircle size={18} color={COLORS.mainOrange} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Cards de Resumo e Filtro Rápido */}
@@ -621,6 +694,93 @@ export default function AdminChurnRiskScreen() {
                   <>
                     <Check size={16} color="#FFFFFF" />
                     <Text style={styles.modalSaveBtnText}>Salvar Registro</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Configuração da Mensagem de Reengajamento */}
+      <Modal
+        visible={showSettingsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSettingsModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.contactModalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Mensagem de Reengajamento</Text>
+                <Text style={styles.modalSubtitle}>
+                  Personalize o texto do WhatsApp para recuperar alunos
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowSettingsModal(false)}
+                style={styles.modalCloseBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar"
+              >
+                <X size={18} color={COLORS.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.hintBox}>
+              <Text style={styles.hintTitle}>Variáveis suportadas:</Text>
+              <Text style={styles.hintText}>
+                {"• {nome}: Primeiro nome do aluno\n• {ct}: Nome do Centro de Treinamento"}
+              </Text>
+            </View>
+
+            <TextInput
+              value={reengageTemplate}
+              onChangeText={setReengageTemplate}
+              placeholder="Digite o modelo da mensagem..."
+              placeholderTextColor={COLORS.grayLabels}
+              style={[styles.noteInput, { minHeight: 110, textAlignVertical: "top" }]}
+              multiline
+            />
+
+            <Text style={[styles.contactSectionLabel, { marginTop: 4, marginBottom: 6 }]}>
+              Pré-visualização do texto:
+            </Text>
+            <View style={styles.previewBubble}>
+              <Text style={styles.previewText}>
+                {formatChurnReengageMessage(
+                  reengageTemplate,
+                  "Gabriel",
+                  tenantSettings?.name || "Z10",
+                )}
+              </Text>
+            </View>
+
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={styles.modalResetBtn}
+                onPress={() => setReengageTemplate(DEFAULT_CHURN_MESSAGE)}
+                accessibilityRole="button"
+                accessibilityLabel="Restaurar padrão"
+              >
+                <RotateCcw size={14} color={COLORS.foreground} />
+                <Text style={styles.modalResetBtnText}>Restaurar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalSaveBtn}
+                onPress={handleSaveReengageTemplate}
+                disabled={isUpdatingTenant}
+                accessibilityRole="button"
+                accessibilityLabel="Salvar modelo"
+              >
+                {isUpdatingTenant ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Check size={16} color="#FFFFFF" />
+                    <Text style={styles.modalSaveBtnText}>Salvar Modelo</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1072,5 +1232,57 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  headerActionBtns: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  hintBox: {
+    backgroundColor: "#F1F5F9",
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
+  hintTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.foreground,
+    marginBottom: 4,
+  },
+  hintText: {
+    fontSize: 12,
+    color: COLORS.mutedForeground,
+    lineHeight: 18,
+  },
+  previewBubble: {
+    backgroundColor: "#DCF8C6",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#C6E8B0",
+  },
+  previewText: {
+    fontSize: 13,
+    color: "#0F5132",
+    lineHeight: 19,
+  },
+  modalResetBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: "#F8FAFC",
+  },
+  modalResetBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.foreground,
   },
 });

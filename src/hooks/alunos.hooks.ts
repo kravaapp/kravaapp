@@ -65,5 +65,12 @@ export function useAlunoActions() {
     const level = useMutation({ mutationFn: ({ id, value }: { id: string; value: string | null }) => new AlunosRoutes().updateLevel(id, value), onSuccess: (_, values) => refresh(values.id) });
     const status = useMutation({ mutationFn: ({ id, value }: { id: string; value: string | null }) => new AlunosRoutes().updateStatus(id, value), onSuccess: (_, values) => refresh(values.id) });
     const payments = useMutation({ mutationFn: ({ id, data }: { id: string; data: UpdateAlunoPaymentMethodsType }) => new AlunosRoutes().updatePaymentMethods(id, data), onSuccess: (_, values) => refresh(values.id) });
-    return { createAluno: create.mutateAsync, updateAluno: update.mutateAsync, updateLevel: level.mutateAsync, updateStatus: status.mutateAsync, updatePaymentMethods: payments.mutateAsync, isSaving: create.isPending || update.isPending || level.isPending || status.isPending || payments.isPending };
+    const remove = useMutation({
+        mutationFn: (id: string) => new AlunosRoutes().deleteAluno(id),
+        onSuccess: (_, id) => {
+            refresh(id);
+            client.removeQueries({ queryKey: ["aluno", id] });
+        },
+    });
+    return { createAluno: create.mutateAsync, updateAluno: update.mutateAsync, updateLevel: level.mutateAsync, updateStatus: status.mutateAsync, updatePaymentMethods: payments.mutateAsync, deleteAluno: remove.mutateAsync, isDeleting: remove.isPending, isSaving: create.isPending || update.isPending || level.isPending || status.isPending || payments.isPending };
 }

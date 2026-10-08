@@ -20,7 +20,7 @@ import {
 import { useCreateInvitation } from "@/hooks/auth.hooks";
 import { useCreateContract } from "@/hooks/contracts.hooks";
 import { usePlans } from "@/hooks/plans.hooks";
-import { useProfessors } from "@/hooks/schedule.hooks";
+import { useProfessors, useRemoveProfessor } from "@/hooks/schedule.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import {
   useCancelCtInvitation,
@@ -45,10 +45,13 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -140,6 +143,41 @@ export default function AdminStudents() {
     refetch: refetchTeacherInvitations,
   } = useCtInvitations("Professor");
   const { cancelInvitation } = useCancelCtInvitation();
+  const { removeProfessor } = useRemoveProfessor();
+  const [removingTeacherId, setRemovingTeacherId] = useState<string | null>(null);
+
+  const handleDeleteTeacher = (teacher: (typeof professors)[number]) => {
+    Alert.alert(
+      "Desvincular professor",
+      `Deseja desvincular o professor "${teacher.name || teacher.email}" deste Centro de Treinamento?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sim, desvincular",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setRemovingTeacherId(teacher.userId);
+              await removeProfessor(teacher.userId);
+              toast({ title: "Professor desvinculado com sucesso!" });
+            } catch (err) {
+              const errInfo = normalizeApiError(
+                err,
+                "Não foi possível desvincular o professor.",
+              );
+              toast({
+                title: "Não foi possível desvincular o professor",
+                description: errInfo.description,
+                variant: "destructive",
+              });
+            } finally {
+              setRemovingTeacherId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
   const {
     requests: joinRequests,
     isLoading: joinRequestsLoading,
@@ -447,6 +485,22 @@ export default function AdminStudents() {
                         <Pill label="Ativo" tone="success" />
                       </View>
                     </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.deleteTeacherButton,
+                        removingTeacherId !== null && styles.disabled,
+                      ]}
+                      onPress={() => handleDeleteTeacher(teacher)}
+                      disabled={removingTeacherId !== null}
+                      accessibilityRole="button"
+                      accessibilityLabel="Desvincular professor"
+                    >
+                      {removingTeacherId === teacher.userId ? (
+                        <ActivityIndicator size="small" color={COLORS.destructive} />
+                      ) : (
+                        <Trash2 size={18} color={COLORS.destructive} />
+                      )}
+                    </TouchableOpacity>
                   </AdminCard>
                 ))}
               </>
@@ -696,6 +750,8 @@ function StudentModal({
     updateLevel,
     updateStatus,
     updatePaymentMethods,
+    deleteAluno,
+    isDeleting,
     isSaving,
   } = useAlunoActions();
   const { plans, isLoading: plansLoading } = usePlans();
@@ -820,6 +876,39 @@ function StudentModal({
       });
     }
   };
+
+  const handleDeleteAluno = () => {
+    if (!id || !aluno) return;
+    Alert.alert(
+      "Desvincular aluno do CT",
+      `Tem certeza que deseja desvincular ${aluno.userName || "este aluno"} do CT?\n\nIsso cancelará o contrato ativo e assinaturas recorrentes associadas, além de liberar reservas futuras.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sim, desvincular",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAluno(id);
+              toast({ title: "Aluno desvinculado com sucesso." });
+              onClose();
+            } catch (error) {
+              const errInfo = normalizeApiError(
+                error,
+                "Não foi possível desvincular o aluno.",
+              );
+              toast({
+                title: "Não foi possível desvincular o aluno",
+                description: errInfo.description,
+                variant: "destructive",
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Modal
       visible={!!id}
@@ -1066,6 +1155,27 @@ function StudentModal({
                     </View>
                   ))
                 )}
+                <View style={styles.dangerZone}>
+                  <Text style={styles.dangerZoneTitle}>Zona de perigo</Text>
+                  <Text style={styles.dangerZoneDescription}>
+                    Desvincular o aluno removerá seu acesso a este CT, cancelará contratos ativos e assinaturas no gateway, além de liberar futuras reservas.
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.deleteStudentButton,
+                      isDeleting && styles.disabled,
+                    ]}
+                    onPress={handleDeleteAluno}
+                    disabled={isDeleting}
+                    accessibilityRole="button"
+                    accessibilityLabel="Desvincular aluno do CT"
+                  >
+                    <Trash2 size={16} color={COLORS.destructive} />
+                    <Text style={styles.deleteStudentButtonText}>
+                      {isDeleting ? "Desvinculando..." : "Desvincular aluno do CT"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </>
             )}
           </RefreshableScrollView>
@@ -1550,6 +1660,49 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7F8FA",
     borderRadius: 8,
   },
+  deleteTeacherButton: {
+    padding: 8,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dangerZone: {
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#fee2e2",
+    backgroundColor: "#fef2f2",
+    gap: 8,
+  },
+  dangerZoneTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.destructive,
+  },
+  dangerZoneDescription: {
+    fontSize: 12,
+    color: COLORS.mutedForeground,
+    lineHeight: 18,
+  },
+  deleteStudentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.destructive,
+    backgroundColor: "#fff",
+  },
+  deleteStudentButtonText: {
+    color: COLORS.destructive,
+    fontSize: 13,
+    fontWeight: "600",
+  },
 });
 
 /* Plano e modalidades não possuem escrita nas rotas de alunos. */
+

@@ -1,0 +1,39 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "<APPLE_TEAM_ID>.br.com.krava.app",
+        "paths": [
+          "/invite*",
+          "/reset-password*",
+          "/confirm-email*",
+          "*"
+        ],
+        "components": [
+          {
+            "/": "/invite*",
+            "comment": "Links de convite para CT e Professores"
+          },
+          {
+            "/": "/reset-password*",
+            "comment": "Links de redefinição de senha"
+          },
+          {
+            "/": "/confirm-email*",
+            "comment": "Links de confirmação de e-mail"
+          },
+          {
+            "/": "/*",
+            "comment": "Fallback para todas as demais rotas públicas do Krava"
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "<APPLE_TEAM_ID>.br.com.krava.app"
+    ]
+  }
+}

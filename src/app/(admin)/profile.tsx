@@ -53,23 +53,40 @@ export default function AdminProfile() {
 
   useEffect(() => {
     if (catalogProfile && !profileDirty.current) {
+      const rawModalities = catalogProfile.modalities || [];
+      const sanitized =
+        categories && categories.length > 0
+          ? rawModalities.filter((m) =>
+              categories.some((cat) => cat.isActive && cat.name === m),
+            )
+          : rawModalities;
+
       setProfileState({
         showInCatalog: catalogProfile.showInCatalog ?? true,
         description: catalogProfile.description || "",
         bannerUrl: catalogProfile.bannerUrl || null,
-        modalities: catalogProfile.modalities || [],
+        modalities: sanitized,
       });
     }
-  }, [catalogProfile]);
+  }, [catalogProfile, categories]);
 
   const saveProfile = async () => {
     try {
+      const activeNames = new Set(
+        (categories ?? []).filter((item) => item.isActive).map((item) => item.name),
+      );
+      // Mantém apenas as modalidades que realmente existem e estão ativas no CT
+      const sanitizedModalities = (categories && categories.length > 0)
+        ? profile.modalities.filter((name) => activeNames.has(name))
+        : profile.modalities;
+
       await updateCatalogProfile({
         showInCatalog: profile.showInCatalog,
         description: profile.description.trim() || null,
         bannerUrl: profile.bannerUrl || null,
-        modalities: profile.modalities,
+        modalities: sanitizedModalities,
       });
+      setProfileState((prev) => ({ ...prev, modalities: sanitizedModalities }));
       profileDirty.current = false;
       toast({ title: "Perfil do CT atualizado com sucesso!" });
     } catch (err) {

@@ -143,6 +143,7 @@ export default function AdminSettings() {
         cancellationTimeoutMinutes,
         noShowPenaltyFee,
         partnerCheckInLimit,
+        churnReengageMessage: tenantSettings.churnReengageMessage,
       });
       setTenantEditing(null);
       toast({ title: "Políticas do CT atualizadas!" });

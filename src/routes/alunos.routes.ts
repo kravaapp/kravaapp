@@ -35,4 +35,7 @@ export class AlunosRoutes {
     async getHistory(id: string) {
         return api.get(`/membership/alunos/${id}/history`).json<AlunoHistoryType>();
     }
+    async deleteAluno(id: string) {
+        await api.delete(`/membership/alunos/${id}`);
+    }
 }

@@ -33,6 +33,10 @@ export class ScheduleRoutes {
         return await api.get("/tenant/professors").json<ProfessorType[]>();
     }
 
+    async deleteProfessor(userId: string) {
+        await api.delete(`/tenant/professors/${userId}`);
+    }
+
     async createAula(params: CreateAulaType) {
         // A tela recarrega a grade após sucesso; não depende do formato do lote retornado.
         await api.post("/scheduling/aulas", { json: params });
