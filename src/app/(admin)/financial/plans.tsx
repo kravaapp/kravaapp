@@ -29,7 +29,6 @@ import {
   ChevronLeft,
   ChevronRight,
   DollarSign,
-  Pencil,
   Plus,
   X,
 } from "lucide-react-native";
@@ -60,11 +59,15 @@ export default function AdminPlans() {
   const { data, plans, isLoading, error } = useAdminPlans(page);
   const { avulsoConfigs, loading: loadingSettings } = useAdminSettings();
   const { updateAvulso, isUpdatingAvulso } = useSettingsActions();
-  const [editingAvulso, setEditingAvulso] = useState<string | null>(null);
-  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [editingAvulsoModal, setEditingAvulsoModal] =
+    useState<AvulsoConfigType | null>(null);
 
-  const saveAvulso = async (item: AvulsoConfigType, active = item.active) => {
-    const price = parseCurrency(prices[item.modalidadeId] ?? "");
+  const saveAvulso = async (
+    item: AvulsoConfigType,
+    active = item.active,
+    newPrice?: number,
+  ) => {
+    const price = newPrice !== undefined ? newPrice : item.price;
     if (!Number.isFinite(price) || price < 0) {
       toast({ title: "Informe um preço válido.", variant: "destructive" });
       return;
@@ -74,7 +77,7 @@ export default function AdminPlans() {
         modalidadeId: item.modalidadeId,
         config: { price, active },
       });
-      setEditingAvulso(null);
+      setEditingAvulsoModal(null);
       toast({ title: "Aula avulsa atualizada com sucesso!" });
     } catch {
       toast({
@@ -121,47 +124,50 @@ export default function AdminPlans() {
           ) : (
             plans.map((plan) => (
               <AdminCard key={plan.id} style={styles.planCard}>
-                <View style={styles.header}>
-                  <View style={styles.grow}>
-                    <Text style={styles.planName}>
-                      {plan.name || "Plano sem nome"}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setEditing(plan)}
+                  style={styles.cardContent}
+                >
+                  <View style={styles.header}>
+                    <View style={styles.grow}>
+                      <Text style={styles.planName}>
+                        {plan.name || "Plano sem nome"}
+                      </Text>
+                      <Text style={styles.price}>
+                        {currency(plan.price ?? 0)}
+                      </Text>
+                    </View>
+                    <View style={styles.headerRight}>
+                      <Pill
+                        label={plan.isActive ? "Ativo" : "Inativo"}
+                        tone={plan.isActive ? "success" : "neutral"}
+                      />
+                      <ChevronRight size={18} color={COLORS.mutedForeground} />
+                    </View>
+                  </View>
+                  <Text style={styles.description}>
+                    {plan.description || "Sem descrição"}
+                  </Text>
+                  <View style={styles.meta}>
+                    <Text style={styles.metaText}>{plan.durationDays} dias</Text>
+                    <Text style={styles.metaText}>
+                      {plan.maxClassesPerWeek
+                        ? `${plan.maxClassesPerWeek}/semana`
+                        : "Sem limite semanal"}
                     </Text>
-                    <Text style={styles.price}>
-                      {currency(plan.price ?? 0)}
+                    <Text style={styles.metaText}>
+                      {plan.maxClassesPerDay
+                        ? `${plan.maxClassesPerDay}/dia`
+                        : "Sem limite diário"}
+                    </Text>
+                    <Text style={styles.metaText}>
+                      {plan.allowsAllModalidades
+                        ? "Todas as modalidades"
+                        : `${plan.modalidadeIds?.length ?? 0} modalidade(s)`}
                     </Text>
                   </View>
-                  <Pill
-                    label={plan.isActive ? "Ativo" : "Inativo"}
-                    tone={plan.isActive ? "success" : "neutral"}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setEditing(plan)}
-                    style={styles.iconButton}
-                  >
-                    <Pencil size={17} color={COLORS.foreground} />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.description}>
-                  {plan.description || "Sem descrição"}
-                </Text>
-                <View style={styles.meta}>
-                  <Text style={styles.metaText}>{plan.durationDays} dias</Text>
-                  <Text style={styles.metaText}>
-                    {plan.maxClassesPerWeek
-                      ? `${plan.maxClassesPerWeek}/semana`
-                      : "Sem limite semanal"}
-                  </Text>
-                  <Text style={styles.metaText}>
-                    {plan.maxClassesPerDay
-                      ? `${plan.maxClassesPerDay}/dia`
-                      : "Sem limite diário"}
-                  </Text>
-                  <Text style={styles.metaText}>
-                    {plan.allowsAllModalidades
-                      ? "Todas as modalidades"
-                      : `${plan.modalidadeIds?.length ?? 0} modalidade(s)`}
-                  </Text>
-                </View>
+                </TouchableOpacity>
               </AdminCard>
             ))
           )}
@@ -204,57 +210,33 @@ export default function AdminPlans() {
               </Text>
             ) : (
               (avulsoConfigs ?? []).map((item) => (
-                <View key={item.modalidadeId} style={styles.avulsoRow}>
+                <TouchableOpacity
+                  key={item.modalidadeId}
+                  style={styles.avulsoRow}
+                  activeOpacity={0.7}
+                  onPress={() => setEditingAvulsoModal(item)}
+                >
                   <View style={styles.grow}>
                     <Text style={styles.avulsoItemName}>
                       {item.modalidadeName || "Modalidade"}
                     </Text>
-                    {editingAvulso === item.modalidadeId ? (
-                      <View style={styles.avulsoInputRow}>
-                        <Text style={styles.currencyPrefix}>R$</Text>
-                        <TextInput
-                          value={prices[item.modalidadeId] ?? ""}
-                          onChangeText={(value) =>
-                            setPrices((current) => ({
-                              ...current,
-                              [item.modalidadeId]: maskCurrency(value),
-                            }))
-                          }
-                          keyboardType="number-pad"
-                          style={styles.avulsoInput}
-                        />
-                        <Text style={styles.metaText}>por aula</Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.metaText}>
-                        R${" "}
-                        {item.price.toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                        })}{" "}
-                        por aula
-                      </Text>
-                    )}
+                    <Text style={styles.metaText}>
+                      R${" "}
+                      {item.price.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                      })}{" "}
+                      por aula
+                    </Text>
                   </View>
-                  {editingAvulso === item.modalidadeId ? (
-                    <ActionButton
-                      label={isUpdatingAvulso ? "..." : "Salvar"}
-                      icon={<Check size={14} color="#fff" />}
-                      onPress={() => saveAvulso(item)}
+                  <View style={styles.avulsoActions}>
+                    <Switch
+                      value={item.active}
+                      onValueChange={(active) => saveAvulso(item, active)}
+                      trackColor={{ true: COLORS.mainOrange }}
                     />
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => setEditingAvulso(item.modalidadeId)}
-                      style={styles.iconButton}
-                    >
-                      <Pencil size={17} color={COLORS.mutedForeground} />
-                    </TouchableOpacity>
-                  )}
-                  <Switch
-                    value={item.active}
-                    onValueChange={(active) => saveAvulso(item, active)}
-                    trackColor={{ true: COLORS.mainOrange }}
-                  />
-                </View>
+                    <ChevronRight size={18} color={COLORS.mutedForeground} />
+                  </View>
+                </TouchableOpacity>
               ))
             )}
           </AdminCard>
@@ -264,6 +246,21 @@ export default function AdminPlans() {
         plan={editing}
         visible={editing !== undefined}
         onClose={() => setEditing(undefined)}
+      />
+      <AvulsoModal
+        config={editingAvulsoModal}
+        visible={editingAvulsoModal !== null}
+        onClose={() => setEditingAvulsoModal(null)}
+        onSave={async (price) => {
+          if (editingAvulsoModal) {
+            await saveAvulso(
+              editingAvulsoModal,
+              editingAvulsoModal.active,
+              price,
+            );
+          }
+        }}
+        saving={isUpdatingAvulso}
       />
     </View>
   );
@@ -566,6 +563,96 @@ function PlanModal({
   );
 }
 
+function AvulsoModal({
+  config,
+  visible,
+  onClose,
+  onSave,
+  saving,
+}: {
+  config: AvulsoConfigType | null | undefined;
+  visible: boolean;
+  onClose: () => void;
+  onSave: (price: number) => Promise<void>;
+  saving: boolean;
+}) {
+  const [priceInput, setPriceInput] = useState("");
+  const [validationError, setValidationError] = useState("");
+
+  useEffect(() => {
+    if (!visible || !config) return;
+    setPriceInput(toCurrencyInput(config.price));
+    setValidationError("");
+  }, [config, visible]);
+
+  const handleSave = async () => {
+    if (saving) return;
+    const price = parseCurrency(priceInput);
+    if (!Number.isFinite(price) || price < 0) {
+      setValidationError("Informe um preço válido.");
+      return;
+    }
+    await onSave(price);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoider>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.modalHeader}>
+              <View style={styles.grow}>
+                <Text style={styles.modalTitle}>Editar aula avulsa</Text>
+                <Text style={styles.muted}>
+                  {config?.modalidadeName ||
+                    "Configurar valor cobrado por aula individual"}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+                <X size={20} color={COLORS.foreground} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.form}>
+              {validationError ? (
+                <Text style={styles.validationError}>{validationError}</Text>
+              ) : null}
+              <Field
+                label="Preço por aula *"
+                value={priceInput}
+                onChange={setPriceInput}
+                placeholder="20,00"
+                numeric
+                mask={maskCurrency}
+              />
+              <View style={styles.modalButtons}>
+                <View style={styles.modalBtn}>
+                  <ActionButton
+                    outline
+                    label="Cancelar"
+                    onPress={onClose}
+                  />
+                </View>
+                <View style={styles.modalBtn}>
+                  <ActionButton
+                    label={saving ? "Salvando..." : "Salvar preço"}
+                    icon={<Check size={14} color="#fff" />}
+                    onPress={handleSave}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+      </KeyboardAvoider>
+    </Modal>
+  );
+}
+
 function Field({
   label,
   value,
@@ -637,6 +724,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 10,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  cardContent: {
     gap: 10,
   },
   grow: { flex: 1, minWidth: 0 },
@@ -786,8 +881,9 @@ const styles = StyleSheet.create({
   avulsoRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
-    paddingTop: 10,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: "#ECEDEF",
   },
@@ -796,26 +892,18 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.foreground,
   },
-  avulsoInputRow: {
+  avulsoActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 4,
+    gap: 10,
   },
-  currencyPrefix: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.foreground,
+  modalButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
   },
-  avulsoInput: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    minWidth: 80,
-    color: COLORS.foreground,
-    fontSize: 13,
+  modalBtn: {
+    flex: 1,
   },
 });
 

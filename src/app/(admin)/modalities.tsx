@@ -15,8 +15,8 @@ import { router } from "expo-router";
 import {
   ArrowLeft,
   Check,
+  ChevronRight,
   Globe2,
-  Pencil,
   Plus,
   X,
 } from "lucide-react-native";
@@ -89,34 +89,35 @@ export default function AdminModalities() {
           ) : (
             (categories ?? []).map((category) => (
               <AdminCard key={category.id} style={styles.categoryCard}>
-                <View style={styles.categoryIconWrap}>
-                  <Globe2 size={22} color={COLORS.mainOrange} />
-                </View>
-                <View style={styles.grow}>
-                  <Text style={styles.categoryName}>
-                    {category.name || "Modalidade sem nome"}
-                  </Text>
-                  <Text style={styles.categoryDesc}>
-                    {category.description || "Sem descrição"}
-                  </Text>
-                  <Text style={styles.capacityText}>
-                    Capacidade padrão: {category.defaultCapacity} alunos
-                  </Text>
-                </View>
-                <View style={styles.actionColumn}>
-                  <Pill
-                    label={category.isActive ? "Ativa" : "Inativa"}
-                    tone={category.isActive ? "success" : "neutral"}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setEditingCategory(category)}
-                    style={styles.editBtn}
-                    accessibilityRole="button"
-                    accessibilityLabel="Editar modalidade"
-                  >
-                    <Pencil size={17} color={COLORS.mutedForeground} />
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  style={styles.cardTouchable}
+                  activeOpacity={0.7}
+                  onPress={() => setEditingCategory(category)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Editar modalidade ${category.name}`}
+                >
+                  <View style={styles.categoryIconWrap}>
+                    <Globe2 size={22} color={COLORS.mainOrange} />
+                  </View>
+                  <View style={styles.grow}>
+                    <Text style={styles.categoryName}>
+                      {category.name || "Modalidade sem nome"}
+                    </Text>
+                    <Text style={styles.categoryDesc}>
+                      {category.description || "Sem descrição"}
+                    </Text>
+                    <Text style={styles.capacityText}>
+                      Capacidade padrão: {category.defaultCapacity} alunos
+                    </Text>
+                  </View>
+                  <View style={styles.actionColumn}>
+                    <Pill
+                      label={category.isActive ? "Ativa" : "Inativa"}
+                      tone={category.isActive ? "success" : "neutral"}
+                    />
+                    <ChevronRight size={18} color={COLORS.mutedForeground} />
+                  </View>
+                </TouchableOpacity>
               </AdminCard>
             ))
           )}
@@ -323,6 +324,10 @@ const styles = StyleSheet.create({
   },
   headerTextWrap: { flex: 1 },
   categoryCard: {
+    padding: 0,
+    overflow: "hidden",
+  },
+  cardTouchable: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
@@ -355,13 +360,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   actionColumn: {
-    alignItems: "flex-end",
-    gap: 8,
-  },
-  editBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: "#F8FAFC",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   errorText: {
     color: COLORS.destructive,

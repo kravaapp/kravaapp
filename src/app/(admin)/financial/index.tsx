@@ -16,6 +16,7 @@ import {
   useFinancialScreen,
   useUpdateFinancialSettings,
 } from "@/hooks/financial.hooks";
+import KeyboardAvoider from "@/components/KeyboardAvoider";
 import {
   maskCurrency,
   parseCurrency,
@@ -23,14 +24,17 @@ import {
 } from "@/utils/masks";
 import { format } from "date-fns";
 import {
+  Check,
+  ChevronRight,
   CreditCard,
   Handshake,
-  Pencil,
   TrendingUp,
   Users,
+  X,
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -74,7 +78,7 @@ export default function AdminFinancial() {
   const [filter, setFilter] = useState("Todas");
   const [gympass, setGympass] = useState("");
   const [totalpass, setTotalpass] = useState("");
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editing, setEditing] = useState<"gympass" | "totalpass" | null>(null);
 
   useEffect(() => {
     if (!settings || editing) return;
@@ -223,20 +227,12 @@ export default function AdminFinancial() {
                 <EditableTransfer
                   label="Gympass"
                   value={gympass}
-                  setValue={setGympass}
-                  editing={editing === "gympass"}
-                  onEdit={() => setEditing("gympass")}
-                  onSave={() => saveTransfer("gympass")}
-                  saving={isSaving}
+                  onPress={() => setEditing("gympass")}
                 />
                 <EditableTransfer
                   label="Totalpass"
                   value={totalpass}
-                  setValue={setTotalpass}
-                  editing={editing === "totalpass"}
-                  onEdit={() => setEditing("totalpass")}
-                  onSave={() => saveTransfer("totalpass")}
-                  saving={isSaving}
+                  onPress={() => setEditing("totalpass")}
                 />
               </>
             ) : (
@@ -326,6 +322,21 @@ export default function AdminFinancial() {
           </AdminCard>
         </AdminScreen>
       </RefreshableScrollView>
+      <TransferModal
+        visible={editing !== null}
+        partner={editing}
+        value={editing === "gympass" ? gympass : totalpass}
+        setValue={editing === "gympass" ? setGympass : setTotalpass}
+        onSave={() => editing && saveTransfer(editing)}
+        onClose={() => {
+          if (settings) {
+            setGympass(toCurrencyInput(settings.gympassRepasse ?? 0));
+            setTotalpass(toCurrencyInput(settings.totalpassRepasse ?? 0));
+          }
+          setEditing(null);
+        }}
+        saving={isSaving}
+      />
     </View>
   );
 }
@@ -333,52 +344,106 @@ export default function AdminFinancial() {
 function EditableTransfer({
   label,
   value,
-  setValue,
-  editing,
-  onEdit,
-  onSave,
-  saving,
+  onPress,
 }: {
   label: string;
   value: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={styles.editRow}
+      activeOpacity={0.7}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Editar repasse ${label}`}
+    >
+      <View style={styles.grow}>
+        <Text style={styles.contractName}>Valor de repasse {label}</Text>
+        <Text style={styles.muted}>
+          {currency(parseCurrency(value) || 0)} por check-in
+        </Text>
+      </View>
+      <ChevronRight size={18} color={COLORS.mutedForeground} />
+    </TouchableOpacity>
+  );
+}
+
+function TransferModal({
+  visible,
+  partner,
+  value,
+  setValue,
+  onSave,
+  onClose,
+  saving,
+}: {
+  visible: boolean;
+  partner: "gympass" | "totalpass" | null;
+  value: string;
   setValue: (value: string) => void;
-  editing: boolean;
-  onEdit: () => void;
   onSave: () => void;
+  onClose: () => void;
   saving: boolean;
 }) {
   return (
-    <View style={styles.editRow}>
-      <View style={styles.grow}>
-        <Text style={styles.contractName}>Valor de repasse {label}</Text>
-        {editing ? (
-          <View style={styles.inputRow}>
-            <Text>R$</Text>
-            <TextInput
-              value={value}
-              onChangeText={(next) => setValue(maskCurrency(next))}
-              keyboardType="number-pad"
-              style={styles.input}
-            />
-            <Text style={styles.muted}>por check-in</Text>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoider>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            <View style={styles.modalHeader}>
+              <View style={styles.grow}>
+                <Text style={styles.modalTitle}>
+                  Repasse {partner === "gympass" ? "Gympass" : "Totalpass"}
+                </Text>
+                <Text style={styles.muted}>
+                  Valor repassado ao CT por cada check-in
+                </Text>
+              </View>
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <X size={20} color={COLORS.foreground} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalForm}>
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Valor por check-in</Text>
+                <View style={styles.inputPrefixWrap}>
+                  <Text style={styles.prefix}>R$</Text>
+                  <TextInput
+                    value={value}
+                    onChangeText={(next) => setValue(maskCurrency(next))}
+                    keyboardType="number-pad"
+                    style={styles.modalInput}
+                    autoFocus
+                  />
+                </View>
+              </View>
+              <View style={styles.modalButtons}>
+                <View style={styles.modalBtn}>
+                  <ActionButton
+                    outline
+                    label="Cancelar"
+                    onPress={onClose}
+                  />
+                </View>
+                <View style={styles.modalBtn}>
+                  <ActionButton
+                    label={saving ? "Salvando..." : "Salvar repasse"}
+                    icon={<Check size={14} color="#fff" />}
+                    onPress={onSave}
+                  />
+                </View>
+              </View>
+            </View>
           </View>
-        ) : (
-          <Text style={styles.muted}>
-            {currency(parseCurrency(value) || 0)} por check-in
-          </Text>
-        )}
-      </View>
-      {editing ? (
-        <ActionButton
-          label={saving ? "Salvando..." : "Salvar"}
-          onPress={onSave}
-        />
-      ) : (
-        <TouchableOpacity onPress={onEdit} style={styles.editButton}>
-          <Pencil size={17} color={COLORS.mutedForeground} />
-        </TouchableOpacity>
-      )}
-    </View>
+        </View>
+      </KeyboardAvoider>
+    </Modal>
   );
 }
 
@@ -403,6 +468,7 @@ const styles = StyleSheet.create({
   editRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: "#F7F8FA",
     borderRadius: 12,
     padding: 12,
@@ -410,17 +476,54 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1, gap: 4 },
   contractName: { fontSize: 13, fontWeight: "700", color: COLORS.foreground },
-  inputRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  input: {
+  overlay: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ECEDEF",
+  },
+  modalTitle: { color: COLORS.foreground, fontSize: 18, fontWeight: "800" },
+  closeBtn: { padding: 4 },
+  modalForm: { padding: 16, gap: 14 },
+  fieldGroup: { gap: 6 },
+  fieldLabel: { color: COLORS.foreground, fontSize: 12, fontWeight: "700" },
+  inputPrefixWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
-    // Cabe "1.500,00" — largura antiga (75) cortava valores mascarados.
-    width: 100,
-    height: 34,
-    paddingHorizontal: 8,
+    borderRadius: 10,
+    paddingHorizontal: 12,
   },
-  editButton: { padding: 8 },
+  prefix: { fontSize: 15, fontWeight: "700", color: COLORS.foreground },
+  modalInput: {
+    flex: 1,
+    height: 46,
+    fontSize: 16,
+    color: COLORS.foreground,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 6,
+  },
+  modalBtn: {
+    flex: 1,
+  },
   filters: { flexDirection: "row", gap: 5 },
   filter: {
     paddingHorizontal: 10,

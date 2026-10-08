@@ -15,8 +15,8 @@ import { router } from "expo-router";
 import {
   ArrowLeft,
   Check,
+  ChevronRight,
   Clock,
-  Pencil,
   Plus,
   ShieldAlert,
   Trash2,
@@ -201,15 +201,18 @@ export default function AdminSettings() {
             ) : (
               rules.map((rule) => (
                 <View key={rule.id} style={styles.rule}>
-                  <Text style={[styles.itemTitle, styles.grow]}>
-                    {ruleDescription(rule)}
-                  </Text>
-                  <Pill label="Ativa" tone="success" />
                   <TouchableOpacity
+                    style={styles.ruleTouchable}
+                    activeOpacity={0.7}
                     onPress={() => setEditingRule(rule)}
-                    style={styles.edit}
+                    accessibilityRole="button"
+                    accessibilityLabel="Editar regra de agendamento"
                   >
-                    <Pencil size={17} color={COLORS.mutedForeground} />
+                    <Text style={[styles.itemTitle, styles.grow]}>
+                      {ruleDescription(rule)}
+                    </Text>
+                    <Pill label="Ativa" tone="success" />
+                    <ChevronRight size={18} color={COLORS.mutedForeground} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     disabled={isDeletingRule}
@@ -227,7 +230,9 @@ export default function AdminSettings() {
                         });
                       }
                     }}
-                    style={styles.edit}
+                    style={styles.deleteBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Excluir regra"
                   >
                     <Trash2 size={17} color={COLORS.destructive} />
                   </TouchableOpacity>
@@ -249,33 +254,13 @@ export default function AdminSettings() {
                   label="Prazo mínimo para cancelamento"
                   value={tenantValues.cancellationTimeoutMinutes}
                   suffix="minuto(s) antes da aula"
-                  editing={tenantEditing === "cancellationTimeoutMinutes"}
-                  onEdit={() => setTenantEditing("cancellationTimeoutMinutes")}
-                  onChange={(value) =>
-                    setTenantValues((current) => ({
-                      ...current,
-                      cancellationTimeoutMinutes: value,
-                    }))
-                  }
-                  onSave={saveTenant}
-                  saving={isUpdatingTenant}
-                  mask={maskInteger}
+                  onPress={() => setTenantEditing("cancellationTimeoutMinutes")}
                 />
                 <EditableRow
                   label="Multa por falta não cancelada (No-Show)"
                   value={tenantValues.noShowPenaltyFee}
                   suffix="reais"
-                  editing={tenantEditing === "noShowPenaltyFee"}
-                  onEdit={() => setTenantEditing("noShowPenaltyFee")}
-                  onChange={(value) =>
-                    setTenantValues((current) => ({
-                      ...current,
-                      noShowPenaltyFee: value,
-                    }))
-                  }
-                  onSave={saveTenant}
-                  saving={isUpdatingTenant}
-                  mask={maskCurrency}
+                  onPress={() => setTenantEditing("noShowPenaltyFee")}
                 />
               </>
             ) : (
@@ -295,17 +280,7 @@ export default function AdminSettings() {
                 label="Todos os parceiros (Gympass / Totalpass)"
                 value={tenantValues.partnerCheckInLimit}
                 suffix="check-in(s) por aluno"
-                editing={tenantEditing === "partnerCheckInLimit"}
-                onEdit={() => setTenantEditing("partnerCheckInLimit")}
-                onChange={(value) =>
-                  setTenantValues((current) => ({
-                    ...current,
-                    partnerCheckInLimit: value,
-                  }))
-                }
-                onSave={saveTenant}
-                saving={isUpdatingTenant}
-                mask={maskInteger}
+                onPress={() => setTenantEditing("partnerCheckInLimit")}
               />
             ) : (
               <Text style={styles.empty}>Configurações indisponíveis.</Text>
@@ -344,6 +319,57 @@ export default function AdminSettings() {
           }
         }}
       />
+
+      {/* Modal de Configuração de Valor */}
+      <EditSettingModal
+        visible={tenantEditing !== null}
+        title={
+          tenantEditing === "cancellationTimeoutMinutes"
+            ? "Prazo de cancelamento"
+            : tenantEditing === "noShowPenaltyFee"
+            ? "Multa por falta (No-Show)"
+            : "Limite de check-in"
+        }
+        subtitle="Defina o novo valor da política"
+        value={
+          tenantEditing === "cancellationTimeoutMinutes"
+            ? tenantValues.cancellationTimeoutMinutes
+            : tenantEditing === "noShowPenaltyFee"
+            ? tenantValues.noShowPenaltyFee
+            : tenantValues.partnerCheckInLimit
+        }
+        suffix={
+          tenantEditing === "cancellationTimeoutMinutes"
+            ? "minuto(s) antes da aula"
+            : tenantEditing === "noShowPenaltyFee"
+            ? "reais"
+            : "check-in(s) por aluno"
+        }
+        mask={tenantEditing === "noShowPenaltyFee" ? maskCurrency : maskInteger}
+        onChange={(val) => {
+          if (tenantEditing) {
+            setTenantValues((prev) => ({ ...prev, [tenantEditing]: val }));
+          }
+        }}
+        onClose={() => {
+          if (tenantSettings) {
+            setTenantValues({
+              cancellationTimeoutMinutes: String(
+                tenantSettings.cancellationTimeoutMinutes ?? 0,
+              ),
+              noShowPenaltyFee: toCurrencyInput(
+                tenantSettings.noShowPenaltyFee ?? 0,
+              ),
+              partnerCheckInLimit: String(
+                tenantSettings.partnerCheckInLimit ?? 0,
+              ),
+            });
+          }
+          setTenantEditing(null);
+        }}
+        onSave={saveTenant}
+        saving={isUpdatingTenant}
+      />
     </SafeAreaView>
   );
 }
@@ -379,55 +405,108 @@ function EditableRow({
   label,
   value,
   suffix,
-  editing,
-  onEdit,
-  onChange,
-  onSave,
-  saving = false,
-  mask,
+  onPress,
 }: {
   label: string;
   value: string;
   suffix: string;
-  editing: boolean;
-  onEdit: () => void;
-  onChange: (value: string) => void;
-  onSave: () => void;
-  saving?: boolean;
-  mask: (value: string) => string;
+  onPress: () => void;
 }) {
   return (
-    <View style={styles.rule}>
+    <TouchableOpacity
+      style={styles.editableRow}
+      activeOpacity={0.7}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Editar ${label}`}
+    >
       <View style={styles.grow}>
         <Text style={styles.itemTitle}>{label}</Text>
-        {editing ? (
-          <View style={styles.inputRow}>
-            <TextInput
-              value={value}
-              onChangeText={(val) => onChange(mask(val))}
-              keyboardType="number-pad"
-              style={styles.input}
-            />
-            <Text style={styles.muted}>{suffix}</Text>
-          </View>
-        ) : (
-          <Text style={styles.muted}>
-            {value ? `${value} ${suffix}` : "Não configurado"}
-          </Text>
-        )}
+        <Text style={styles.muted}>
+          {value ? `${value} ${suffix}` : "Não configurado"}
+        </Text>
       </View>
-      {editing ? (
-        <ActionButton
-          label={saving ? "Salvando..." : "Salvar"}
-          icon={<Check size={14} color="#fff" />}
-          onPress={onSave}
-        />
-      ) : (
-        <TouchableOpacity onPress={onEdit} style={styles.edit}>
-          <Pencil size={17} color={COLORS.mutedForeground} />
-        </TouchableOpacity>
-      )}
-    </View>
+      <ChevronRight size={18} color={COLORS.mutedForeground} />
+    </TouchableOpacity>
+  );
+}
+
+function EditSettingModal({
+  visible,
+  title,
+  subtitle,
+  value,
+  onChange,
+  onSave,
+  onClose,
+  saving,
+  suffix,
+  mask,
+}: {
+  visible: boolean;
+  title: string;
+  subtitle?: string;
+  value: string;
+  onChange: (value: string) => void;
+  onSave: () => void;
+  onClose: () => void;
+  saving?: boolean;
+  suffix: string;
+  mask?: (val: string) => string;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoider>
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <View style={styles.modalContent}>
+              <View style={styles.header}>
+                <View style={styles.grow}>
+                  <Text style={styles.itemTitle}>{title}</Text>
+                  {subtitle ? (
+                    <Text style={styles.muted}>{subtitle}</Text>
+                  ) : null}
+                </View>
+                <TouchableOpacity onPress={onClose} style={styles.edit}>
+                  <X size={20} color={COLORS.foreground} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.titleContent}>
+                <Text style={styles.fieldLabel}>Valor ({suffix})</Text>
+                <TextInput
+                  value={value}
+                  onChangeText={(val) => onChange(mask ? mask(val) : val)}
+                  keyboardType="number-pad"
+                  style={styles.fullInput}
+                  autoFocus
+                />
+              </View>
+              <View style={styles.modalButtons}>
+                <View style={styles.modalBtn}>
+                  <ActionButton
+                    outline
+                    label="Cancelar"
+                    onPress={onClose}
+                  />
+                </View>
+                <View style={styles.modalBtn}>
+                  <ActionButton
+                    label={saving ? "Salvando..." : "Salvar"}
+                    icon={<Check size={14} color="#fff" />}
+                    onPress={onSave}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+      </KeyboardAvoider>
+    </Modal>
   );
 }
 
@@ -624,23 +703,38 @@ const styles = StyleSheet.create({
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: "#ECEDEF",
-    paddingTop: 12,
+    paddingVertical: 10,
+  },
+  ruleTouchable: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  deleteBtn: {
+    padding: 6,
+  },
+  editableRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#ECEDEF",
+    paddingVertical: 12,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  modalBtn: {
+    flex: 1,
   },
   grow: { flex: 1, gap: 4 },
   itemTitle: { color: COLORS.foreground, fontSize: 14, fontWeight: "700" },
   muted: { color: COLORS.mutedForeground, fontSize: 12 },
   edit: { padding: 4 },
-  inputRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  input: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    minWidth: 70,
-    color: COLORS.foreground,
-    fontSize: 13,
-  },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
