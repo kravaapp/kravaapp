@@ -344,13 +344,13 @@ export default function PaymentPlans() {
 
   const handleConfirmCancelRecorrencia = async () => {
     if (!currentPlan?.contratoId) return;
+    setCancelModalVisible(false);
     try {
       await cancelarRecorrencia(currentPlan.contratoId);
       toast({
         title: "Renovação cancelada",
         description: "A renovação automática foi cancelada. Seu acesso continua garantido até o fim do período pago.",
       });
-      setCancelModalVisible(false);
       refetchCurrent();
     } catch (requestError) {
       toast({

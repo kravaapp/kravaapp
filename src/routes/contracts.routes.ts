@@ -13,7 +13,7 @@ export class ContractsRoutes {
     return api.post("/membership/contratos", { json: contract }).json<string>();
   }
 
-  async cancelarRecorrencia(contratoId: string) {
-    return api.post(`/membership/contratos/${contratoId}/cancelar-recorrencia`).json<void>();
+  async cancelarRecorrencia(contratoId: string): Promise<void> {
+    await api.post(`/membership/contratos/${contratoId}/cancelar-recorrencia`);
   }
 }
