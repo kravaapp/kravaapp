@@ -23,6 +23,7 @@ const FRIENDLY_BY_CODE: Record<string, string> = {
   "Auth.ProfessorHasActiveClasses": "Este professor possui turmas ativas ou aulas agendadas na grade. Reatribua as aulas antes de desvinculá-lo.",
   "Auth.CannotRemoveLastAdmin": "Não é possível desvincular o único administrador ativo do CT.",
   "Auth.CannotRemoveSelf": "Você não pode desvincular seu próprio usuário.",
+  "Auth.PartnerAlreadyExists": "Já existe um parceiro com este nome cadastrado no CT.",
   "Membership.CannotRemoveSelf": "Você não pode desvincular sua própria conta.",
 };
 

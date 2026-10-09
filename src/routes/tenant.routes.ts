@@ -58,8 +58,8 @@ export class TenantRoutes {
     await api.delete(`/tenant/invitations/${id}`);
   }
 
-  async getPartners(onlyActive?: boolean) {
-    const searchParams = onlyActive ? { onlyActive: "true" } : undefined;
+  async getPartners(onlyActive = false) {
+    const searchParams = { onlyActive: String(Boolean(onlyActive)) };
     return api.get("/tenant/partners", { searchParams }).json<TenantPartnerType[]>();
   }
 
