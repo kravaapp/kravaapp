@@ -42,6 +42,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const currency = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -386,11 +387,14 @@ function TransferModal({
   onClose: () => void;
   saving: boolean;
 }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <KeyboardAvoider>
@@ -409,7 +413,12 @@ function TransferModal({
                 <X size={20} color={COLORS.foreground} />
               </TouchableOpacity>
             </View>
-            <View style={styles.modalForm}>
+            <View
+              style={[
+                styles.modalForm,
+                { paddingBottom: Math.max(insets.bottom, 16) + 12 },
+              ]}
+            >
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>Valor por check-in</Text>
                 <View style={styles.inputPrefixWrap}>
@@ -418,8 +427,9 @@ function TransferModal({
                     value={value}
                     onChangeText={(next) => setValue(maskCurrency(next))}
                     keyboardType="number-pad"
+                    placeholder="0,00"
+                    placeholderTextColor={COLORS.mutedForeground}
                     style={styles.modalInput}
-                    autoFocus
                   />
                 </View>
               </View>
@@ -485,7 +495,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 24,
   },
   modalHeader: {
     flexDirection: "row",
@@ -496,7 +505,14 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ECEDEF",
   },
   modalTitle: { color: COLORS.foreground, fontSize: 18, fontWeight: "800" },
-  closeBtn: { padding: 4 },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modalForm: { padding: 16, gap: 14 },
   fieldGroup: { gap: 6 },
   fieldLabel: { color: COLORS.foreground, fontSize: 12, fontWeight: "700" },
@@ -508,11 +524,15 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 10,
     paddingHorizontal: 12,
+    minHeight: 48,
+    height: 48,
+    backgroundColor: COLORS.white,
   },
   prefix: { fontSize: 15, fontWeight: "700", color: COLORS.foreground },
   modalInput: {
     flex: 1,
-    height: 46,
+    height: 48,
+    minHeight: 48,
     fontSize: 16,
     color: COLORS.foreground,
   },

@@ -195,7 +195,7 @@ function GatewayModal({ editor, activeOther, onClose, onSave, onSaved, refreshin
   };
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={close}>
+    <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={close}>
       <KeyboardAvoider>
         <View style={styles.overlay}>
           <View style={styles.sheet}>

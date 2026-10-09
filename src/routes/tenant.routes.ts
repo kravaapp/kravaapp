@@ -7,6 +7,11 @@ import {
   PickedImageType,
   UploadImageResponseType,
 } from "@/types/upload.types";
+import {
+  CreateTenantPartnerType,
+  TenantPartnerType,
+  UpdateTenantPartnerType,
+} from "@/types/partners.types";
 import api from "./client";
 
 export class TenantRoutes {
@@ -50,5 +55,22 @@ export class TenantRoutes {
 
   async cancelInvitation(id: string) {
     await api.delete(`/tenant/invitations/${id}`);
+  }
+
+  async getPartners(onlyActive?: boolean) {
+    const searchParams = onlyActive ? { onlyActive: "true" } : undefined;
+    return api.get("/tenant/partners", { searchParams }).json<TenantPartnerType[]>();
+  }
+
+  async createPartner(partner: CreateTenantPartnerType) {
+    return api.post("/tenant/partners", { json: partner }).json<TenantPartnerType>();
+  }
+
+  async updatePartner(id: string, partner: UpdateTenantPartnerType) {
+    return api.put(`/tenant/partners/${id}`, { json: partner }).json<TenantPartnerType>();
+  }
+
+  async deletePartner(id: string) {
+    await api.delete(`/tenant/partners/${id}`);
   }
 }

@@ -2,15 +2,18 @@ import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import React, { ReactNode, useEffect, useState } from "react";
 import {
+  Alert,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import {
   ArrowLeft,
@@ -36,6 +39,8 @@ import {
   SectionTitle,
 } from "@/components/admin/AdminUi";
 import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
+import { useTenantPartners, usePartnerActions } from "@/hooks/partners.hooks";
+import { TenantPartnerType } from "@/types/partners.types";
 import { normalizeApiError } from "@/routes/apiError";
 import { SchedulingRuleType } from "@/types/settings.types";
 import {
@@ -46,6 +51,11 @@ import {
   parseCurrency,
   toCurrencyInput,
 } from "@/utils/masks";
+
+const currency = (value: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    value,
+  );
 
 const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const ruleDescription = (rule: SchedulingRuleType) => {
@@ -61,7 +71,13 @@ const ruleDescription = (rule: SchedulingRuleType) => {
 };
 
 export default function AdminSettings() {
-  const refresh = useScreenRefresh([["scheduling-rules"], ["tenant-settings"], ["avulso-configs"], ["catalog-profile"]]);
+  const refresh = useScreenRefresh([
+    ["scheduling-rules"],
+    ["tenant-settings"],
+    ["avulso-configs"],
+    ["catalog-profile"],
+    ["tenant-partners"],
+  ]);
   const { toast } = useToast();
   const {
     rules,
@@ -79,15 +95,29 @@ export default function AdminSettings() {
     isDeletingRule,
     isUpdatingTenant,
   } = useSettingsActions();
+  const {
+    partners,
+    isLoading: loadingPartners,
+  } = useTenantPartners();
+  const {
+    createPartner,
+    updatePartner,
+    deletePartner,
+    isCreating: isCreatingPartner,
+    isUpdating: isUpdatingPartner,
+    isDeleting: isDeletingPartner,
+  } = usePartnerActions();
 
   const [editingRule, setEditingRule] = useState<SchedulingRuleType | null | undefined>(
     undefined,
   );
+  const [editingPartner, setEditingPartner] = useState<
+    TenantPartnerType | null | undefined
+  >(undefined);
   const [tenantEditing, setTenantEditing] = useState<string | null>(null);
   const [tenantValues, setTenantValues] = useState({
     cancellationTimeoutMinutes: "",
     noShowPenaltyFee: "",
-    partnerCheckInLimit: "",
   });
 
   useEffect(() => {
@@ -101,10 +131,6 @@ export default function AdminSettings() {
           tenantSettings.noShowPenaltyFee !== undefined
             ? toCurrencyInput(tenantSettings.noShowPenaltyFee)
             : "",
-        partnerCheckInLimit:
-          tenantSettings.partnerCheckInLimit !== undefined
-            ? String(tenantSettings.partnerCheckInLimit)
-            : "",
       });
     }
   }, [tenantSettings]);
@@ -115,14 +141,11 @@ export default function AdminSettings() {
       tenantValues.cancellationTimeoutMinutes,
     );
     const noShowPenaltyFee = parseCurrency(tenantValues.noShowPenaltyFee);
-    const partnerCheckInLimit = Number(tenantValues.partnerCheckInLimit);
     if (
       !Number.isInteger(cancellationTimeoutMinutes) ||
       cancellationTimeoutMinutes < 0 ||
       !Number.isFinite(noShowPenaltyFee) ||
-      noShowPenaltyFee < 0 ||
-      !Number.isInteger(partnerCheckInLimit) ||
-      partnerCheckInLimit < 0
+      noShowPenaltyFee < 0
     ) {
       toast({
         title: "Informe valores válidos para a configuração.",
@@ -142,7 +165,7 @@ export default function AdminSettings() {
         waitlistTimeoutMinutes: tenantSettings.waitlistTimeoutMinutes,
         cancellationTimeoutMinutes,
         noShowPenaltyFee,
-        partnerCheckInLimit,
+        partnerCheckInLimit: tenantSettings.partnerCheckInLimit ?? 0,
         churnReengageMessage: tenantSettings.churnReengageMessage,
       });
       setTenantEditing(null);
@@ -215,28 +238,6 @@ export default function AdminSettings() {
                     <Pill label="Ativa" tone="success" />
                     <ChevronRight size={18} color={COLORS.mutedForeground} />
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    disabled={isDeletingRule}
-                    onPress={async () => {
-                      try {
-                        await deleteRule(rule.id);
-                        toast({ title: "Regra excluída!" });
-                      } catch (requestError) {
-                        toast({
-                          title: normalizeApiError(
-                            requestError,
-                            "Não foi possível excluir a regra.",
-                          ).description,
-                          variant: "destructive",
-                        });
-                      }
-                    }}
-                    style={styles.deleteBtn}
-                    accessibilityRole="button"
-                    accessibilityLabel="Excluir regra"
-                  >
-                    <Trash2 size={17} color={COLORS.destructive} />
-                  </TouchableOpacity>
                 </View>
               ))
             )}
@@ -269,25 +270,53 @@ export default function AdminSettings() {
             )}
           </SettingsCard>
 
-          {/* Limites de Check-in por Parceiro */}
+          {/* Parceiros e convênios */}
           <SettingsCard
             icon={<Users color={COLORS.mainOrange} size={20} />}
-            title="Limites de check-in por parceiro"
-          >
-            {loading.tenant ? (
-              <AdminSkeleton width="100%" height={90} radius={12} />
-            ) : tenantSettings ? (
-              <EditableRow
-                label="Todos os parceiros (Gympass / Totalpass)"
-                value={tenantValues.partnerCheckInLimit}
-                suffix="check-in(s) por aluno"
-                onPress={() => setTenantEditing("partnerCheckInLimit")}
+            title="Parceiros e convênios"
+            action={
+              <ActionButton
+                label="Adicionar"
+                icon={<Plus size={14} color="#fff" />}
+                onPress={() => setEditingPartner(null)}
               />
+            }
+          >
+            {loadingPartners ? (
+              <AdminSkeleton width="100%" height={120} radius={12} />
+            ) : partners.length === 0 ? (
+              <Text style={styles.empty}>Nenhum parceiro cadastrado.</Text>
             ) : (
-              <Text style={styles.empty}>Configurações indisponíveis.</Text>
+              partners.map((partner) => (
+                <TouchableOpacity
+                  key={partner.id}
+                  style={styles.editableRow}
+                  activeOpacity={0.7}
+                  onPress={() => setEditingPartner(partner)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Editar parceiro ${partner.name}`}
+                >
+                  <View style={styles.grow}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={styles.itemTitle}>{partner.name}</Text>
+                      <Pill
+                        label={partner.isActive ? "Ativo" : "Inativo"}
+                        tone={partner.isActive ? "success" : "neutral"}
+                      />
+                    </View>
+                    <Text style={styles.muted}>
+                      {partner.monthlyCheckInLimit === 0
+                        ? "Check-ins ilimitados"
+                        : `${partner.monthlyCheckInLimit} check-in(s)/mês`}{" "}
+                      • Repasse: {currency(partner.repasse)}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color={COLORS.mutedForeground} />
+                </TouchableOpacity>
+              ))
             )}
             <Text style={styles.info}>
-              ⓘ Estas configurações se aplicam a todos os alunos parceiros no CT.
+              ⓘ Defina limites mensais de check-in e valores de repasse por parceiro (Gympass, TotalPass, etc).
             </Text>
           </SettingsCard>
         </AdminScreen>
@@ -298,6 +327,7 @@ export default function AdminSettings() {
         rule={editingRule}
         visible={editingRule !== undefined}
         saving={isCreatingRule || isUpdatingRule}
+        deleting={isDeletingRule}
         onClose={() => setEditingRule(undefined)}
         onSave={async (rule) => {
           try {
@@ -319,6 +349,21 @@ export default function AdminSettings() {
             });
           }
         }}
+        onDelete={async (id) => {
+          try {
+            await deleteRule(id);
+            setEditingRule(undefined);
+            toast({ title: "Regra excluída com sucesso!" });
+          } catch (requestError) {
+            toast({
+              title: normalizeApiError(
+                requestError,
+                "Não foi possível excluir a regra.",
+              ).description,
+              variant: "destructive",
+            });
+          }
+        }}
       />
 
       {/* Modal de Configuração de Valor */}
@@ -327,24 +372,18 @@ export default function AdminSettings() {
         title={
           tenantEditing === "cancellationTimeoutMinutes"
             ? "Prazo de cancelamento"
-            : tenantEditing === "noShowPenaltyFee"
-            ? "Multa por falta (No-Show)"
-            : "Limite de check-in"
+            : "Multa por falta (No-Show)"
         }
         subtitle="Defina o novo valor da política"
         value={
           tenantEditing === "cancellationTimeoutMinutes"
             ? tenantValues.cancellationTimeoutMinutes
-            : tenantEditing === "noShowPenaltyFee"
-            ? tenantValues.noShowPenaltyFee
-            : tenantValues.partnerCheckInLimit
+            : tenantValues.noShowPenaltyFee
         }
         suffix={
           tenantEditing === "cancellationTimeoutMinutes"
             ? "minuto(s) antes da aula"
-            : tenantEditing === "noShowPenaltyFee"
-            ? "reais"
-            : "check-in(s) por aluno"
+            : "reais"
         }
         mask={tenantEditing === "noShowPenaltyFee" ? maskCurrency : maskInteger}
         onChange={(val) => {
@@ -361,15 +400,56 @@ export default function AdminSettings() {
               noShowPenaltyFee: toCurrencyInput(
                 tenantSettings.noShowPenaltyFee ?? 0,
               ),
-              partnerCheckInLimit: String(
-                tenantSettings.partnerCheckInLimit ?? 0,
-              ),
             });
           }
           setTenantEditing(null);
         }}
         onSave={saveTenant}
         saving={isUpdatingTenant}
+      />
+
+      {/* Modal de Parceiro */}
+      <PartnerModal
+        partner={editingPartner}
+        visible={editingPartner !== undefined}
+        saving={isCreatingPartner || isUpdatingPartner}
+        deleting={isDeletingPartner}
+        onClose={() => setEditingPartner(undefined)}
+        onSave={async (data) => {
+          try {
+            if (editingPartner) {
+              await updatePartner({ id: editingPartner.id, partner: data });
+              toast({ title: `Parceiro ${data.name} atualizado!` });
+            } else {
+              await createPartner(data);
+              toast({ title: `Parceiro ${data.name} criado com sucesso!` });
+            }
+            setEditingPartner(undefined);
+          } catch (requestError) {
+            toast({
+              title: normalizeApiError(
+                requestError,
+                "Não foi possível salvar o parceiro.",
+              ).description,
+              variant: "destructive",
+            });
+          }
+        }}
+        onDelete={async (id) => {
+          try {
+            await deletePartner(id);
+            setEditingPartner(undefined);
+            toast({ title: "Parceiro removido com sucesso!" });
+          } catch (requestError) {
+            toast({
+              title: normalizeApiError(
+                requestError,
+                "Não foi possível remover o parceiro.",
+              ).description,
+              variant: "destructive",
+            });
+          }
+        }}
       />
     </SafeAreaView>
   );
@@ -455,36 +535,45 @@ function EditSettingModal({
   suffix: string;
   mask?: (val: string) => string;
 }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <KeyboardAvoider>
         <View style={styles.backdrop}>
           <View style={styles.modal}>
-            <View style={styles.modalContent}>
+            <View
+              style={[
+                styles.modalContent,
+                { paddingBottom: Math.max(insets.bottom, 16) + 12 },
+              ]}
+            >
               <View style={styles.header}>
                 <View style={styles.grow}>
-                  <Text style={styles.itemTitle}>{title}</Text>
+                  <Text style={styles.modalTitle}>{title}</Text>
                   {subtitle ? (
                     <Text style={styles.muted}>{subtitle}</Text>
                   ) : null}
                 </View>
-                <TouchableOpacity onPress={onClose} style={styles.edit}>
+                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
                   <X size={20} color={COLORS.foreground} />
                 </TouchableOpacity>
               </View>
-              <View style={styles.titleContent}>
+              <View style={styles.modalFieldGroup}>
                 <Text style={styles.fieldLabel}>Valor ({suffix})</Text>
                 <TextInput
                   value={value}
                   onChangeText={(val) => onChange(mask ? mask(val) : val)}
                   keyboardType="number-pad"
                   style={styles.fullInput}
-                  autoFocus
+                  placeholder="0"
+                  placeholderTextColor={COLORS.mutedForeground}
                 />
               </View>
               <View style={styles.modalButtons}>
@@ -515,15 +604,20 @@ function RuleModal({
   rule,
   visible,
   saving,
+  deleting,
   onClose,
   onSave,
+  onDelete,
 }: {
   rule: SchedulingRuleType | null | undefined;
   visible: boolean;
   saving: boolean;
+  deleting?: boolean;
   onClose: () => void;
   onSave: (rule: Omit<SchedulingRuleType, "id">) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
 }) {
+  const insets = useSafeAreaInsets();
   const [offset, setOffset] = useState("1");
   const [time, setTime] = useState("");
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
@@ -577,10 +671,36 @@ function RuleModal({
     });
   };
 
+  const handleDelete = () => {
+    if (!rule || !onDelete) return;
+    if (Platform.OS === "web") {
+      if (
+        typeof window !== "undefined" &&
+        window.confirm("Deseja realmente excluir esta regra de agendamento?")
+      ) {
+        onDelete(rule.id);
+      }
+    } else {
+      Alert.alert(
+        "Excluir regra",
+        "Tem certeza que deseja excluir esta regra de agendamento? Esta ação não pode ser desfeita.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Excluir",
+            style: "destructive",
+            onPress: () => onDelete(rule.id),
+          },
+        ],
+      );
+    }
+  };
+
   return (
     <Modal
       transparent
       animationType="slide"
+      statusBarTranslucent
       visible={visible}
       onRequestClose={onClose}
     >
@@ -588,88 +708,363 @@ function RuleModal({
         <View style={styles.backdrop}>
           <View style={styles.modal}>
             <ScrollView
-              contentContainerStyle={styles.modalContent}
+              contentContainerStyle={[
+                styles.modalContent,
+                { paddingBottom: Math.max(insets.bottom, 16) + 16 },
+              ]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.header}>
-                <SectionTitle>
-                  {rule ? "Editar regra" : "Nova regra de agendamento"}
-                </SectionTitle>
-                <TouchableOpacity onPress={onClose}>
-                  <X color={COLORS.foreground} />
+                <View style={styles.grow}>
+                  <Text style={styles.modalTitle}>
+                    {rule ? "Editar regra" : "Nova regra de agendamento"}
+                  </Text>
+                  <Text style={styles.muted}>
+                    {rule
+                      ? "Atualize as condições de liberação de vagas"
+                      : "Defina quando as vagas serão abertas para os alunos"}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                  <X size={20} color={COLORS.foreground} />
                 </TouchableOpacity>
               </View>
               {error ? <Text style={styles.fieldError}>{error}</Text> : null}
-              <Text style={styles.fieldLabel}>
-                Liberar agendamento com quantos dias de antecedência? *
-              </Text>
-              <TextInput
-                value={offset}
-                onChangeText={(value) => {
-                  setOffset(maskInteger(value));
-                  setError("");
-                }}
-                keyboardType="number-pad"
-                style={styles.fullInput}
-              />
-              <Text style={styles.fieldLabel}>
-                Horário da liberação das vagas (HH:mm) *
-              </Text>
-              <TextInput
-                value={time}
-                onChangeText={(value) => {
-                  setTime(maskTime(value));
-                  setError("");
-                }}
-                keyboardType="number-pad"
-                placeholder="Ex: 06:00"
-                style={styles.fullInput}
-              />
-              <Text style={styles.fieldLabel}>Dias da semana</Text>
-              <View style={styles.days}>
-                {days.map((day, index) => {
-                  const selected = selectedDays.includes(index);
-                  return (
-                    <TouchableOpacity
-                      key={day}
-                      onPress={() => toggleDay(index)}
-                      style={[
-                        styles.dayOption,
-                        selected && styles.dayOptionActive,
-                      ]}
-                    >
-                      <Text
+              <View style={styles.modalFieldGroup}>
+                <Text style={styles.fieldLabel}>
+                  Liberar agendamento com quantos dias de antecedência? *
+                </Text>
+                <TextInput
+                  value={offset}
+                  onChangeText={(value) => {
+                    setOffset(maskInteger(value));
+                    setError("");
+                  }}
+                  keyboardType="number-pad"
+                  style={styles.fullInput}
+                  placeholder="Ex: 1"
+                  placeholderTextColor={COLORS.mutedForeground}
+                />
+              </View>
+              <View style={styles.modalFieldGroup}>
+                <Text style={styles.fieldLabel}>
+                  Horário da liberação das vagas (HH:mm) *
+                </Text>
+                <TextInput
+                  value={time}
+                  onChangeText={(value) => {
+                    setTime(maskTime(value));
+                    setError("");
+                  }}
+                  keyboardType="number-pad"
+                  placeholder="Ex: 06:00"
+                  placeholderTextColor={COLORS.mutedForeground}
+                  style={styles.fullInput}
+                />
+              </View>
+              <View style={styles.modalFieldGroup}>
+                <Text style={styles.fieldLabel}>Dias da semana</Text>
+                <View style={styles.days}>
+                  {days.map((day, index) => {
+                    const selected = selectedDays.includes(index);
+                    return (
+                      <TouchableOpacity
+                        key={day}
+                        onPress={() => toggleDay(index)}
                         style={[
-                          styles.dayText,
-                          selected && styles.dayTextActive,
+                          styles.dayOption,
+                          selected && styles.dayOptionActive,
                         ]}
                       >
-                        {day}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                        <Text
+                          style={[
+                            styles.dayText,
+                            selected && styles.dayTextActive,
+                          ]}
+                        >
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-              <Text style={styles.fieldLabel}>
-                Horários específicos das aulas (opcional, separados por vírgula)
-              </Text>
-              <TextInput
-                value={hours}
-                onChangeText={(value) => setHours(maskTimeList(value))}
-                placeholder="Ex: 07:00, 19:00"
-                style={styles.fullInput}
-              />
-              <ActionButton
-                label={
-                  saving
-                    ? "Salvando..."
-                    : rule
-                      ? "Salvar alterações"
-                      : "Criar regra"
-                }
-                onPress={submit}
-              />
+              <View style={styles.modalFieldGroup}>
+                <Text style={styles.fieldLabel}>
+                  Horários específicos das aulas (opcional, separados por vírgula)
+                </Text>
+                <TextInput
+                  value={hours}
+                  onChangeText={(value) => setHours(maskTimeList(value))}
+                  placeholder="Ex: 07:00, 19:00"
+                  placeholderTextColor={COLORS.mutedForeground}
+                  style={styles.fullInput}
+                />
+              </View>
+              <View style={styles.modalButtons}>
+                <View style={styles.modalBtn}>
+                  <ActionButton
+                    outline
+                    label="Cancelar"
+                    onPress={onClose}
+                  />
+                </View>
+                <View style={styles.modalBtn}>
+                  <ActionButton
+                    label={
+                      saving
+                        ? "Salvando..."
+                        : rule
+                          ? "Salvar alterações"
+                          : "Criar regra"
+                    }
+                    onPress={submit}
+                  />
+                </View>
+              </View>
+              {rule && onDelete ? (
+                <View style={styles.deleteRuleWrap}>
+                  <ActionButton
+                    outline
+                    label={deleting ? "Excluindo..." : "Excluir regra"}
+                    icon={<Trash2 size={16} color={COLORS.destructive} />}
+                    onPress={handleDelete}
+                  />
+                </View>
+              ) : null}
+            </ScrollView>
+          </View>
+        </View>
+      </KeyboardAvoider>
+    </Modal>
+  );
+}
+
+function PartnerModal({
+  partner,
+  visible,
+  saving,
+  deleting,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  partner: TenantPartnerType | null | undefined;
+  visible: boolean;
+  saving: boolean;
+  deleting?: boolean;
+  onClose: () => void;
+  onSave: (data: {
+    name: string;
+    monthlyCheckInLimit: number;
+    repasse: number;
+    isActive: boolean;
+  }) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+}) {
+  const insets = useSafeAreaInsets();
+  const [name, setName] = useState("");
+  const [limit, setLimit] = useState("");
+  const [repasse, setRepasse] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (partner) {
+      setName(partner.name);
+      setLimit(String(partner.monthlyCheckInLimit));
+      setRepasse(toCurrencyInput(partner.repasse));
+      setIsActive(partner.isActive);
+      setError("");
+    } else {
+      setName("");
+      setLimit("10");
+      setRepasse("0,00");
+      setIsActive(true);
+      setError("");
+    }
+  }, [partner, visible]);
+
+  const submit = () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Informe o nome do parceiro.");
+      return;
+    }
+    const monthlyLimit = Number(limit);
+    if (!Number.isInteger(monthlyLimit) || monthlyLimit < 0) {
+      setError("Informe um limite mensal válido de check-ins (0 ou maior).");
+      return;
+    }
+    const repasseVal = parseCurrency(repasse);
+    if (!Number.isFinite(repasseVal) || repasseVal < 0) {
+      setError("Informe um valor de repasse válido.");
+      return;
+    }
+    onSave({
+      name: trimmedName,
+      monthlyCheckInLimit: monthlyLimit,
+      repasse: repasseVal,
+      isActive,
+    });
+  };
+
+  const handleDelete = () => {
+    if (!partner || !onDelete) return;
+    if (Platform.OS === "web") {
+      if (
+        typeof window !== "undefined" &&
+        window.confirm(`Deseja realmente remover o parceiro "${partner.name}"?`)
+      ) {
+        onDelete(partner.id);
+      }
+    } else {
+      Alert.alert(
+        "Excluir parceiro",
+        `Deseja realmente remover o parceiro "${partner.name}"? Esta ação não pode ser desfeita.`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Excluir",
+            style: "destructive",
+            onPress: () => onDelete(partner.id),
+          },
+        ],
+      );
+    }
+  };
+
+  return (
+    <Modal
+      transparent
+      animationType="slide"
+      statusBarTranslucent
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoider>
+        <View style={styles.backdrop}>
+          <View style={styles.modal}>
+            <ScrollView
+              contentContainerStyle={[
+                styles.modalContent,
+                { paddingBottom: Math.max(insets.bottom, 16) + 16 },
+              ]}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.header}>
+                <View style={styles.grow}>
+                  <Text style={styles.modalTitle}>
+                    {partner ? "Editar parceiro" : "Novo parceiro"}
+                  </Text>
+                  <Text style={styles.muted}>
+                    {partner
+                      ? "Atualize as configurações e limites deste convênio"
+                      : "Cadastre um convênio corporativo ou parceiro de check-in"}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                  <X size={20} color={COLORS.foreground} />
+                </TouchableOpacity>
+              </View>
+
+              {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+
+              <View style={styles.modalFieldGroup}>
+                <Text style={styles.fieldLabel}>Nome do parceiro *</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={(val) => {
+                    setName(val);
+                    setError("");
+                  }}
+                  style={styles.fullInput}
+                  placeholder="Ex: Gympass, TotalPass, Empresa Parceira"
+                  placeholderTextColor={COLORS.mutedForeground}
+                />
+              </View>
+
+              <View style={styles.modalFieldGroup}>
+                <Text style={styles.fieldLabel}>
+                  Limite de check-ins por aluno / mês *
+                </Text>
+                <TextInput
+                  value={limit}
+                  onChangeText={(val) => {
+                    setLimit(maskInteger(val));
+                    setError("");
+                  }}
+                  keyboardType="number-pad"
+                  style={styles.fullInput}
+                  placeholder="Ex: 10 (0 para sem limite)"
+                  placeholderTextColor={COLORS.mutedForeground}
+                />
+              </View>
+
+              <View style={styles.modalFieldGroup}>
+                <Text style={styles.fieldLabel}>Valor do repasse por check-in (R$) *</Text>
+                <TextInput
+                  value={repasse}
+                  onChangeText={(val) => {
+                    setRepasse(maskCurrency(val));
+                    setError("");
+                  }}
+                  keyboardType="number-pad"
+                  style={styles.fullInput}
+                  placeholder="0,00"
+                  placeholderTextColor={COLORS.mutedForeground}
+                />
+              </View>
+
+              <View style={styles.switchRow}>
+                <View style={styles.grow}>
+                  <Text style={styles.fieldLabel}>Parceiro ativo</Text>
+                  <Text style={styles.muted}>
+                    Parceiros inativos não permitem agendamentos nem novas vinculações.
+                  </Text>
+                </View>
+                <Switch
+                  value={isActive}
+                  onValueChange={setIsActive}
+                  trackColor={{ false: COLORS.border, true: COLORS.mainOrange }}
+                />
+              </View>
+
+              <View style={styles.modalButtons}>
+                <View style={styles.modalBtn}>
+                  <ActionButton
+                    outline
+                    label="Cancelar"
+                    onPress={onClose}
+                  />
+                </View>
+                <View style={styles.modalBtn}>
+                  <ActionButton
+                    label={
+                      saving
+                        ? "Salvando..."
+                        : partner
+                          ? "Salvar alterações"
+                          : "Criar parceiro"
+                    }
+                    icon={<Check size={14} color="#fff" />}
+                    onPress={submit}
+                  />
+                </View>
+              </View>
+
+              {partner && onDelete ? (
+                <View style={styles.deleteRuleWrap}>
+                  <ActionButton
+                    outline
+                    label={deleting ? "Excluindo..." : "Excluir parceiro"}
+                    icon={<Trash2 size={16} color={COLORS.destructive} />}
+                    onPress={handleDelete}
+                  />
+                </View>
+              ) : null}
             </ScrollView>
           </View>
         </View>
@@ -775,16 +1170,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  modalTitle: {
+    color: COLORS.foreground,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalFieldGroup: {
+    gap: 8,
+    marginVertical: 4,
+  },
   fieldError: { color: COLORS.destructive, fontSize: 12, fontWeight: "600" },
   fieldLabel: { color: COLORS.foreground, fontSize: 12, fontWeight: "700" },
   fullInput: {
+    minHeight: 48,
+    height: 48,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     color: COLORS.foreground,
-    fontSize: 14,
+    fontSize: 16,
+    backgroundColor: COLORS.white,
+  },
+  deleteRuleWrap: {
+    marginTop: 6,
   },
   days: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   dayOption: {
@@ -800,4 +1217,11 @@ const styles = StyleSheet.create({
   },
   dayText: { color: COLORS.mutedForeground, fontSize: 12, fontWeight: "600" },
   dayTextActive: { color: COLORS.mainOrange, fontWeight: "800" },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    gap: 12,
+  },
 });

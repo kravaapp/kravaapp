@@ -43,6 +43,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const currency = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -379,11 +380,14 @@ function PlanModal({
     }
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <KeyboardAvoider>
@@ -398,7 +402,10 @@ function PlanModal({
               </TouchableOpacity>
             </View>
             <RefreshableScrollView {...modalRefresh}
-              contentContainerStyle={styles.form}
+              contentContainerStyle={[
+                styles.form,
+                { paddingBottom: Math.max(insets.bottom, 16) + 20 },
+              ]}
               keyboardShouldPersistTaps="handled"
             >
               {validationMessage ? (
@@ -595,11 +602,14 @@ function AvulsoModal({
     await onSave(price);
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <KeyboardAvoider>
@@ -617,7 +627,12 @@ function AvulsoModal({
                 <X size={20} color={COLORS.foreground} />
               </TouchableOpacity>
             </View>
-            <View style={styles.form}>
+            <View
+              style={[
+                styles.form,
+                { paddingBottom: Math.max(insets.bottom, 16) + 16 },
+              ]}
+            >
               {validationError ? (
                 <Text style={styles.validationError}>{validationError}</Text>
               ) : null}
@@ -809,12 +824,15 @@ const styles = StyleSheet.create({
   field: { gap: 6 },
   label: { color: COLORS.foreground, fontSize: 12, fontWeight: "700" },
   input: {
-    minHeight: 46,
+    minHeight: 48,
+    height: 48,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 10,
-    paddingHorizontal: 11,
+    paddingHorizontal: 12,
     color: COLORS.foreground,
+    fontSize: 16,
+    backgroundColor: COLORS.white,
   },
   textarea: { minHeight: 82, paddingTop: 10, textAlignVertical: "top" },
   fieldsRow: { flexDirection: "row", gap: 10 },
