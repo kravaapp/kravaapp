@@ -363,11 +363,17 @@ export default function PaymentPlans() {
     }
   };
 
+  const handleClosePartnerModal = () => {
+    setIsDropdownOpen(false);
+    setPartnerModal(false);
+  };
+
   const handleOpenPartnerModal = () => {
-    if (activePartners.length === 1) {
-      setSelectedPartner(activePartners[0].name);
-    } else if (activePartners.length > 0 && !selectedPartner) {
-      setSelectedPartner(activePartners[0].name);
+    setIsDropdownOpen(false);
+    if (activePartners.length > 0) {
+      if (!selectedPartner || !activePartners.some((p) => p.name === selectedPartner)) {
+        setSelectedPartner(activePartners[0].name);
+      }
     } else if (!selectedPartner) {
       setSelectedPartner("Gympass");
     }
@@ -375,6 +381,7 @@ export default function PaymentPlans() {
   };
 
   const handleSendRequest = async () => {
+    if (isSendingPartnerRequest) return;
     if (!selectedPartner) {
       toast({
         title: "Selecione um parceiro",
@@ -389,7 +396,7 @@ export default function PaymentPlans() {
         title: "Solicitação enviada!",
         description: `Sua solicitação de vinculação com o ${selectedPartner} foi enviada para o ${ctName}.`,
       });
-      setPartnerModal(false);
+      handleClosePartnerModal();
       refetchPartnerRequest();
     } catch (requestError) {
       toast({
@@ -546,7 +553,7 @@ export default function PaymentPlans() {
         {partnerRequest?.status === "Pending" ? (
           <View style={[styles.cardLightBlue, styles.cardPending]}>
             <View style={styles.partnerHeaderRow}>
-              <View style={styles.rowAlign}>
+              <View style={[styles.rowAlign, { marginBottom: 0 }]}>
                 <Clock size={18} color="#D97706" />
                 <Text style={[styles.lightBlueTitle, { color: "#92400E" }]}>
                   {partnerRequest.partner}
@@ -567,7 +574,7 @@ export default function PaymentPlans() {
         ) : partnerRequest?.status === "Approved" ? (
           <View style={[styles.cardLightBlue, styles.cardApproved]}>
             <View style={styles.partnerHeaderRow}>
-              <View style={styles.rowAlign}>
+              <View style={[styles.rowAlign, { marginBottom: 0 }]}>
                 <Check size={18} color="#16A34A" />
                 <Text style={[styles.lightBlueTitle, { color: "#166534" }]}>
                   Vinculado ao {partnerRequest.partner}
@@ -584,7 +591,7 @@ export default function PaymentPlans() {
         ) : partnerRequest?.status === "Rejected" ? (
           <View style={[styles.cardLightBlue, styles.cardRejected]}>
             <View style={styles.partnerHeaderRow}>
-              <View style={styles.rowAlign}>
+              <View style={[styles.rowAlign, { marginBottom: 0 }]}>
                 <ShieldAlert size={18} color={COLORS.destructive} />
                 <Text style={[styles.lightBlueTitle, { color: COLORS.destructive }]}>
                   Solicitação recusada ({partnerRequest.partner})
@@ -699,7 +706,7 @@ export default function PaymentPlans() {
         visible={partnerModal}
         transparent
         animationType="fade"
-        onRequestClose={() => !isSendingPartnerRequest && setPartnerModal(false)}
+        onRequestClose={() => !isSendingPartnerRequest && handleClosePartnerModal()}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -769,7 +776,7 @@ export default function PaymentPlans() {
               accessibilityRole="button"
               style={styles.modalCancel}
               disabled={isSendingPartnerRequest}
-              onPress={() => setPartnerModal(false)}
+              onPress={handleClosePartnerModal}
             >
               <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
