@@ -57,3 +57,36 @@ export function usePartnerActions() {
     isSaving: create.isPending || update.isPending || remove.isPending,
   };
 }
+
+const myPartnerRequestKey = ["my-partner-request"];
+
+export function useMyPartnerRequest() {
+  const query = useQuery({
+    queryKey: myPartnerRequestKey,
+    queryFn: () => new TenantRoutes().getMyPartnerRequest(),
+  });
+
+  return {
+    partnerRequest: query.data,
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+    isError: query.isError,
+    error: query.error,
+  };
+}
+
+export function useCreatePartnerRequest() {
+  const client = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (partner: string) => new TenantRoutes().createPartnerRequest(partner),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: myPartnerRequestKey });
+      client.invalidateQueries({ queryKey: ["plans", "current"] });
+    },
+  });
+
+  return {
+    createPartnerRequest: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+  };
+}

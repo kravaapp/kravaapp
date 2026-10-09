@@ -9,6 +9,7 @@ import {
 } from "@/types/upload.types";
 import {
   CreateTenantPartnerType,
+  MyPartnerRequestType,
   TenantPartnerType,
   UpdateTenantPartnerType,
 } from "@/types/partners.types";
@@ -72,5 +73,13 @@ export class TenantRoutes {
 
   async deletePartner(id: string) {
     await api.delete(`/tenant/partners/${id}`);
+  }
+
+  async getMyPartnerRequest() {
+    return api.get("/membership/partner-requests/my").json<MyPartnerRequestType | null>();
+  }
+
+  async createPartnerRequest(partner: string) {
+    return api.post("/membership/partner-requests", { json: { partner } }).json<string>();
   }
 }

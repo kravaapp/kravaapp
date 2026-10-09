@@ -22,3 +22,11 @@ export type UpdateTenantPartnerType = {
   repasse: number;
   isActive: boolean;
 };
+
+export type MyPartnerRequestType = {
+  id: string | null;
+  partner: string;
+  status: "Pending" | "Approved" | "Rejected";
+  rejectionReason?: string | null;
+  createdAtUtc?: string | null;
+};

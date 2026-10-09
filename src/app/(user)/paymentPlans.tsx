@@ -4,25 +4,25 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
-import KeyboardAvoider from "@/components/KeyboardAvoider";
 import PaymentInvoiceCard from "@/components/PaymentInvoiceCard";
 import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { useToast } from "@/components/Toast";
+import { useAuth } from "@/hooks/auth.hooks";
 import { useCancelRecorrenciaAluno, useSubscribeContract } from "@/hooks/contracts.hooks";
+import { useCreatePartnerRequest, useMyPartnerRequest, useTenantPartners } from "@/hooks/partners.hooks";
 import { useCurrentPlan, usePlans } from "@/hooks/plans.hooks";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { usePayments } from "@/hooks/studentPayments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import { CurrentPlanType, PlanType } from "@/types/plans.types";
 import { router } from "expo-router";
-import { ArrowRight, Check, ChevronDown, CreditCard, ShieldAlert, Star, X } from "lucide-react-native";
+import { ArrowRight, Check, ChevronDown, Clock, CreditCard, ShieldAlert, Star, X } from "lucide-react-native";
 import { useRef, useState } from "react";
 
 const ProgressBar = ({ progress }: { progress: number }) => (
@@ -280,13 +280,25 @@ const PlanCard = ({
 
 export default function PaymentPlans() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const ctName = user?.tenantName || "Centro de Treinamento";
   const { subscribe, isLoading: isSubscribing } = useSubscribeContract();
   const { cancelarRecorrencia, isLoading: isCancelingRecorrencia } = useCancelRecorrenciaAluno();
   const subscriptionInFlight = useRef(false);
   const [subscribingPlanId, setSubscribingPlanId] = useState<string | null>(null);
   const { payments, error: paymentsError, refetch: refetchPayments } = usePayments();
   const { plans, isLoading, error } = usePlans();
-  const refresh = useScreenRefresh([["plans", "list"], ["plans", "current"]], { refetch: [refetchPayments] });
+  const {
+    partnerRequest,
+    isLoading: isLoadingPartnerRequest,
+    refetch: refetchPartnerRequest,
+  } = useMyPartnerRequest();
+  const { partners: activePartners } = useTenantPartners(true);
+  const { createPartnerRequest, isLoading: isSendingPartnerRequest } = useCreatePartnerRequest();
+  const refresh = useScreenRefresh(
+    [["plans", "list"], ["plans", "current"], ["my-partner-request"]],
+    { refetch: [refetchPayments, refetchPartnerRequest] },
+  );
   const {
     currentPlan,
     isLoading: isLoadingCurrent,
@@ -296,7 +308,6 @@ export default function PaymentPlans() {
   const [plansModalVisible, setPlansModalVisible] = useState(false);
   const [partnerModal, setPartnerModal] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<string | null>(null);
-  const [partnerId, setPartnerId] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
@@ -352,10 +363,43 @@ export default function PaymentPlans() {
     }
   };
 
-  const handleSendRequest = () => {
-    setPartnerModal(false);
-    setSelectedPartner(null);
-    setPartnerId("");
+  const handleOpenPartnerModal = () => {
+    if (activePartners.length === 1) {
+      setSelectedPartner(activePartners[0].name);
+    } else if (activePartners.length > 0 && !selectedPartner) {
+      setSelectedPartner(activePartners[0].name);
+    } else if (!selectedPartner) {
+      setSelectedPartner("Gympass");
+    }
+    setPartnerModal(true);
+  };
+
+  const handleSendRequest = async () => {
+    if (!selectedPartner) {
+      toast({
+        title: "Selecione um parceiro",
+        description: "Escolha o parceiro que deseja vincular antes de enviar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await createPartnerRequest(selectedPartner);
+      toast({
+        title: "Solicitação enviada!",
+        description: `Sua solicitação de vinculação com o ${selectedPartner} foi enviada para o ${ctName}.`,
+      });
+      setPartnerModal(false);
+      refetchPartnerRequest();
+    } catch (requestError) {
+      toast({
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível enviar a solicitação. Tente novamente.",
+        ).description,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -499,25 +543,90 @@ export default function PaymentPlans() {
           )}
         </View>
 
-        <View style={styles.cardLightBlue}>
-          <View style={styles.rowAlign}>
-            <CreditCard size={16} color={COLORS.mainOrange} />
-            <Text style={styles.lightBlueTitle}>
-              Utilizo Gympass ou Totalpass
+        {partnerRequest?.status === "Pending" ? (
+          <View style={[styles.cardLightBlue, styles.cardPending]}>
+            <View style={styles.partnerHeaderRow}>
+              <View style={styles.rowAlign}>
+                <Clock size={18} color="#D97706" />
+                <Text style={[styles.lightBlueTitle, { color: "#92400E" }]}>
+                  {partnerRequest.partner}
+                </Text>
+              </View>
+              <View style={styles.badgePending}>
+                <Text style={styles.badgePendingText}>Em análise</Text>
+              </View>
+            </View>
+            <Text style={[styles.lightBlueDesc, { color: "#78350F" }]}>
+              Sua solicitação de vinculação com o {partnerRequest.partner} foi enviada
+              {partnerRequest.createdAtUtc ? ` em ${formatDate(partnerRequest.createdAtUtc)}` : ""} e está aguardando aprovação pela administração do {ctName}.
+            </Text>
+            <Text style={styles.partnerNotice}>
+              ⓘ Assim que for aprovada, seus agendamentos serão liberados automaticamente.
             </Text>
           </View>
-          <Text style={styles.lightBlueDesc}>
-            Se você utiliza Gympass ou Totalpass, solicite a vinculação. Após
-            aprovação pelo local, sua conta será convertida automaticamente.
-          </Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            style={styles.btnSolid}
-            onPress={() => setPartnerModal(true)}
-          >
-            <Text style={styles.btnSolidText}>Solicitar vinculação</Text>
-          </TouchableOpacity>
-        </View>
+        ) : partnerRequest?.status === "Approved" ? (
+          <View style={[styles.cardLightBlue, styles.cardApproved]}>
+            <View style={styles.partnerHeaderRow}>
+              <View style={styles.rowAlign}>
+                <Check size={18} color="#16A34A" />
+                <Text style={[styles.lightBlueTitle, { color: "#166534" }]}>
+                  Vinculado ao {partnerRequest.partner}
+                </Text>
+              </View>
+              <View style={styles.badgeApproved}>
+                <Text style={styles.badgeApprovedText}>Ativo</Text>
+              </View>
+            </View>
+            <Text style={[styles.lightBlueDesc, { color: "#14532D" }]}>
+              Sua conta está vinculada com sucesso ao {partnerRequest.partner}. Você pode realizar agendamentos de acordo com o limite de check-in definido pelo CT.
+            </Text>
+          </View>
+        ) : partnerRequest?.status === "Rejected" ? (
+          <View style={[styles.cardLightBlue, styles.cardRejected]}>
+            <View style={styles.partnerHeaderRow}>
+              <View style={styles.rowAlign}>
+                <ShieldAlert size={18} color={COLORS.destructive} />
+                <Text style={[styles.lightBlueTitle, { color: COLORS.destructive }]}>
+                  Solicitação recusada ({partnerRequest.partner})
+                </Text>
+              </View>
+              <View style={styles.badgeRejected}>
+                <Text style={styles.badgeRejectedText}>Recusada</Text>
+              </View>
+            </View>
+            <Text style={[styles.lightBlueDesc, { color: "#7F1D1D" }]}>
+              Sua solicitação de vinculação não foi aprovada pelo {ctName}.
+              {partnerRequest.rejectionReason ? ` Motivo: "${partnerRequest.rejectionReason}".` : ""}
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.btnSolid}
+              onPress={handleOpenPartnerModal}
+            >
+              <Text style={styles.btnSolidText}>Solicitar novamente</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.cardLightBlue}>
+            <View style={styles.rowAlign}>
+              <CreditCard size={16} color={COLORS.mainOrange} />
+              <Text style={styles.lightBlueTitle}>
+                Utilizo Gympass ou Totalpass
+              </Text>
+            </View>
+            <Text style={styles.lightBlueDesc}>
+              Se você utiliza Gympass, Totalpass ou convênios parceiros, solicite a vinculação. Após
+              aprovação pelo {ctName}, sua conta será convertida automaticamente.
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.btnSolid}
+              onPress={handleOpenPartnerModal}
+            >
+              <Text style={styles.btnSolidText}>Solicitar vinculação</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </RefreshableScrollView>
 
       {/* Modal Bottom Sheet para Trocar de Plano */}
@@ -586,8 +695,13 @@ export default function PaymentPlans() {
         </View>
       </Modal>
 
-      <Modal visible={partnerModal} transparent animationType="fade" onRequestClose={() => setPartnerModal(false)}>
-        <KeyboardAvoider style={styles.modalOverlay}>
+      <Modal
+        visible={partnerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isSendingPartnerRequest && setPartnerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
               Solicitar vinculação com parceiro
@@ -606,67 +720,61 @@ export default function PaymentPlans() {
                       : styles.selectPlaceholder
                   }
                 >
-                  {selectedPartner === "gympass"
-                    ? "Gympass (Wellhub)"
-                    : selectedPartner === "totalpass"
-                      ? "Totalpass"
-                      : "Selecione o parceiro"}
+                  {selectedPartner || "Selecione o parceiro"}
                 </Text>
                 <ChevronDown size={16} color={COLORS.mutedForeground} />
               </TouchableOpacity>
 
               {isDropdownOpen && (
                 <View style={styles.selectDropdown}>
-                  <TouchableOpacity
-                    style={styles.selectOption}
-                    onPress={() => {
-                      setSelectedPartner("gympass");
-                      setIsDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={styles.selectOptionText}>
-                      Gympass (Wellhub)
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.selectOption}
-                    onPress={() => {
-                      setSelectedPartner("totalpass");
-                      setIsDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={styles.selectOptionText}>Totalpass</Text>
-                  </TouchableOpacity>
+                  {(activePartners.length > 0
+                    ? activePartners.map((p) => p.name)
+                    : ["Gympass", "TotalPass"]
+                  ).map((partnerName) => (
+                    <TouchableOpacity
+                      key={partnerName}
+                      style={styles.selectOption}
+                      onPress={() => {
+                        setSelectedPartner(partnerName);
+                        setIsDropdownOpen(false);
+                      }}
+                    >
+                      <Text style={styles.selectOptionText}>{partnerName}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               )}
 
-              <TextInput
-                style={styles.input}
-                placeholder="Seu ID no parceiro (opcional)"
-                placeholderTextColor={COLORS.mutedForeground}
-                value={partnerId}
-                onChangeText={setPartnerId}
-              />
-
               <View style={styles.warningBox}>
                 <Text style={styles.warningText}>
-                  A solicitação será analisada pelo FitPira Arena em até 24h
+                  A solicitação será analisada pelo {ctName} em até 24h
                 </Text>
               </View>
             </View>
 
             <TouchableOpacity
               accessibilityRole="button"
-              style={styles.btnSolid}
+              accessibilityState={{ disabled: isSendingPartnerRequest, busy: isSendingPartnerRequest }}
+              style={[styles.btnSolid, isSendingPartnerRequest && { opacity: 0.6 }]}
+              disabled={isSendingPartnerRequest}
               onPress={handleSendRequest}
             >
-              <Text style={styles.btnSolidText}>Enviar solicitação</Text>
+              {isSendingPartnerRequest ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.btnSolidText}>Enviar solicitação</Text>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" style={styles.modalCancel} onPress={() => setPartnerModal(false)}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.modalCancel}
+              disabled={isSendingPartnerRequest}
+              onPress={() => setPartnerModal(false)}
+            >
               <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
-        </KeyboardAvoider>
+        </View>
       </Modal>
 
       {/* Modal de Confirmação de Cancelamento de Renovação Automática */}
@@ -1054,6 +1162,70 @@ const styles = StyleSheet.create({
     color: COLORS.mutedForeground,
     marginBottom: 12,
     lineHeight: 20,
+  },
+  partnerHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  partnerNotice: {
+    fontSize: 12,
+    color: "#92400E",
+    fontWeight: "600",
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  cardPending: {
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FDE68A",
+  },
+  badgePending: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#F59E0B",
+  },
+  badgePendingText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#B45309",
+  },
+  cardApproved: {
+    backgroundColor: "#F0FDF4",
+    borderColor: "#BBF7D0",
+  },
+  badgeApproved: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: "#DCFCE7",
+    borderWidth: 1,
+    borderColor: "#22C55E",
+  },
+  badgeApprovedText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#15803D",
+  },
+  cardRejected: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+  },
+  badgeRejected: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: "#FEE2E2",
+    borderWidth: 1,
+    borderColor: "#EF4444",
+  },
+  badgeRejectedText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#B91C1C",
   },
   modalOverlay: {
     flex: 1,
