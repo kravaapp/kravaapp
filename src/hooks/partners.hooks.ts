@@ -12,6 +12,10 @@ export function useTenantPartners(onlyActive = false) {
   const query = useQuery({
     queryKey: [...partnersKey, onlyActive],
     queryFn: () => new TenantRoutes().getPartners(onlyActive),
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 403 || error?.response?.status === 401) return false;
+      return failureCount < 2;
+    },
   });
 
   return {

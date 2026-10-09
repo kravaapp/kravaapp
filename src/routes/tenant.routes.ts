@@ -60,7 +60,14 @@ export class TenantRoutes {
 
   async getPartners(onlyActive = false) {
     const searchParams = { onlyActive: String(Boolean(onlyActive)) };
-    return api.get("/tenant/partners", { searchParams }).json<TenantPartnerType[]>();
+    try {
+      return await api.get("/tenant/partners", { searchParams }).json<TenantPartnerType[]>();
+    } catch (error: any) {
+      if (error?.response?.status === 403) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   async createPartner(partner: CreateTenantPartnerType) {
