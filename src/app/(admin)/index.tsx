@@ -18,6 +18,10 @@ import {
   usePartnerRequestActions,
 } from "@/hooks/dashboard.hooks";
 import { useTodayOccurrences } from "@/hooks/schedule.hooks";
+import {
+  useJoinRequestActions,
+  usePendingJoinRequests,
+} from "@/hooks/tenant.hooks";
 import { endOfMonth, format, parseISO, startOfMonth, subDays } from "date-fns";
 import {
   AlertTriangle,
@@ -28,8 +32,15 @@ import {
   Users,
   X,
 } from "lucide-react-native";
-import { useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const formatCurrency = (value?: number) =>
@@ -85,7 +96,7 @@ const StudentSkeleton = () => (
 );
 
 export default function AdminDashboard() {
-  const refresh = useScreenRefresh([["admin-active-students"], ["admin-financial-dashboard"], ["admin-operational-dashboard"], ["admin-daily-attendance"], ["admin-students-at-risk"], ["admin-partner-requests"], ["today-occurrences"]]);
+  const refresh = useScreenRefresh([["admin-active-students"], ["admin-financial-dashboard"], ["admin-operational-dashboard"], ["admin-daily-attendance"], ["admin-students-at-risk"], ["admin-partner-requests"], ["tenant-join-requests"], ["today-occurrences"]]);
   const { toast } = useToast();
   const monthRange = useMemo(() => {
     const today = new Date();
@@ -123,6 +134,21 @@ export default function AdminDashboard() {
     rejectPartnerRequest,
     isLoading: isUpdatingRequest,
   } = usePartnerRequestActions();
+  const {
+    requests: joinRequests,
+    isLoading: joinRequestsLoading,
+  } = usePendingJoinRequests();
+  const {
+    approveJoinRequest,
+    rejectJoinRequest,
+    isSaving: isSavingJoinRequest,
+  } = useJoinRequestActions();
+  const [processingJoinRequestId, setProcessingJoinRequestId] =
+    useState<string | null>(null);
+
+  const totalPendingRequests =
+    (partnerRequests?.length ?? 0) + (joinRequests?.length ?? 0);
+  const requestsLoading = loading.partnerRequests || joinRequestsLoading;
 
   const attendanceRate = operational
     ? Math.max(0, Math.min(100, 100 - operational.noShowRate))
@@ -196,6 +222,30 @@ export default function AdminDashboard() {
         title: "Não foi possível recusar a solicitação",
         variant: "destructive",
       });
+    }
+  };
+
+  const decideJoinRequest = async (
+    id: string,
+    decision: "approve" | "reject",
+  ) => {
+    if (isSavingJoinRequest) return;
+    setProcessingJoinRequestId(id);
+    try {
+      if (decision === "approve") {
+        await approveJoinRequest(id);
+        toast({ title: "Solicitação aprovada. O aluno foi vinculado ao CT." });
+      } else {
+        await rejectJoinRequest(id);
+        toast({ title: "Solicitação recusada." });
+      }
+    } catch {
+      toast({
+        title: "Não foi possível atualizar a solicitação.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingJoinRequestId(null);
     }
   };
 
@@ -274,52 +324,152 @@ export default function AdminDashboard() {
           <AdminCard>
             <View style={styles.spaceBetween}>
               <SectionTitle>Solicitações pendentes</SectionTitle>
-              {loading.partnerRequests ? (
+              {requestsLoading ? (
                 <AdminSkeleton width={24} height={24} radius={12} />
               ) : (
-                <Pill label={`${partnerRequests.length}`} tone="danger" />
+                <Pill
+                  label={`${totalPendingRequests}`}
+                  tone={totalPendingRequests > 0 ? "danger" : "neutral"}
+                />
               )}
             </View>
-            {loading.partnerRequests && (
+            {requestsLoading && (
               <>
                 <RequestSkeleton />
                 <RequestSkeleton />
               </>
             )}
-            {!loading.partnerRequests && partnerRequests.length === 0 && (
+            {!requestsLoading && totalPendingRequests === 0 && (
               <Text style={styles.emptyText}>
                 Nenhuma solicitação pendente.
               </Text>
             )}
-            {partnerRequests.map((request) => {
-              const student = request.alunoName || "Aluno";
-              const partner = request.partner || "Parceiro";
+            {/* Solicitações de Novos Alunos (Entrada no CT) */}
+            {joinRequests.map((request) => {
+              const processing = processingJoinRequestId === request.id;
               return (
-                <View key={request.id} style={styles.listItem}>
-                  <Text style={styles.itemTitle}>{student}</Text>
-                  <Text style={styles.muted}>
-                    {partner} ·{" "}
-                    {format(new Date(request.createdAtUtc), "dd/MM/yyyy")}
-                  </Text>
-                  <View style={styles.actions}>
-                    <ActionButton
-                      label="Aprovar"
-                      icon={<Check size={14} color="#fff" />}
-                      onPress={() =>
-                        handleApprove(request.id, student, partner)
-                      }
-                    />
-                    <ActionButton
-                      outline
-                      label="Recusar"
-                      icon={<X size={14} color={COLORS.destructive} />}
-                      onPress={() => handleReject(request.id)}
-                    />
+                <View key={request.id} style={styles.requestItemCard}>
+                  <View style={styles.requestItemHeader}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>
+                        {initials(
+                          request.userName || request.userEmail || "Aluno",
+                        )}
+                      </Text>
+                    </View>
+                    <View style={styles.grow}>
+                      <View style={styles.requestTitleRow}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>
+                          {request.userName || "Aluno sem nome"}
+                        </Text>
+                        <Pill label="Novo Aluno" tone="warning" />
+                      </View>
+                      <Text style={styles.muted} numberOfLines={1}>
+                        {request.userEmail || "E-mail não informado"}
+                      </Text>
+                      <Text style={styles.muted}>
+                        Solicitado em{" "}
+                        {format(new Date(request.createdAtUtc), "dd/MM/yyyy")}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.requestItemFooter}>
+                    <TouchableOpacity
+                      disabled={isSavingJoinRequest}
+                      onPress={() => decideJoinRequest(request.id, "reject")}
+                      style={[
+                        styles.requestRejectBtn,
+                        isSavingJoinRequest && styles.disabled,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Recusar solicitação"
+                    >
+                      <X size={14} color={COLORS.destructive} />
+                      <Text style={styles.requestRejectText}>Recusar</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      disabled={isSavingJoinRequest}
+                      onPress={() => decideJoinRequest(request.id, "approve")}
+                      style={[
+                        styles.requestApproveBtn,
+                        isSavingJoinRequest && styles.disabled,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Aprovar solicitação"
+                    >
+                      {processing && isSavingJoinRequest ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <>
+                          <Check size={14} color="#fff" />
+                          <Text style={styles.requestApproveText}>Aprovar</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
                   </View>
                 </View>
               );
             })}
-            {isUpdatingRequest && (
+
+            {/* Solicitações de Parceiros (Gympass / Totalpass) */}
+            {partnerRequests.map((request) => {
+              const student = request.alunoName || "Aluno";
+              const partner = request.partner || "Parceiro";
+              return (
+                <View key={request.id} style={styles.requestItemCard}>
+                  <View style={styles.requestItemHeader}>
+                    <View style={[styles.avatar, { backgroundColor: "#EFF6FF" }]}>
+                      <Text style={[styles.avatarText, { color: "#2563EB" }]}>
+                        {initials(student)}
+                      </Text>
+                    </View>
+                    <View style={styles.grow}>
+                      <View style={styles.requestTitleRow}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>{student}</Text>
+                        <Pill label={partner} tone="info" />
+                      </View>
+                      <Text style={styles.muted}>
+                        Solicitado em{" "}
+                        {format(new Date(request.createdAtUtc), "dd/MM/yyyy")}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.requestItemFooter}>
+                    <TouchableOpacity
+                      disabled={isUpdatingRequest}
+                      onPress={() => handleReject(request.id)}
+                      style={[
+                        styles.requestRejectBtn,
+                        isUpdatingRequest && styles.disabled,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Recusar solicitação"
+                    >
+                      <X size={14} color={COLORS.destructive} />
+                      <Text style={styles.requestRejectText}>Recusar</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      disabled={isUpdatingRequest}
+                      onPress={() => handleApprove(request.id, student, partner)}
+                      style={[
+                        styles.requestApproveBtn,
+                        isUpdatingRequest && styles.disabled,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Aprovar solicitação"
+                    >
+                      <Check size={14} color="#fff" />
+                      <Text style={styles.requestApproveText}>Aprovar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+            {(isUpdatingRequest || isSavingJoinRequest) && (
               <AdminSkeleton width="42%" height={12} />
             )}
           </AdminCard>
@@ -496,4 +646,65 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 11, fontWeight: "800", color: COLORS.warning },
   grow: { flex: 1 },
   skeletonTextGroup: { gap: 7 },
+  requestItemCard: {
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: "#F8FAFC",
+    gap: 10,
+    marginTop: 8,
+  },
+  requestItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  requestTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  requestItemFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+  },
+  requestApproveBtn: {
+    flex: 1,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: COLORS.mainOrange,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  requestApproveText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  requestRejectBtn: {
+    flex: 1,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    backgroundColor: "#FEF2F2",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  requestRejectText: {
+    color: COLORS.destructive,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  disabled: { opacity: 0.35 },
 });

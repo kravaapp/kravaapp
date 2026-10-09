@@ -332,51 +332,68 @@ export default function AdminStudents() {
                 const processing = processingRequestId === request.id;
                 return (
                   <AdminCard key={request.id} style={styles.joinRequestCard}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>
-                        {initials(
-                          request.userName || request.userEmail || "Aluno",
-                        )}
-                      </Text>
-                    </View>
-                    <View style={styles.grow}>
-                      <Text style={styles.name}>
-                        {request.userName || "Aluno sem nome"}
-                      </Text>
-                      <Text style={styles.secondary}>
-                        {request.userEmail || "E-mail não informado"}
-                      </Text>
-                      <Text style={styles.secondary}>
-                        Solicitado em{" "}
-                        {new Date(request.createdAtUtc).toLocaleDateString(
-                          "pt-BR",
-                        )}
-                      </Text>
-                      {request.planId ? (
-                        <Text style={styles.planReference}>
-                          Plano selecionado na solicitação
+                    <View style={styles.joinRequestHeader}>
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>
+                          {initials(
+                            request.userName || request.userEmail || "Aluno",
+                          )}
                         </Text>
-                      ) : null}
+                      </View>
+                      <View style={styles.grow}>
+                        <Text style={styles.name} numberOfLines={1}>
+                          {request.userName || "Aluno sem nome"}
+                        </Text>
+                        <Text style={styles.secondary} numberOfLines={1}>
+                          {request.userEmail || "E-mail não informado"}
+                        </Text>
+                        <Text style={styles.secondary}>
+                          Solicitado em{" "}
+                          {new Date(request.createdAtUtc).toLocaleDateString(
+                            "pt-BR",
+                          )}
+                        </Text>
+                        {request.planId ? (
+                          <Text style={styles.planReference}>
+                            Plano selecionado na solicitação
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
-                    <View style={styles.joinRequestActions}>
-                      <ActionButton
-                        label={
-                          processing && isSavingJoinRequest ? "..." : "Aprovar"
-                        }
-                        icon={<Check size={14} color="#fff" />}
-                        onPress={() => decideJoinRequest(request.id, "approve")}
-                        disabled={isSavingJoinRequest}
-                      />
+
+                    <View style={styles.joinRequestFooter}>
                       <TouchableOpacity
                         disabled={isSavingJoinRequest}
                         onPress={() => decideJoinRequest(request.id, "reject")}
                         style={[
-                          styles.rejectButton,
+                          styles.joinRequestRejectBtn,
                           isSavingJoinRequest && styles.disabled,
                         ]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Recusar solicitação"
                       >
-                        <X size={14} color={COLORS.destructive} />
-                        <Text style={styles.rejectButtonText}>Recusar</Text>
+                        <X size={15} color={COLORS.destructive} />
+                        <Text style={styles.joinRequestRejectText}>Recusar</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        disabled={isSavingJoinRequest}
+                        onPress={() => decideJoinRequest(request.id, "approve")}
+                        style={[
+                          styles.joinRequestApproveBtn,
+                          isSavingJoinRequest && styles.disabled,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Aprovar solicitação"
+                      >
+                        {processing && isSavingJoinRequest ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <>
+                            <Check size={15} color="#fff" />
+                            <Text style={styles.joinRequestApproveText}>Aprovar</Text>
+                          </>
+                        )}
                       </TouchableOpacity>
                     </View>
                   </AdminCard>
@@ -1534,12 +1551,55 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   joinRequestCard: {
+    borderRadius: 14,
+    gap: 12,
+  },
+  joinRequestHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderRadius: 14,
   },
-  joinRequestActions: { gap: 7, minWidth: 82 },
+  joinRequestFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F2F4",
+  },
+  joinRequestApproveBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: COLORS.mainOrange,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  joinRequestApproveText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  joinRequestRejectBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    backgroundColor: "#FEF2F2",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  joinRequestRejectText: {
+    color: COLORS.destructive,
+    fontSize: 13,
+    fontWeight: "700",
+  },
   planReference: {
     color: COLORS.mainOrange,
     fontSize: 10,
