@@ -22,7 +22,12 @@ export class PaymentsRoutes {
   async payInvoice(id: string, request: PayInvoiceRequest): Promise<PayInvoiceResponse> {
     const invoiceId = z.uuid().parse(id);
     const body = payInvoiceSchema.parse(request);
-    return api.post(`/payments/${invoiceId}/pay`, { json: body, retry: 0 }).json<PayInvoiceResponse>();
+    const payload = {
+      ...body,
+      paymentMethod: body.method,
+      PaymentMethod: body.method,
+    };
+    return api.post(`/payments/${invoiceId}/pay`, { json: payload, retry: 0 }).json<PayInvoiceResponse>();
   }
 
   async getMyPayments(page?: number): Promise<PaginatedPayments> {

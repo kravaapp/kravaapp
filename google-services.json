@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "353017544032",
+    "project_id": "kravaapp-ffce2",
+    "storage_bucket": "kravaapp-ffce2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:353017544032:android:e5562745fa75ea08477205",
+        "android_client_info": {
+          "package_name": "br.com.krava.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6J6jW3fnAL_9AA5DoNr1MzlrQzL5zFxQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Animated, Modal, Platform, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '@/constants/colors';
 
@@ -62,63 +62,37 @@ export function ToastProvider({ children }: PropsWithChildren) {
 
   return (
     <ToastContext.Provider value={{ toast }}>
-      {children}
+      <View style={styles.root} pointerEvents="box-none">
+        {children}
 
-      <Modal
-        visible={!!current && Platform.OS !== 'web'}
-        transparent
-        animationType="none"
-        presentationStyle="overFullScreen"
-        statusBarTranslucent
-        onRequestClose={() => setCurrent(null)}
-      >
-        <View style={styles.modalLayer} pointerEvents="none">
-          {current && (
-            <View
-              style={[styles.container, { bottom: insets.bottom + 80 }]}
-            >
-              <Animated.View
-                style={[
-                  styles.toast,
-                  current.variant === 'destructive' && styles.toastDestructive,
-                  { opacity },
-                ]}
-              >
-                <Text style={styles.title}>{current.title}</Text>
-                {current.description && (
-                  <Text style={styles.description}>{current.description}</Text>
-                )}
-              </Animated.View>
-            </View>
-          )}
-        </View>
-      </Modal>
-
-      {current && Platform.OS === 'web' && (
-        <View
-          style={[styles.container, { bottom: insets.bottom + 80 }]}
-          pointerEvents="none"
-        >
-          <Animated.View
-            style={[
-              styles.toast,
-              current.variant === 'destructive' && styles.toastDestructive,
-              { opacity },
-            ]}
+        {current && (
+          <View
+            style={[styles.container, { bottom: insets.bottom + 80 }]}
+            pointerEvents="none"
           >
-            <Text style={styles.title}>{current.title}</Text>
-            {current.description && (
-              <Text style={styles.description}>{current.description}</Text>
-            )}
-          </Animated.View>
-        </View>
-      )}
+            <Animated.View
+              style={[
+                styles.toast,
+                current.variant === 'destructive' && styles.toastDestructive,
+                { opacity },
+              ]}
+            >
+              <Text style={styles.title}>{current.title}</Text>
+              {current.description && (
+                <Text style={styles.description}>{current.description}</Text>
+              )}
+            </Animated.View>
+          </View>
+        )}
+      </View>
     </ToastContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
-  modalLayer: { flex: 1 },
+  root: {
+    flex: 1,
+  },
   container: {
     position: Platform.OS === 'web' ? ('fixed' as any) : 'absolute',
     left: 16,
@@ -155,3 +129,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
+

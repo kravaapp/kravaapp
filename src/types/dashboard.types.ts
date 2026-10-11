@@ -63,6 +63,7 @@ export type DailyAttendanceType = {
 export type StudentAtRiskType = {
   alunoId: string;
   alunoName: string | null;
+  phone?: string | null;
   score: number;
   level: string | null;
   evaluatedAtUtc: string;

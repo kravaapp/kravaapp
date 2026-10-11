@@ -3,7 +3,7 @@ import { createMercadoPagoCardHtml, MercadoPagoCardProps } from "@/utils/mercado
 import { publicBaseUrl } from "@/utils/apiUrl";
 import { AlertCircle, RefreshCw, ShieldCheck } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { WebView } from "react-native-webview";
 
 export default function MercadoPagoCard({
@@ -19,6 +19,52 @@ export default function MercadoPagoCard({
   const [retryKey, setRetryKey] = useState(0);
 
   const pulseAnim = useRef(new Animated.Value(0.4)).current;
+
+  // No Web (iframe), escutar postMessage da janela pai
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+
+    const handleWebMessage = async (event: MessageEvent) => {
+      let data = event.data;
+      if (typeof data === "string") {
+        try {
+          data = JSON.parse(data);
+        } catch {
+          return;
+        }
+      }
+
+      if (data?.type === "card-ready") {
+        setIsLoading(false);
+        setIsTimeout(false);
+        return;
+      }
+
+      if (data?.type === "card-error") {
+        if (typeof data.message === "string") onError(data.message);
+        return;
+      }
+
+      if (data?.type !== "card-token") return;
+      const result = cardPaymentFieldsSchema.safeParse(data.fields);
+      if (!result.success) {
+        onError("Não foi possível validar o cartão. Confira os dados e tente novamente.");
+        return;
+      }
+
+      if (processing.current) return;
+      processing.current = true;
+      try {
+        await onToken(result.data);
+      } finally {
+        processing.current = false;
+        window.postMessage("krava-unlock", "*");
+      }
+    };
+
+    window.addEventListener("message", handleWebMessage);
+    return () => window.removeEventListener("message", handleWebMessage);
+  }, [onError, onToken]);
 
   // Animação de pulso do Skeleton
   useEffect(() => {

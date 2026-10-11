@@ -334,22 +334,22 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                   })}
                 </>
               )}
-              {!terminalFailure && <Text style={styles.muted}>Verificando pagamento automaticamente.</Text>}
-              {isPixResult && (
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  style={styles.changePayment}
-                  onPress={() => {
-                    setResult(null);
-                    setCheckoutStep(1);
-                  }}
-                  disabled={submitting}
-                >
-                  <Text style={[styles.changePaymentText, submitting && styles.disabled]}>
-                    Alterar forma de pagamento
-                  </Text>
-                </TouchableOpacity>
-              )}
+              {/* Opção para alterar forma de pagamento ou tentar outro cartão */}
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={styles.changePayment}
+                onPress={() => {
+                  setResult(null);
+                  setCardCustomer(null);
+                  setCheckoutStep(1);
+                }}
+                disabled={submitting}
+              >
+                <Text style={[styles.changePaymentText, submitting && styles.disabled]}>
+                  {method === "CreditCard" ? "Tentar outro cartão ou forma de pagamento" : "Alterar forma de pagamento"}
+                </Text>
+              </TouchableOpacity>
+
               {!isPixResult && checkoutUrl &&
                 button(
                   result.status === "action_required"
@@ -376,15 +376,7 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                 },
                 invoiceQuery.isFetching,
               )}
-              {!isPixResult && ["rejected", "failed", "recusado"].includes(
-                result.status.toLowerCase(),
-              ) &&
-                button("Tentar novamente", () => {
-                  setResult(null);
-                  setCardCustomer(null);
-                  setCheckoutStep(1);
-                })}
-              {!isPixResult && button("Ver pendências", () =>
+              {button("Ver pendências", () =>
                 router.navigate("/(user)/pendingPayments"),
               )}
             </View>

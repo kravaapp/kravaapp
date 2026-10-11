@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "br.com.krava.app",
+      "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -42,7 +43,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -67,6 +71,13 @@
         {
           "photosPermission": "O Krava precisa acessar suas fotos para você escolher a imagem do CT.",
           "cameraPermission": "O Krava precisa acessar a câmera para você tirar a foto do CT."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#E85C07"
         }
       ]
     ],

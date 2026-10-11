@@ -123,7 +123,11 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
 
     // 1. Visão do Administrador
     if (isAdmin) {
-      if (item.type === "PaymentDue" || item.type === "PaymentConfirmed") {
+      if (
+        item.type === "PaymentDue" ||
+        item.type === "PaymentConfirmed" ||
+        item.title?.toLowerCase().includes("pagamento recebido")
+      ) {
         router.push("/(admin)/financial");
       } else if (
         item.type === "WaitlistPromoted" ||
@@ -134,13 +138,18 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
       } else if (item.type === "General" || item.type === "Reengagement") {
         if (
           payloadData?.type === "churn_risk" ||
+          payloadData?.type === "admin_churn_alert" ||
           item.title?.toLowerCase().includes("churn") ||
           item.message?.toLowerCase().includes("churn")
         ) {
           router.push("/(admin)/churn");
         } else if (
           payloadData?.alunoId ||
+          payloadData?.type === "aluno_delinquent_booked" ||
+          payloadData?.type === "join_request_created" ||
+          payloadData?.type === "partner_request_created" ||
           item.title?.toLowerCase().includes("inadimpl") ||
+          item.title?.toLowerCase().includes("solicita") ||
           item.message?.toLowerCase().includes("inadimpl")
         ) {
           router.push("/(admin)/students");
@@ -180,11 +189,23 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
       item.type === "WaitlistPromoted" ||
       item.type === "BookingConfirmed" ||
       item.type === "ClassCancelled" ||
-      item.type === "Reengagement"
+      item.type === "Reengagement" ||
+      item.title?.toLowerCase().includes("aula cancelada")
     ) {
       router.push("/schedule");
     } else if (item.type === "ContractExpiring") {
       router.push("/(user)/paymentPlans");
+    } else if (
+      item.title?.toLowerCase().includes("convênio") ||
+      payloadData?.type === "partner_request_approved" ||
+      payloadData?.type === "partner_request_rejected"
+    ) {
+      router.push("/profile");
+    } else if (
+      item.title?.toLowerCase().includes("solicitação aprovada") ||
+      payloadData?.type === "join_request_approved"
+    ) {
+      router.push("/(user)");
     }
   };
 

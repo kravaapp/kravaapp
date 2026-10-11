@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ArrowLeft,
   Check,
@@ -176,8 +177,52 @@ export default function AdminChurnRiskScreen() {
       ctName,
     );
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `whatsapp://send?text=${encodedMessage}`;
-    const webWhatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+
+    let cleanPhone = (student.phone || "").replace(/\D/g, "");
+    if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+      cleanPhone = `55${cleanPhone}`;
+    }
+
+    if (!cleanPhone) {
+      Alert.alert(
+        "Telefone não cadastrado",
+        `O aluno ${studentName} não possui telefone cadastrado no perfil para abrir a conversa diretamente. Deseja abrir o WhatsApp para selecionar o contato ou registrar o contato manualmente?`,
+        [
+          {
+            text: "Abrir WhatsApp",
+            onPress: async () => {
+              const fallbackUrl = `whatsapp://send?text=${encodedMessage}`;
+              const fallbackWeb = `https://wa.me/?text=${encodedMessage}`;
+              try {
+                const canOpen = await Linking.canOpenURL(fallbackUrl);
+                if (canOpen) {
+                  await Linking.openURL(fallbackUrl);
+                } else {
+                  await Linking.openURL(fallbackWeb);
+                }
+                setTimeout(() => {
+                  setSelectedStudentForContact(student);
+                }, 800);
+              } catch {
+                toast({
+                  title: "Não foi possível abrir o WhatsApp.",
+                  variant: "destructive",
+                });
+              }
+            },
+          },
+          {
+            text: "Registrar contato",
+            onPress: () => setSelectedStudentForContact(student),
+          },
+          { text: "Cancelar", style: "cancel" },
+        ],
+      );
+      return;
+    }
+
+    const whatsappUrl = `whatsapp://send?phone=${cleanPhone}&text=${encodedMessage}`;
+    const webWhatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 
     try {
       const canOpen = await Linking.canOpenURL(whatsappUrl);
@@ -187,7 +232,7 @@ export default function AdminChurnRiskScreen() {
         await Linking.openURL(webWhatsappUrl);
       }
 
-      toast({ title: "Mensagem de reengajamento aberta!" });
+      toast({ title: "WhatsApp aberto com sucesso!" });
 
       // Sugere registrar o contato após reengajar
       setTimeout(() => {
@@ -260,9 +305,9 @@ export default function AdminChurnRiskScreen() {
   };
 
   return (
-    <View style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
-      <RefreshableScrollView {...refresh}>
+      <RefreshableScrollView {...refresh} style={styles.content}>
         <AdminScreen>
           {/* Header da Tela com Botão Voltar e Botão de Ajuda */}
           <View style={styles.headerRow}>
@@ -788,13 +833,16 @@ export default function AdminChurnRiskScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: COLORS.white,
+  },
+  content: {
     backgroundColor: "#F8FAFC",
   },
   headerRow: {
