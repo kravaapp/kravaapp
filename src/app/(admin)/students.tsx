@@ -39,13 +39,19 @@ import {
   todayInput,
 } from "@/utils/masks";
 import {
+  AlertTriangle,
+  Calendar,
   Check,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  CreditCard,
   Plus,
+  RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
+  User,
   X,
 } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -749,6 +755,8 @@ function PageButton({
   );
 }
 
+type StudentTab = "plan" | "details" | "history";
+
 function StudentModal({
   id,
   initialMethods,
@@ -758,7 +766,10 @@ function StudentModal({
   initialMethods: string[];
   onClose: () => void;
 }) {
-  const modalRefresh = useScreenRefresh([["aluno", id], ["aluno-history", id], ["plans", "list"]], { enabled: !!id });
+  const modalRefresh = useScreenRefresh(
+    [["aluno", id], ["aluno-history", id], ["plans", "list"]],
+    { enabled: !!id },
+  );
   const { toast } = useToast();
   const { aluno, history, isLoading, historyLoading, hasError } =
     useAlunoDetails(id);
@@ -773,6 +784,9 @@ function StudentModal({
   } = useAlunoActions();
   const { plans, isLoading: plansLoading } = usePlans();
   const { createContract, isLoading: isCreatingContract } = useCreateContract();
+
+  const [activeTab, setActiveTab] = useState<StudentTab>("plan");
+
   const [form, setFormState] = useState<AlunoType | null>(null);
   const formDirty = useRef(false);
   const setForm = (value: Parameters<typeof setFormState>[0]) => {
@@ -784,19 +798,72 @@ function StudentModal({
   const [startDate, setStartDate] = useState(todayInput);
   const [isPaidLocally, setIsPaidLocally] = useState(false);
   const [contractError, setContractError] = useState("");
-  useEffect(() => { formDirty.current = false; }, [id]);
+  const [showChangePlan, setShowChangePlan] = useState(false);
+  const hasActivePlan = Boolean(aluno?.planoName);
+
+  useEffect(() => {
+    formDirty.current = false;
+    setShowChangePlan(false);
+    setActiveTab("plan");
+  }, [id]);
+
   useEffect(() => {
     if (aluno && !formDirty.current) {
-      // O formulário trabalha com a data no formato do campo (DD/MM/AAAA);
-      // a volta para AAAA-MM-DD acontece no save.
       setFormState({ ...aluno, birthDate: toDateInput(aluno.birthDate) });
     }
   }, [aluno]);
-  useEffect(() => { setMethods(initialMethods); }, [id, initialMethods]);
-  const save = async () => {
+
+  useEffect(() => {
+    setMethods(initialMethods);
+  }, [id, initialMethods]);
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!id) return;
+    const prevStatus = form?.status;
+    setForm((prev) => (prev ? { ...prev, status: newStatus } : null));
+    try {
+      await updateStatus({ id, value: newStatus });
+      toast({ title: `Status alterado para ${newStatus}` });
+    } catch (requestError) {
+      setForm((prev) => (prev ? { ...prev, status: prevStatus ?? null } : null));
+      toast({
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível atualizar o status.",
+        ).description,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTogglePaymentMethod = async (methodValue: string) => {
+    if (!id) return;
+    const prevMethods = methods;
+    const nextMethods = methods.includes(methodValue)
+      ? methods.filter((item) => item !== methodValue)
+      : [...methods, methodValue];
+    setMethods(nextMethods);
+    try {
+      await updatePaymentMethods({
+        id,
+        data: { paymentMethods: nextMethods, partnerNote: null },
+      });
+      toast({ title: "Métodos de pagamento atualizados" });
+    } catch (requestError) {
+      setMethods(prevMethods);
+      toast({
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível atualizar os métodos.",
+        ).description,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const saveDetails = async () => {
     if (!id || !form) return;
     const birthDate = toIsoDate(form.birthDate ?? "");
-    // Sem isso uma data pela metade viraria `null` e apagaria o valor em silêncio.
     if (form.birthDate && !birthDate) {
       toast({
         title: "Informe a data de nascimento no formato DD/MM/AAAA.",
@@ -821,40 +888,20 @@ function StudentModal({
         },
       });
       await updateLevel({ id, value: form.level });
-      await updateStatus({ id, value: form.status });
+      formDirty.current = false;
+      toast({ title: "Dados cadastrais atualizados com sucesso!" });
       onClose();
-      toast({ title: "Aluno atualizado!" });
     } catch (requestError) {
-      onClose();
       toast({
         title: normalizeApiError(
           requestError,
-          "Não foi possível atualizar o aluno.",
+          "Não foi possível atualizar os dados cadastrais.",
         ).description,
         variant: "destructive",
       });
     }
   };
-  const saveMethods = async () => {
-    if (!id) return;
-    try {
-      await updatePaymentMethods({
-        id,
-        data: { paymentMethods: methods, partnerNote: null },
-      });
-      onClose();
-      toast({ title: "Métodos de pagamento atualizados!" });
-    } catch (requestError) {
-      onClose();
-      toast({
-        title: normalizeApiError(
-          requestError,
-          "Não foi possível atualizar os métodos.",
-        ).description,
-        variant: "destructive",
-      });
-    }
-  };
+
   const createPlanContract = async () => {
     if (!id) return;
     const startDateIso = toIsoDate(startDate);
@@ -871,6 +918,8 @@ function StudentModal({
         alunoId: id,
         planoId: planId,
         startDate: startDateIso,
+        cancelExistingActive: true,
+        immediate: true,
         endDate: null,
         autoRenew: false,
         priceOverride: null,
@@ -880,8 +929,13 @@ function StudentModal({
       });
       setPlanId("");
       setContractError("");
+      setShowChangePlan(false);
       onClose();
-      toast({ title: "Plano vinculado ao aluno!" });
+      toast({
+        title: hasActivePlan
+          ? "Plano alterado com sucesso!"
+          : "Plano vinculado ao aluno!",
+      });
     } catch (requestError) {
       onClose();
       toast({
@@ -922,7 +976,7 @@ function StudentModal({
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -939,7 +993,89 @@ function StudentModal({
             title={aluno?.userName || "Detalhes do aluno"}
             onClose={onClose}
           />
-          <RefreshableScrollView {...modalRefresh}
+
+          <View style={styles.modalTabs}>
+            <TouchableOpacity
+              style={[
+                styles.modalTab,
+                activeTab === "plan" && styles.modalTabActive,
+              ]}
+              onPress={() => setActiveTab("plan")}
+              activeOpacity={0.7}
+            >
+              <CreditCard
+                size={14}
+                color={
+                  activeTab === "plan"
+                    ? COLORS.mainOrange
+                    : COLORS.mutedForeground
+                }
+              />
+              <Text
+                style={[
+                  styles.modalTabText,
+                  activeTab === "plan" && styles.modalTabTextActive,
+                ]}
+              >
+                Plano & Acesso
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.modalTab,
+                activeTab === "details" && styles.modalTabActive,
+              ]}
+              onPress={() => setActiveTab("details")}
+              activeOpacity={0.7}
+            >
+              <User
+                size={14}
+                color={
+                  activeTab === "details"
+                    ? COLORS.mainOrange
+                    : COLORS.mutedForeground
+                }
+              />
+              <Text
+                style={[
+                  styles.modalTabText,
+                  activeTab === "details" && styles.modalTabTextActive,
+                ]}
+              >
+                Cadastro
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.modalTab,
+                activeTab === "history" && styles.modalTabActive,
+              ]}
+              onPress={() => setActiveTab("history")}
+              activeOpacity={0.7}
+            >
+              <Clock
+                size={14}
+                color={
+                  activeTab === "history"
+                    ? COLORS.mainOrange
+                    : COLORS.mutedForeground
+                }
+              />
+              <Text
+                style={[
+                  styles.modalTabText,
+                  activeTab === "history" && styles.modalTabTextActive,
+                ]}
+              >
+                Histórico
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <RefreshableScrollView
+            {...modalRefresh}
             contentContainerStyle={styles.modalContent}
             keyboardShouldPersistTaps="handled"
           >
@@ -951,248 +1087,425 @@ function StudentModal({
               </Text>
             ) : (
               <>
-                <Field
-                  label="CPF"
-                  value={form.cpf ?? ""}
-                  placeholder="000.000.000-00"
-                  keyboardType="number-pad"
-                  mask={maskCpf}
-                  onChange={(value) =>
-                    setForm({ ...form, cpf: nullable(value) })
-                  }
-                />
-                <Field
-                  label="Data de nascimento"
-                  value={form.birthDate ?? ""}
-                  placeholder="DD/MM/AAAA"
-                  keyboardType="number-pad"
-                  mask={maskDate}
-                  onChange={(value) =>
-                    setForm({ ...form, birthDate: nullable(value) })
-                  }
-                />
-                <Field
-                  label="Telefone"
-                  value={form.phone ?? ""}
-                  placeholder="(19) 99999-9999"
-                  keyboardType="number-pad"
-                  mask={maskPhone}
-                  onChange={(value) =>
-                    setForm({ ...form, phone: nullable(value) })
-                  }
-                />
-                <Field
-                  label="Contato de emergência"
-                  value={form.emergencyContact ?? ""}
-                  onChange={(value) =>
-                    setForm({ ...form, emergencyContact: nullable(value) })
-                  }
-                />
-                <Field
-                  label="Telefone de emergência"
-                  value={form.emergencyPhone ?? ""}
-                  placeholder="(19) 99999-9999"
-                  keyboardType="number-pad"
-                  mask={maskPhone}
-                  onChange={(value) =>
-                    setForm({ ...form, emergencyPhone: nullable(value) })
-                  }
-                />
-                <Field
-                  label="Observações médicas"
-                  value={form.medicalNotes ?? ""}
-                  multiline
-                  onChange={(value) =>
-                    setForm({ ...form, medicalNotes: nullable(value) })
-                  }
-                />
-                <Choice
-                  label="Sexo"
-                  options={sexes}
-                  selected={form.sex}
-                  onSelect={(value) => setForm({ ...form, sex: value })}
-                />
-                <Choice
-                  label="Nível"
-                  options={levels}
-                  selected={form.level}
-                  onSelect={(value) => setForm({ ...form, level: value })}
-                />
-                <Choice
-                  label="Status"
-                  options={statuses}
-                  selected={form.status}
-                  onSelect={(value) => setForm({ ...form, status: value })}
-                />
-                <View style={styles.switchRow}>
-                  <View style={styles.grow}>
-                    <Text style={styles.fieldLabel}>
-                      Não receber reengajamento
-                    </Text>
-                    <Text style={styles.secondary}>
-                      Desativa comunicações automáticas de retorno.
-                    </Text>
-                  </View>
-                  <Switch
-                    value={form.optOutReengagement}
-                    onValueChange={(value) =>
-                      setForm({ ...form, optOutReengagement: value })
-                    }
-                    trackColor={{ true: COLORS.mainOrange }}
-                  />
-                </View>
-                <ActionButton
-                  label={isSaving ? "Salvando..." : "Salvar dados"}
-                  icon={<Check size={15} color="#fff" />}
-                  onPress={save}
-                />
-                <Text style={styles.sectionTitle}>Vincular plano</Text>
-                <Text style={styles.secondary}>
-                  Selecione o plano que será ativado para este aluno.
-                </Text>
-                {contractError ? (
-                  <Text style={styles.fieldError}>{contractError}</Text>
-                ) : null}
-                {plansLoading ? (
-                  <AdminSkeleton height={54} />
-                ) : (
-                  <View style={styles.choiceRow}>
-                    {(plans ?? []).map((plan) => {
-                      const selected = planId === plan.id;
-                      return (
+                {/* ABA 1: PLANO & ACESSO */}
+                {activeTab === "plan" && (
+                  <>
+                    {hasActivePlan ? (
+                      <View style={styles.activePlanCard}>
+                        <View style={styles.activePlanHeader}>
+                          <View style={styles.activePlanTitleGroup}>
+                            <CreditCard size={15} color={COLORS.mainOrange} />
+                            <Text style={styles.activePlanLabel}>
+                              PLANO ATIVO
+                            </Text>
+                          </View>
+                          <Pill label="Ativo" tone="success" />
+                        </View>
+
+                        <Text style={styles.activePlanName}>
+                          {aluno?.planoName}
+                        </Text>
+
+                        {(aluno?.contratoStartDate ||
+                          aluno?.contratoEndDate) && (
+                          <View style={styles.activePlanDatesRow}>
+                            <Calendar
+                              size={13}
+                              color={COLORS.mutedForeground}
+                            />
+                            <Text style={styles.activePlanDatesText}>
+                              {aluno.contratoStartDate
+                                ? `Início: ${toDateInput(aluno.contratoStartDate)}`
+                                : ""}
+                              {aluno.contratoStartDate &&
+                              aluno.contratoEndDate
+                                ? " · "
+                                : ""}
+                              {aluno.contratoEndDate
+                                ? `Válido até: ${toDateInput(aluno.contratoEndDate)}`
+                                : "Sem data final"}
+                            </Text>
+                          </View>
+                        )}
+
                         <TouchableOpacity
-                          key={plan.id}
+                          style={styles.changePlanToggleBtn}
                           onPress={() => {
-                            setPlanId(plan.id);
+                            setShowChangePlan((prev) => !prev);
                             setContractError("");
                           }}
-                          style={[
-                            styles.choice,
-                            selected && styles.choiceActive,
-                          ]}
+                          activeOpacity={0.7}
                         >
-                          <Text
-                            style={[
-                              styles.choiceText,
-                              selected && styles.choiceTextActive,
-                            ]}
-                          >
-                            {plan.name}
+                          <RotateCcw size={13} color={COLORS.mainOrange} />
+                          <Text style={styles.changePlanToggleText}>
+                            {showChangePlan
+                              ? "Cancelar alteração de plano"
+                              : "Alterar ou renovar plano"}
                           </Text>
                         </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-                <Field
-                  label="Data de início *"
-                  value={startDate}
-                  placeholder="DD/MM/AAAA"
-                  keyboardType="number-pad"
-                  mask={maskDate}
-                  onChange={(value) => {
-                    setStartDate(value);
-                    setContractError("");
-                  }}
-                />
-                <View style={styles.switchRow}>
-                  <View style={styles.grow}>
-                    <Text style={styles.fieldLabel}>
-                      Pagamento realizado no local
-                    </Text>
-                    <Text style={styles.secondary}>
-                      Marca a primeira cobrança como paga.
-                    </Text>
-                  </View>
-                  <Switch
-                    value={isPaidLocally}
-                    onValueChange={setIsPaidLocally}
-                    trackColor={{ true: COLORS.mainOrange }}
-                  />
-                </View>
-                <ActionButton
-                  label={
-                    isCreatingContract ? "Vinculando..." : "Vincular plano"
-                  }
-                  onPress={createPlanContract}
-                />
-                <Text style={styles.sectionTitle}>Métodos de pagamento</Text>
-                <View style={styles.choiceRow}>
-                  {paymentMethods.map((method) => {
-                    const active = methods.includes(method.value);
-                    return (
-                      <TouchableOpacity
-                        key={method.value}
-                        onPress={() =>
-                          setMethods(
-                            active
-                              ? methods.filter((item) => item !== method.value)
-                              : [...methods, method.value],
-                          )
-                        }
-                        style={[styles.choice, active && styles.choiceActive]}
-                      >
-                        <Text
-                          style={[
-                            styles.choiceText,
-                            active && styles.choiceTextActive,
-                          ]}
-                        >
-                          {method.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                <ActionButton
-                  label="Salvar métodos"
-                  outline
-                  onPress={saveMethods}
-                />
-                <Text style={styles.sectionTitle}>Histórico de check-ins</Text>
-                {historyLoading ? (
-                  <AdminSkeleton height={100} />
-                ) : (history?.attendances ?? []).length === 0 ? (
-                  <Text style={styles.empty}>Nenhum check-in registrado.</Text>
-                ) : (
-                  (history?.attendances ?? []).map((item) => (
-                    <View key={item.id} style={styles.historyRow}>
-                      <View style={styles.grow}>
-                        <Text style={styles.name}>
-                          {item.aulaName || "Aula"}
-                        </Text>
-                        <Text style={styles.secondary}>
-                          {new Date(
-                            `${item.aulaDate}T12:00:00`,
-                          ).toLocaleDateString("pt-BR")}{" "}
-                          · {item.startTime?.slice(0, 5) || "--:--"}
+                      </View>
+                    ) : (
+                      <View style={styles.noPlanCard}>
+                        <View style={styles.noPlanHeader}>
+                          <View style={styles.activePlanTitleGroup}>
+                            <CreditCard size={15} color="#9CA3AF" />
+                            <Text style={styles.noPlanLabel}>
+                              SITUAÇÃO DE MATRÍCULA
+                            </Text>
+                          </View>
+                          <Pill label="Sem plano" tone="neutral" />
+                        </View>
+                        <Text style={styles.noPlanMessage}>
+                          Este aluno ainda não possui nenhum plano ativo
+                          vinculado.
                         </Text>
                       </View>
-                      <Pill label={item.method || "Check-in"} tone="success" />
+                    )}
+
+                    {(!hasActivePlan || showChangePlan) && (
+                      <View style={styles.planFormContainer}>
+                        <Text style={styles.sectionTitle}>
+                          {hasActivePlan
+                            ? "Vincular novo plano"
+                            : "Vincular plano"}
+                        </Text>
+                        <Text style={styles.secondary}>
+                          {hasActivePlan
+                            ? "Selecione o plano que substituirá o contrato atual deste aluno."
+                            : "Selecione o plano que será ativado para este aluno."}
+                        </Text>
+                        {contractError ? (
+                          <Text style={styles.fieldError}>
+                            {contractError}
+                          </Text>
+                        ) : null}
+                        {plansLoading ? (
+                          <AdminSkeleton height={54} />
+                        ) : (
+                          <View style={styles.choiceRow}>
+                            {(plans ?? []).map((plan) => {
+                              const selected = planId === plan.id;
+                              return (
+                                <TouchableOpacity
+                                  key={plan.id}
+                                  onPress={() => {
+                                    setPlanId(plan.id);
+                                    setContractError("");
+                                  }}
+                                  style={[
+                                    styles.choice,
+                                    selected && styles.choiceActive,
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.choiceText,
+                                      selected && styles.choiceTextActive,
+                                    ]}
+                                  >
+                                    {plan.name}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        )}
+                        <Field
+                          label="Data de início *"
+                          value={startDate}
+                          placeholder="DD/MM/AAAA"
+                          keyboardType="number-pad"
+                          mask={maskDate}
+                          onChange={(value) => {
+                            setStartDate(value);
+                            setContractError("");
+                          }}
+                        />
+                        <View style={styles.switchRow}>
+                          <View style={styles.grow}>
+                            <Text style={styles.fieldLabel}>
+                              Pagamento realizado no local
+                            </Text>
+                            <Text style={styles.secondary}>
+                              Marca a primeira cobrança como paga.
+                            </Text>
+                          </View>
+                          <Switch
+                            value={isPaidLocally}
+                            onValueChange={setIsPaidLocally}
+                            trackColor={{ true: COLORS.mainOrange }}
+                          />
+                        </View>
+                        <ActionButton
+                          label={
+                            isCreatingContract
+                              ? "Vinculando..."
+                              : hasActivePlan
+                                ? "Confirmar alteração de plano"
+                                : "Vincular plano"
+                          }
+                          onPress={createPlanContract}
+                        />
+                      </View>
+                    )}
+
+                    <View style={styles.tabSection}>
+                      <Text style={styles.sectionTitle}>Status do aluno</Text>
+                      <Text style={styles.secondary}>
+                        Define se o aluno possui acesso liberado ao CT e às
+                        aulas. Toque para alterar.
+                      </Text>
+                      <View style={styles.choiceRow}>
+                        {statuses.map((opt) => {
+                          const selected = form.status === opt.value;
+                          return (
+                            <TouchableOpacity
+                              key={opt.value}
+                              onPress={() => handleStatusChange(opt.value)}
+                              style={[
+                                styles.choice,
+                                selected && styles.choiceActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.choiceText,
+                                  selected && styles.choiceTextActive,
+                                ]}
+                              >
+                                {opt.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
-                  ))
+
+                    <View style={styles.tabSection}>
+                      <Text style={styles.sectionTitle}>
+                        Métodos de pagamento aceitos
+                      </Text>
+                      <Text style={styles.secondary}>
+                        Formas autorizadas para este aluno. Toque para
+                        ativar ou desativar.
+                      </Text>
+                      <View style={styles.choiceRow}>
+                        {paymentMethods.map((method) => {
+                          const active = methods.includes(method.value);
+                          return (
+                            <TouchableOpacity
+                              key={method.value}
+                              onPress={() =>
+                                handleTogglePaymentMethod(method.value)
+                              }
+                              style={[
+                                styles.choice,
+                                active && styles.choiceActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.choiceText,
+                                  active && styles.choiceTextActive,
+                                ]}
+                              >
+                                {method.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </>
                 )}
-                <View style={styles.dangerZone}>
-                  <Text style={styles.dangerZoneTitle}>Zona de perigo</Text>
-                  <Text style={styles.dangerZoneDescription}>
-                    Desvincular o aluno removerá seu acesso a este CT, cancelará contratos ativos e assinaturas no gateway, além de liberar futuras reservas.
-                  </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.deleteStudentButton,
-                      isDeleting && styles.disabled,
-                    ]}
-                    onPress={handleDeleteAluno}
-                    disabled={isDeleting}
-                    accessibilityRole="button"
-                    accessibilityLabel="Desvincular aluno do CT"
-                  >
-                    <Trash2 size={16} color={COLORS.destructive} />
-                    <Text style={styles.deleteStudentButtonText}>
-                      {isDeleting ? "Desvinculando..." : "Desvincular aluno do CT"}
+
+                {/* ABA 2: CADASTRO */}
+                {activeTab === "details" && (
+                  <>
+                    <View style={styles.cardSection}>
+                      <Text style={styles.groupHeader}>
+                        Dados Pessoais & Perfil
+                      </Text>
+                      <Field
+                        label="Telefone"
+                        value={form.phone ?? ""}
+                        placeholder="(19) 99999-9999"
+                        keyboardType="number-pad"
+                        mask={maskPhone}
+                        onChange={(value) =>
+                          setForm({ ...form, phone: nullable(value) })
+                        }
+                      />
+                      <Field
+                        label="CPF"
+                        value={form.cpf ?? ""}
+                        placeholder="000.000.000-00"
+                        keyboardType="number-pad"
+                        mask={maskCpf}
+                        onChange={(value) =>
+                          setForm({ ...form, cpf: nullable(value) })
+                        }
+                      />
+                      <Field
+                        label="Data de nascimento"
+                        value={form.birthDate ?? ""}
+                        placeholder="DD/MM/AAAA"
+                        keyboardType="number-pad"
+                        mask={maskDate}
+                        onChange={(value) =>
+                          setForm({ ...form, birthDate: nullable(value) })
+                        }
+                      />
+                      <Choice
+                        label="Sexo"
+                        options={sexes}
+                        selected={form.sex}
+                        onSelect={(value) => setForm({ ...form, sex: value })}
+                      />
+                      <Choice
+                        label="Nível"
+                        options={levels}
+                        selected={form.level}
+                        onSelect={(value) => setForm({ ...form, level: value })}
+                      />
+                      <View style={styles.switchRow}>
+                        <View style={styles.grow}>
+                          <Text style={styles.fieldLabel}>
+                            Não receber reengajamento
+                          </Text>
+                          <Text style={styles.secondary}>
+                            Desativa comunicações automáticas de retorno.
+                          </Text>
+                        </View>
+                        <Switch
+                          value={form.optOutReengagement}
+                          onValueChange={(value) =>
+                            setForm({ ...form, optOutReengagement: value })
+                          }
+                          trackColor={{ true: COLORS.mainOrange }}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={[styles.cardSection, styles.emergencyCard]}>
+                      <View style={styles.emergencyHeader}>
+                        <AlertTriangle size={16} color="#D97706" />
+                        <Text style={styles.emergencyTitle}>
+                          Saúde & Emergência
+                        </Text>
+                      </View>
+                      <Field
+                        label="Contato de emergência"
+                        value={form.emergencyContact ?? ""}
+                        placeholder="Nome do contato (ex: Mãe, Cônjuge)"
+                        onChange={(value) =>
+                          setForm({
+                            ...form,
+                            emergencyContact: nullable(value),
+                          })
+                        }
+                      />
+                      <Field
+                        label="Telefone de emergência"
+                        value={form.emergencyPhone ?? ""}
+                        placeholder="(19) 99999-9999"
+                        keyboardType="number-pad"
+                        mask={maskPhone}
+                        onChange={(value) =>
+                          setForm({
+                            ...form,
+                            emergencyPhone: nullable(value),
+                          })
+                        }
+                      />
+                      <Field
+                        label="Observações médicas"
+                        value={form.medicalNotes ?? ""}
+                        placeholder="Alergias, lesões, cirurgias ou restrições..."
+                        multiline
+                        onChange={(value) =>
+                          setForm({ ...form, medicalNotes: nullable(value) })
+                        }
+                      />
+                    </View>
+
+                    <ActionButton
+                      label={
+                        isSaving ? "Salvando..." : "Salvar dados cadastrais"
+                      }
+                      icon={<Check size={15} color="#fff" />}
+                      onPress={saveDetails}
+                    />
+
+                    <View style={styles.dangerZone}>
+                      <Text style={styles.dangerZoneTitle}>Zona de perigo</Text>
+                      <Text style={styles.dangerZoneDescription}>
+                        Desvincular o aluno removerá seu acesso a este CT,
+                        cancelará contratos ativos e assinaturas no gateway,
+                        além de liberar futuras reservas.
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.deleteStudentButton,
+                          isDeleting && styles.disabled,
+                        ]}
+                        onPress={handleDeleteAluno}
+                        disabled={isDeleting}
+                        accessibilityRole="button"
+                        accessibilityLabel="Desvincular aluno do CT"
+                      >
+                        <Trash2 size={16} color={COLORS.destructive} />
+                        <Text style={styles.deleteStudentButtonText}>
+                          {isDeleting
+                            ? "Desvinculando..."
+                            : "Desvincular aluno do CT"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+
+                {/* ABA 3: HISTÓRICO */}
+                {activeTab === "history" && (
+                  <View style={styles.historyContainer}>
+                    <Text style={styles.sectionTitle}>
+                      Histórico de check-ins
                     </Text>
-                  </TouchableOpacity>
-                </View>
+                    <Text style={styles.secondary}>
+                      Presenças registradas nas aulas e turmas deste CT.
+                    </Text>
+                    {historyLoading ? (
+                      <AdminSkeleton height={140} radius={8} />
+                    ) : (history?.attendances ?? []).length === 0 ? (
+                      <View style={styles.emptyHistoryBox}>
+                        <Clock size={36} color="#D1D5DB" />
+                        <Text style={styles.empty}>
+                          Nenhum check-in registrado para este aluno.
+                        </Text>
+                      </View>
+                    ) : (
+                      (history?.attendances ?? []).map((item) => (
+                        <View key={item.id} style={styles.historyRow}>
+                          <View style={styles.grow}>
+                            <Text style={styles.name}>
+                              {item.aulaName || "Aula"}
+                            </Text>
+                            <Text style={styles.secondary}>
+                              {new Date(
+                                `${item.aulaDate}T12:00:00`,
+                              ).toLocaleDateString("pt-BR")}{" "}
+                              · {item.startTime?.slice(0, 5) || "--:--"}
+                            </Text>
+                          </View>
+                          <Pill
+                            label={item.method || "Check-in"}
+                            tone="success"
+                          />
+                        </View>
+                      ))
+                    )}
+                  </View>
+                )}
               </>
             )}
           </RefreshableScrollView>
@@ -1761,6 +2074,160 @@ const styles = StyleSheet.create({
     color: COLORS.destructive,
     fontSize: 13,
     fontWeight: "600",
+  },
+  activePlanCard: {
+    backgroundColor: "#FFFBF7",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    gap: 8,
+    marginBottom: 4,
+  },
+  activePlanHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  activePlanTitleGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  activePlanLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.mainOrange,
+    letterSpacing: 0.5,
+  },
+  activePlanName: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.foreground,
+  },
+  activePlanDatesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  activePlanDatesText: {
+    fontSize: 12,
+    color: COLORS.mutedForeground,
+    fontWeight: "600",
+  },
+  changePlanToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 4,
+    alignSelf: "flex-start",
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: "#FFF2E9",
+  },
+  changePlanToggleText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.mainOrange,
+  },
+  noPlanCard: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    gap: 6,
+    marginBottom: 4,
+  },
+  noPlanHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  noPlanLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#6B7280",
+    letterSpacing: 0.5,
+  },
+  noPlanMessage: {
+    fontSize: 13,
+    color: COLORS.mutedForeground,
+  },
+  planFormContainer: {
+    gap: 12,
+    paddingTop: 4,
+  },
+  modalTabs: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: "#FAFBFB",
+  },
+  modalTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  modalTabActive: {
+    borderBottomColor: COLORS.mainOrange,
+    backgroundColor: "#fff",
+  },
+  modalTabText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.mutedForeground,
+  },
+  modalTabTextActive: {
+    color: COLORS.mainOrange,
+  },
+  tabSection: {
+    gap: 8,
+  },
+  cardSection: {
+    backgroundColor: "#FAFAFA",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#EAEAEA",
+    padding: 14,
+    gap: 12,
+  },
+  groupHeader: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COLORS.foreground,
+    letterSpacing: -0.2,
+    marginBottom: 2,
+  },
+  emergencyCard: {
+    backgroundColor: "#FFFDF5",
+    borderColor: "#FDE68A",
+  },
+  emergencyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  emergencyTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#B45309",
+    letterSpacing: -0.2,
+  },
+  historyContainer: {
+    gap: 8,
+  },
+  emptyHistoryBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 36,
+    gap: 10,
   },
 });
 

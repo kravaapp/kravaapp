@@ -37,6 +37,10 @@ export type AlunoType = {
   sex: string | null;
   enrolledAtUtc: string;
   optOutReengagement: boolean;
+  planoId?: string | null;
+  planoName?: string | null;
+  contratoStartDate?: string | null;
+  contratoEndDate?: string | null;
 };
 
 export type CreateAlunoType = {

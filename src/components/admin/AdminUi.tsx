@@ -40,19 +40,21 @@ export const Pill = ({
   tone = "neutral",
 }: {
   label: string;
-  tone?: "primary" | "success" | "warning" | "danger" | "info" | "neutral";
+  tone?: "primary" | "success" | "warning" | "danger" | "info" | "neutral" | "muted";
 }) => {
-  const colors = {
+  const colors: Record<string, [string, string]> = {
     primary: ["#FFF0E6", COLORS.mainOrange],
     success: [COLORS.successSurface, "#15803d"],
     warning: [COLORS.warningSurface, "#b45309"],
     danger: ["#fee2e2", COLORS.destructive],
     info: [COLORS.infoSurface, COLORS.info],
     neutral: ["#f3f4f6", COLORS.mutedForeground],
-  }[tone];
+    muted: ["#f3f4f6", COLORS.mutedForeground],
+  };
+  const palette = colors[tone] ?? colors.neutral;
   return (
-    <View style={[styles.pill, { backgroundColor: colors[0] }]}>
-      <Text style={[styles.pillText, { color: colors[1] }]}>{label}</Text>
+    <View style={[styles.pill, { backgroundColor: palette[0] }]}>
+      <Text style={[styles.pillText, { color: palette[1] }]}>{label}</Text>
     </View>
   );
 };
