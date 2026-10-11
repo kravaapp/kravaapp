@@ -306,6 +306,8 @@ export function useMarkAttendance() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["attendance"] });
+            queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+            queryClient.invalidateQueries({ queryKey: ["schedule"] });
         },
     });
 
@@ -332,6 +334,7 @@ export function useCloseOcorrencia() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["attendance"] });
             queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+            queryClient.invalidateQueries({ queryKey: ["schedule"] });
         },
     });
 

@@ -18,15 +18,35 @@ import {
   useAttendance,
   useAulas,
   useClassFormOptions,
+  useCloseOcorrencia,
   useCreateAula,
   useDeleteAula,
+  useMarkAttendance,
+  useSchedule,
   useTodayOccurrences,
   useUpdateAula,
 } from "@/hooks/schedule.hooks";
 import { normalizeApiError } from "@/routes/apiError";
-import { AulaType, TodayOccurrenceType } from "@/types/schedules.types";
+import {
+  AttendanceStudentType,
+  AulaType,
+  ScheduleOccurrenceType,
+  TodayOccurrenceType,
+} from "@/types/schedules.types";
 import { maskInteger, maskTime } from "@/utils/masks";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react-native";
+import { addDays, format, isToday, subDays } from "date-fns";
+import {
+  Calendar,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -40,6 +60,45 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+type AnyOccurrenceItem = TodayOccurrenceType | ScheduleOccurrenceType;
+
+const getModalityColor = (name?: string | null) => {
+  if (!name) return COLORS.mainOrange;
+  const n = name.toLowerCase();
+  if (n.includes("crossfit") || n.includes("wod")) return "#10B981"; // verde esmeralda
+  if (n.includes("funcional")) return "#0EA5E9"; // azul céu
+  if (n.includes("muay") || n.includes("thai")) return "#F97316"; // laranja
+  if (n.includes("jiu") || n.includes("bjj")) return "#8B5CF6"; // roxo
+  if (n.includes("boxe") || n.includes("boxing")) return "#EF4444"; // vermelho
+  if (n.includes("futevolei") || n.includes("volei")) return "#EAB308"; // amarelo
+  if (n.includes("pilates") || n.includes("yoga")) return "#EC4899"; // rosa
+  const palette = ["#F97316", "#10B981", "#8B5CF6", "#0EA5E9", "#EC4899", "#EAB308", "#14B8A6"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return palette[Math.abs(hash) % palette.length];
+};
+
+const formatPtDate = (d: Date) => {
+  const weekdays = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const months = [
+    "jan", "fev", "mar", "abr", "mai", "jun",
+    "jul", "ago", "set", "out", "nov", "dez",
+  ];
+  const wd = weekdays[d.getDay()];
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${wd}, ${day} ${month} ${year}`;
+};
+
+const formatMonthYear = (d: Date) => {
+  const months = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  ];
+  return `${months[d.getMonth()]} de ${d.getFullYear()}`;
+};
 
 type Audience = "Mista" | "Masculina" | "Feminina";
 const filters: ("Todos" | Audience)[] = [
@@ -131,28 +190,106 @@ const statusTone = (status: string) => {
 };
 
 export default function AdminClasses() {
-  const refresh = useScreenRefresh([["today-occurrences"], ["aulas", "active"]]);
   const { toast } = useToast();
   const [view, setView] = useState<"today" | "week">("today");
   const [filter, setFilter] = useState<(typeof filters)[number]>("Todos");
-  const [selected, setSelected] = useState<TodayOccurrenceType | null>(null);
+  const [selected, setSelected] = useState<AnyOccurrenceItem | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [newClass, setNewClass] = useState(false);
   const [editingClass, setEditingClass] = useState<AulaType | null>(null);
+
+  const selectedDateStr = useMemo(
+    () => format(selectedDate, "yyyy-MM-dd"),
+    [selectedDate],
+  );
+  const isSelectedDateToday = isToday(selectedDate);
+
+  const weekDays = useMemo(() => {
+    const dayOfWeek = selectedDate.getDay();
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = addDays(selectedDate, diffToMonday);
+    return Array.from({ length: 7 }).map((_, index) => addDays(monday, index));
+  }, [selectedDate]);
+
+  const refresh = useScreenRefresh([
+    ["today-occurrences"],
+    ["schedule"],
+    ["aulas", "active"],
+  ]);
+
   const { deleteAula, isLoading: isDeleting } = useDeleteAula();
   const {
     todayOccurrences = [],
     isLoading: loadingToday,
     error: todayError,
   } = useTodayOccurrences();
+
+  const {
+    schedule: daySchedule,
+    isLoading: loadingSchedule,
+    error: scheduleError,
+  } = useSchedule({
+    startDate: selectedDateStr,
+    endDate: selectedDateStr,
+    page: 1,
+    pageSize: 100,
+  });
+
   const { aulas, isLoading: loadingAulas, error: aulasError } = useAulas();
   const aulasById = useMemo(
     () => new Map(aulas.map((aula) => [aula.id, aula])),
     [aulas],
   );
-  const visibleClasses = todayOccurrences.filter((item) => {
-    const audience = audienceLabel(aulasById.get(item.aulaId)?.publicGender);
-    return filter === "Todos" || audience === filter;
-  });
+
+  const currentOccurrences: AnyOccurrenceItem[] = useMemo(() => {
+    if (isSelectedDateToday && todayOccurrences.length > 0) {
+      return todayOccurrences;
+    }
+    return daySchedule?.items ?? [];
+  }, [isSelectedDateToday, todayOccurrences, daySchedule]);
+
+  const loadingOccurrences = isSelectedDateToday
+    ? loadingToday && !todayOccurrences.length
+    : loadingSchedule;
+  const occurrencesError = isSelectedDateToday ? todayError : scheduleError;
+
+  const visibleClasses = useMemo(() => {
+    return currentOccurrences.filter((item: AnyOccurrenceItem) => {
+      const audience = audienceLabel(
+        aulasById.get(item.aulaId)?.publicGender ||
+          (item as any).publicGender,
+      );
+      return filter === "Todos" || audience === filter;
+    });
+  }, [currentOccurrences, aulasById, filter]);
+
+  const handleDeleteClass = (item: AulaType) => {
+    Alert.alert(
+      "Excluir aula?",
+      "As ocorrências e reservas futuras desta aula serão canceladas e os alunos serão notificados.",
+      [
+        { text: "Voltar", style: "cancel" },
+        {
+          text: "Excluir aula",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAula(item.id);
+              toast({ title: "Aula excluída com sucesso!" });
+            } catch (requestError) {
+              toast({
+                title: normalizeApiError(
+                  requestError,
+                  "Não foi possível excluir a aula.",
+                ).description,
+                variant: "destructive",
+              });
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -161,7 +298,10 @@ export default function AdminClasses() {
         <AdminScreen>
           <View style={styles.pageHeaderRow}>
             <View style={styles.grow}>
-              <AdminPageHeader title="aulas" subtitle="Ocorrências de hoje e grade semanal" />
+              <AdminPageHeader
+                title="Grade & Aulas"
+                subtitle="Ocorrências, reservas e lista de espera"
+              />
             </View>
             <ActionButton
               label="Nova aula"
@@ -169,6 +309,7 @@ export default function AdminClasses() {
               onPress={() => setNewClass(true)}
             />
           </View>
+
           <View style={styles.segment}>
             <TouchableOpacity
               onPress={() => setView("today")}
@@ -177,7 +318,14 @@ export default function AdminClasses() {
                 view === "today" && styles.segmentActive,
               ]}
             >
-              <Text style={[styles.segmentText, view === "today" && styles.segmentTextActive]}>Hoje</Text>
+              <Text
+                style={[
+                  styles.segmentText,
+                  view === "today" && styles.segmentTextActive,
+                ]}
+              >
+                Ocorrências
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setView("week")}
@@ -186,12 +334,122 @@ export default function AdminClasses() {
                 view === "week" && styles.segmentActive,
               ]}
             >
-              <Text style={[styles.segmentText, view === "week" && styles.segmentTextActive]}>Grade semanal</Text>
+              <Text
+                style={[
+                  styles.segmentText,
+                  view === "week" && styles.segmentTextActive,
+                ]}
+              >
+                Grade semanal
+              </Text>
             </TouchableOpacity>
           </View>
 
           {view === "today" ? (
             <>
+              {/* Navegador de Semana / Fita de 7 Dias */}
+              <View style={styles.weekCalendarContainer}>
+                {/* Cabeçalho da Semana: Mês/Ano + Botão Hoje + Setas de Navegação */}
+                <View style={styles.weekCalendarHeader}>
+                  <View style={styles.weekHeaderTitleGroup}>
+                    <Calendar size={15} color={COLORS.mainOrange} />
+                    <Text style={styles.weekHeaderTitle}>
+                      {formatMonthYear(selectedDate)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.weekHeaderActions}>
+                    {!isSelectedDateToday && (
+                      <TouchableOpacity
+                        style={styles.todayQuickButton}
+                        onPress={() => setSelectedDate(new Date())}
+                        activeOpacity={0.7}
+                      >
+                        <RotateCcw size={12} color={COLORS.mainOrange} />
+                        <Text style={styles.todayQuickText}>Hoje</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <View style={styles.weekNavArrows}>
+                      <TouchableOpacity
+                        style={styles.weekArrowButton}
+                        onPress={() => setSelectedDate((prev) => subDays(prev, 7))}
+                        accessibilityLabel="Semana anterior"
+                        activeOpacity={0.7}
+                      >
+                        <ChevronLeft size={16} color={COLORS.foreground} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.weekArrowButton}
+                        onPress={() => setSelectedDate((prev) => addDays(prev, 7))}
+                        accessibilityLabel="Próxima semana"
+                        activeOpacity={0.7}
+                      >
+                        <ChevronRight size={16} color={COLORS.foreground} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Fita de 7 Dias (Seg a Dom) */}
+                <View style={styles.weekDaysRow}>
+                  {weekDays.map((day) => {
+                    const isSelected =
+                      day.toDateString() === selectedDate.toDateString();
+                    const isDayToday = isToday(day);
+                    const dayName = [
+                      "DOM",
+                      "SEG",
+                      "TER",
+                      "QUA",
+                      "QUI",
+                      "SEX",
+                      "SÁB",
+                    ][day.getDay()];
+                    const dayNum = day.getDate();
+
+                    return (
+                      <TouchableOpacity
+                        key={day.toISOString()}
+                        style={[
+                          styles.dayPill,
+                          isSelected && styles.dayPillActive,
+                          isDayToday && !isSelected && styles.dayPillToday,
+                        ]}
+                        onPress={() => setSelectedDate(day)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.dayPillName,
+                            isSelected && styles.dayPillNameActive,
+                          ]}
+                        >
+                          {dayName}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.dayPillNum,
+                            isSelected && styles.dayPillNumActive,
+                          ]}
+                        >
+                          {dayNum}
+                        </Text>
+                        {isDayToday && (
+                          <View
+                            style={[
+                              styles.todayDot,
+                              isSelected && styles.todayDotActive,
+                            ]}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Filtros de Público */}
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -217,66 +475,133 @@ export default function AdminClasses() {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-              {loadingToday && (
+
+              {loadingOccurrences && (
                 <>
-                  <AdminSkeleton width="100%" height={180} radius={12} />
-                  <AdminSkeleton width="100%" height={180} radius={12} />
+                  <AdminSkeleton width="100%" height={90} radius={14} />
+                  <AdminSkeleton width="100%" height={90} radius={14} />
+                  <AdminSkeleton width="100%" height={90} radius={14} />
                 </>
               )}
-              {todayError && <Text style={styles.empty}>{todayError}</Text>}
-              {!loadingToday && !todayError && visibleClasses.length === 0 && (
-                <Text style={styles.empty}>Nenhuma aula encontrada hoje.</Text>
+
+              {occurrencesError && (
+                <Text style={styles.empty}>{occurrencesError}</Text>
               )}
+
+              {!loadingOccurrences &&
+                !occurrencesError &&
+                visibleClasses.length === 0 && (
+                  <Text style={styles.empty}>
+                    Nenhuma aula encontrada para este dia.
+                  </Text>
+                )}
+
+              {/* Listagem de Ocorrências (Print 1) */}
               {visibleClasses.map((item) => {
                 const pct =
                   item.maxCapacity > 0
                     ? (item.confirmedCount / item.maxCapacity) * 100
                     : 0;
-                const audience = audienceLabel(
-                  aulasById.get(item.aulaId)?.publicGender,
-                );
+                const modTitle =
+                  (item as any).modalidadeName ||
+                  (item as any).modalityName ||
+                  item.aulaName ||
+                  "Aula";
+                const modColor = getModalityColor(modTitle);
+                const isFull =
+                  item.maxCapacity > 0 &&
+                  item.confirmedCount >= item.maxCapacity;
+
                 return (
-                  <AdminCard key={item.id}>
-                    <View style={styles.rowBetween}>
-                      <Text style={styles.time}>
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.occurrenceCard}
+                    onPress={() => setSelected(item)}
+                    activeOpacity={0.7}
+                  >
+                    {/* Horário */}
+                    <View style={styles.timeColumn}>
+                      <Text style={styles.timeTextStart}>
                         {item.startTime?.slice(0, 5)}
                       </Text>
+                      <Text style={styles.timeTextEnd}>
+                        {item.endTime?.slice(0, 5)}
+                      </Text>
+                    </View>
+
+                    {/* Faixa vertical da modalidade */}
+                    <View
+                      style={[
+                        styles.modalityBar,
+                        { backgroundColor: modColor },
+                      ]}
+                    />
+
+                    {/* Informações da Aula */}
+                    <View style={styles.occurrenceDetails}>
+                      <View style={styles.occurrenceTitleRow}>
+                        <Text style={styles.occurrenceTitle} numberOfLines={1}>
+                          {modTitle}
+                        </Text>
+                        {item.waitlistCount > 0 && (
+                          <View style={styles.waitlistTag}>
+                            <Text style={styles.waitlistTagText}>
+                              +{item.waitlistCount} ESPERA
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={styles.occurrenceProfessor}
+                        numberOfLines={1}
+                      >
+                        {item.professorName}
+                      </Text>
+                    </View>
+
+                    {/* Lado Direito: Capacidade, Status e Chevron */}
+                    <View style={styles.occurrenceRight}>
+                      <View style={styles.capacityBlock}>
+                        <Text style={styles.capacityNumbers}>
+                          <Text
+                            style={
+                              isFull
+                                ? styles.capacityNumberFull
+                                : styles.capacityNumberNormal
+                            }
+                          >
+                            {item.confirmedCount}
+                          </Text>
+                          {" / "}
+                          {item.maxCapacity}
+                        </Text>
+                        <View style={styles.miniProgressTrack}>
+                          <View
+                            style={[
+                              styles.miniProgressFill,
+                              {
+                                width: `${Math.min(pct, 100)}%`,
+                                backgroundColor: isFull
+                                  ? "#EA580C"
+                                  : modColor,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+
                       <Pill
                         label={item.status}
                         tone={statusTone(item.status)}
                       />
+                      <ChevronRight size={18} color="#9CA3AF" />
                     </View>
-                    <View style={styles.row}>
-                      <Text style={styles.title}>{item.modalidadeName}</Text>
-                      {audience && <Pill label={audience} tone="primary" />}
-                    </View>
-                    <Text style={styles.muted}>{item.professorName}</Text>
-                    <View style={styles.row}>
-                      <ProgressBar value={pct} />
-                      <Text style={styles.count}>
-                        {item.confirmedCount}/{item.maxCapacity}
-                      </Text>
-                    </View>
-                    <View style={styles.rowBetween}>
-                      {item.waitlistCount ? (
-                        <Pill
-                          label={`${item.waitlistCount} na espera`}
-                          tone="warning"
-                        />
-                      ) : (
-                        <Text style={styles.muted}>Sem lista de espera</Text>
-                      )}
-                      <ActionButton
-                        outline
-                        label="Ver lista"
-                        onPress={() => setSelected(item)}
-                      />
-                    </View>
-                  </AdminCard>
+                  </TouchableOpacity>
                 );
               })}
             </>
           ) : (
+            /* Aba Grade Semanal Polida (Refatoração dos botões grandes) */
             <AdminCard>
               <SectionTitle>Grade semanal</SectionTitle>
               {loadingAulas && (
@@ -295,57 +620,75 @@ export default function AdminClasses() {
                   <View key={day} style={styles.weekRow}>
                     <Text style={styles.day}>{day}</Text>
                     <View style={styles.grow}>
-                      {dayClasses.map((item) => (
-                        <View key={item.id} style={styles.slot}>
-                          <Text style={styles.slotTitle}>
-                            {item.startTime?.slice(0, 5)} ·{" "}
-                            {item.modalidadeName || item.name}
-                          </Text>
-                          <Text style={styles.muted}>
-                            {item.professorName} · capacidade {item.maxCapacity}
-                          </Text>
-                          <View style={styles.slotActions}>
-                            <ActionButton
-                              outline
-                              label="Editar"
-                              icon={<Pencil size={14} color={COLORS.foreground} />}
-                              onPress={() => setEditingClass(item)}
+                      {dayClasses.map((item) => {
+                        const modTitle =
+                          item.modalidadeName || item.name || "Aula";
+                        const modColor = getModalityColor(modTitle);
+                        return (
+                          <TouchableOpacity
+                            key={item.id}
+                            style={styles.weekSlotCard}
+                            onPress={() => setEditingClass(item)}
+                            activeOpacity={0.8}
+                          >
+                            <View
+                              style={[
+                                styles.weekSlotBar,
+                                { backgroundColor: modColor },
+                              ]}
                             />
-                            <ActionButton
-                              outline
-                              label={isDeleting ? "Excluindo..." : "Excluir"}
-                              icon={<Trash2 size={14} color={COLORS.destructive} />}
-                              onPress={() => {
-                                Alert.alert(
-                                  "Excluir aula?",
-                                  "As ocorrências e reservas futuras desta aula serão canceladas e os alunos serão notificados.",
-                                  [
-                                    { text: "Voltar", style: "cancel" },
-                                    {
-                                      text: "Excluir aula",
-                                      style: "destructive",
-                                      onPress: async () => {
-                                        try {
-                                          await deleteAula(item.id);
-                                          toast({ title: "Aula excluída com sucesso!" });
-                                        } catch (requestError) {
-                                          toast({
-                                            title: normalizeApiError(
-                                              requestError,
-                                              "Não foi possível excluir a aula.",
-                                            ).description,
-                                            variant: "destructive",
-                                          });
-                                        }
-                                      },
-                                    },
-                                  ],
-                                );
-                              }}
-                            />
-                          </View>
-                        </View>
-                      ))}
+                            <View style={styles.weekSlotMain}>
+                              <View style={styles.weekSlotTopRow}>
+                                <Text
+                                  style={styles.weekSlotTitle}
+                                  numberOfLines={1}
+                                >
+                                  {item.startTime?.slice(0, 5)} -{" "}
+                                  {item.endTime?.slice(0, 5)} · {modTitle}
+                                </Text>
+                                <View style={styles.weekSlotCapacityBadge}>
+                                  <Users size={11} color="#6B7280" />
+                                  <Text style={styles.weekSlotCapacityText}>
+                                    {item.maxCapacity}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Text
+                                style={styles.weekSlotSub}
+                                numberOfLines={1}
+                              >
+                                {item.professorName}
+                                {item.minLevel ? ` · ${item.minLevel}` : ""}
+                                {item.publicGender
+                                  ? ` · ${audienceLabel(item.publicGender) ?? item.publicGender}`
+                                  : ""}
+                              </Text>
+                            </View>
+                            <View style={styles.weekSlotActions}>
+                              <TouchableOpacity
+                                style={styles.weekActionIconBtn}
+                                onPress={() => setEditingClass(item)}
+                                accessibilityLabel="Editar aula"
+                              >
+                                <Pencil size={15} color={COLORS.foreground} />
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[
+                                  styles.weekActionIconBtn,
+                                  styles.weekActionDeleteBtn,
+                                ]}
+                                onPress={() => handleDeleteClass(item)}
+                                accessibilityLabel="Excluir aula"
+                              >
+                                <Trash2
+                                  size={15}
+                                  color={COLORS.destructive}
+                                />
+                              </TouchableOpacity>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   </View>
                 );
@@ -354,13 +697,28 @@ export default function AdminClasses() {
           )}
         </AdminScreen>
       </RefreshableScrollView>
-      <ClassModal item={selected ? todayOccurrences.find((item) => item.id === selected.id) ?? selected : null} onClose={() => setSelected(null)} />
+
+      {/* Modal de Detalhes da Aula (Print 2) */}
+      {selected ? (
+        <ClassModal
+          item={selected}
+          onClose={() => setSelected(null)}
+          onEditRecurring={(aula: AulaType) => setEditingClass(aula)}
+          aulaTemplate={aulasById.get(selected.aulaId) ?? null}
+        />
+      ) : null}
+
       <NewClassModal
         visible={newClass}
         onClose={() => setNewClass(false)}
         onSuccess={(count) => {
           setNewClass(false);
-          toast({ title: count === 1 ? "Aula criada com sucesso!" : `${count} aulas criadas com sucesso!` });
+          toast({
+            title:
+              count === 1
+                ? "Aula criada com sucesso!"
+                : `${count} aulas criadas com sucesso!`,
+          });
         }}
         onError={(message) => {
           setNewClass(false);
@@ -892,30 +1250,168 @@ function Option({
 function ClassModal({
   item,
   onClose,
+  onEditRecurring,
+  aulaTemplate,
 }: {
-  item: TodayOccurrenceType | null;
+  item: AnyOccurrenceItem | null;
   onClose: () => void;
+  onEditRecurring?: (aula: AulaType) => void;
+  aulaTemplate?: AulaType | null;
 }) {
-  const modalRefresh = useScreenRefresh([["attendance", item?.id]], { enabled: !!item });
+  const { toast } = useToast();
   const [tab, setTab] = useState<"confirmed" | "waitlist">("confirmed");
-  const { attendance, isLoading, error } = useAttendance({
-    ocorrenciaId: item?.id ?? "",
-    status: tab === "confirmed" ? "Confirmado" : "FilaEspera",
+  const modalRefresh = useScreenRefresh([["attendance", item?.id]], {
+    enabled: !!item,
   });
+
+  const {
+    attendance: confirmedData,
+    isLoading: loadingConfirmed,
+    error: confirmedError,
+    refetch: refetchConfirmed,
+  } = useAttendance({
+    ocorrenciaId: item?.id ?? "",
+    status: "Confirmado",
+  });
+
+  const {
+    attendance: waitlistData,
+    isLoading: loadingWaitlist,
+    error: waitlistError,
+    refetch: refetchWaitlist,
+  } = useAttendance({
+    ocorrenciaId: item?.id ?? "",
+    status: "FilaEspera",
+  });
+
+  const { markAttendance } = useMarkAttendance();
+  const { closeOcorrencia, isLoading: isClosing } = useCloseOcorrencia();
+  const [savingBookingId, setSavingBookingId] = useState<string | null>(null);
+
+  const rawConfirmed = confirmedData?.lista ?? [];
+  const confirmedStudents = useMemo(() => {
+    return rawConfirmed.filter(
+      (s: AttendanceStudentType) => s.status !== "Waitlist",
+    );
+  }, [rawConfirmed]);
+
+  const rawWaitlist = waitlistData?.lista ?? [];
+  const waitlistStudents = useMemo(() => {
+    if (!item?.waitlistCount || item.waitlistCount === 0) return [];
+    return rawWaitlist.filter(
+      (s: AttendanceStudentType) => s.status === "Waitlist",
+    );
+  }, [rawWaitlist, item?.waitlistCount]);
+
   if (!item) return null;
-  const students = attendance?.lista ?? [];
+
+  const checkInsCount = confirmedData?.presentCount ?? 0;
+  const isClassClosed =
+    item.status === "Encerrada" || item.status === "Concluida";
+
+  const handleToggleCheckIn = async (student: AttendanceStudentType) => {
+    if (savingBookingId || !student.bookingId) return;
+    const isCurrentlyPresent = student.status === "Present";
+    setSavingBookingId(student.bookingId);
+
+    try {
+      await markAttendance({
+        bookingId: student.bookingId,
+        present: !isCurrentlyPresent,
+      });
+      toast({
+        title: !isCurrentlyPresent
+          ? `Check-in de ${student.studentName} confirmado!`
+          : `Check-in de ${student.studentName} desfeito.`,
+      });
+      refetchConfirmed();
+    } catch (err: any) {
+      toast({
+        title:
+          err?.data?.detail ||
+          err?.message ||
+          "Não foi possível registrar o check-in.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingBookingId(null);
+    }
+  };
+
+  const handleCloseClass = () => {
+    Alert.alert(
+      "Encerrar aula?",
+      "Deseja encerrar a chamada desta aula agora? Alunos sem check-in serão marcados como ausentes.",
+      [
+        { text: "Voltar", style: "cancel" },
+        {
+          text: "Encerrar aula",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await closeOcorrencia(item.id);
+              toast({ title: "Aula encerrada com sucesso!" });
+              onClose();
+            } catch (err: any) {
+              toast({
+                title:
+                  err?.data?.detail ||
+                  err?.message ||
+                  "Não foi possível encerrar a aula.",
+                variant: "destructive",
+              });
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const modTitle =
+    (item as any).modalidadeName ||
+    (item as any).modalityName ||
+    item.aulaName ||
+    "Aula";
+
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.modal}>
-          <View style={styles.rowBetween}>
-            <SectionTitle>
-              {item.startTime?.slice(0, 5)} · {item.modalidadeName}
-            </SectionTitle>
-            <TouchableOpacity onPress={onClose}>
-              <X color={COLORS.foreground} />
+          {/* Header */}
+          <View style={styles.modalHeaderRow}>
+            <View style={styles.grow}>
+              <Text style={styles.modalHeaderTitle}>{modTitle}</Text>
+              <Text style={styles.modalHeaderSubtitle}>
+                {item.professorName} · {item.startTime?.slice(0, 5)} -{" "}
+                {item.endTime?.slice(0, 5)}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+              <X size={20} color={COLORS.foreground} />
             </TouchableOpacity>
           </View>
+
+          {/* 4 Cards de Métricas (Print 2) */}
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiBox}>
+              <Text style={styles.kpiBoxLabel}>CAPACIDADE</Text>
+              <Text style={styles.kpiBoxValue}>{item.maxCapacity}</Text>
+            </View>
+            <View style={styles.kpiBox}>
+              <Text style={styles.kpiBoxLabel}>CONFIRMADOS</Text>
+              <Text style={styles.kpiBoxValue}>{item.confirmedCount}</Text>
+            </View>
+            <View style={styles.kpiBox}>
+              <Text style={styles.kpiBoxLabel}>CHECK-INS</Text>
+              <Text style={styles.kpiBoxValue}>{checkInsCount}</Text>
+            </View>
+            <View style={styles.kpiBox}>
+              <Text style={styles.kpiBoxLabel}>LISTA ESPERA</Text>
+              <Text style={styles.kpiBoxValue}>{item.waitlistCount}</Text>
+            </View>
+          </View>
+
+          {/* Tabs: Confirmados / Espera */}
           <View style={styles.segment}>
             <TouchableOpacity
               style={[
@@ -924,8 +1420,13 @@ function ClassModal({
               ]}
               onPress={() => setTab("confirmed")}
             >
-              <Text style={styles.segmentText}>
-                Confirmados ({item.confirmedCount})
+              <Text
+                style={[
+                  styles.segmentText,
+                  tab === "confirmed" && styles.segmentTextActive,
+                ]}
+              >
+                Confirmados ({confirmedStudents.length})
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -935,45 +1436,163 @@ function ClassModal({
               ]}
               onPress={() => setTab("waitlist")}
             >
-              <Text style={styles.segmentText}>
-                Espera ({item.waitlistCount})
+              <Text
+                style={[
+                  styles.segmentText,
+                  tab === "waitlist" && styles.segmentTextActive,
+                ]}
+              >
+                Lista de Espera ({waitlistStudents.length})
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Lista de Alunos */}
           <RefreshableScrollView {...modalRefresh} style={styles.peopleList}>
-            {isLoading ? (
+            {tab === "confirmed" ? (
+              loadingConfirmed ? (
+                <AdminSkeleton width="100%" height={160} radius={12} />
+              ) : confirmedError ? (
+                <Text style={styles.empty}>{confirmedError}</Text>
+              ) : confirmedStudents.length > 0 ? (
+                confirmedStudents.map((student: AttendanceStudentType, index: number) => {
+                  const isPresent = student.status === "Present";
+                  const isSavingThis = savingBookingId === student.bookingId;
+                  return (
+                    <View
+                      key={
+                        student.bookingId ||
+                        `${student.studentName}-${index}`
+                      }
+                      style={styles.studentCardRow}
+                    >
+                      <View style={styles.studentAvatar}>
+                        <Text style={styles.studentAvatarText}>
+                          {initials(student.studentName || "Aluno")}
+                        </Text>
+                      </View>
+                      <View style={styles.grow}>
+                        <Text style={styles.studentName} numberOfLines={1}>
+                          {student.studentName || "Aluno"}
+                        </Text>
+                        {student.level ? (
+                          <Text style={styles.studentSubText}>
+                            {student.level}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      {/* Botão / Badge de Check-in (Print 2) */}
+                      {isPresent ? (
+                        <TouchableOpacity
+                          style={styles.checkedInBadge}
+                          onPress={() => handleToggleCheckIn(student)}
+                          disabled={isSavingThis || isClassClosed}
+                          activeOpacity={0.7}
+                        >
+                          <Check size={13} color="#10B981" />
+                          <Text style={styles.checkedInBadgeText}>
+                            CONFIRMADO
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.pendingCheckInBtn}
+                          onPress={() => handleToggleCheckIn(student)}
+                          disabled={isSavingThis || isClassClosed}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.pendingCheckInDot} />
+                          <Text style={styles.pendingCheckInBtnText}>
+                            {isSavingThis ? "..." : "CHECK-IN"}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={styles.empty}>
+                  Nenhum aluno confirmado nesta aula.
+                </Text>
+              )
+            ) : loadingWaitlist ? (
               <AdminSkeleton width="100%" height={160} radius={12} />
-            ) : error ? (
-              <Text style={styles.empty}>{error}</Text>
-            ) : students.length ? (
-              students.map((student, index) => (
+            ) : waitlistError ? (
+              <Text style={styles.empty}>{waitlistError}</Text>
+            ) : waitlistStudents.length > 0 ? (
+              waitlistStudents.map((student: AttendanceStudentType, index: number) => (
                 <View
-                  key={student.bookingId || `${student.studentName}-${index}`}
-                  style={styles.person}
+                  key={
+                    student.bookingId || `${student.studentName}-${index}`
+                  }
+                  style={styles.studentCardRow}
                 >
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {initials(student.studentName || "Aluno")}
-                    </Text>
+                  <View style={styles.waitlistPosBadge}>
+                    <Text style={styles.waitlistPosText}>{index + 1}</Text>
                   </View>
-                  <Text style={[styles.title, styles.grow]}>
-                    {student.studentName || "Aluno"}
+                  <View style={styles.grow}>
+                    <Text style={styles.studentName} numberOfLines={1}>
+                      {student.studentName || "Aluno"}
+                    </Text>
+                    {student.level ? (
+                      <Text style={styles.studentSubText}>
+                        {student.level}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={styles.waitlistStatusLabel}>
+                    Aguardando vaga
                   </Text>
-                  {tab === "confirmed" ? (
-                    <Check size={16} color={COLORS.success} />
-                  ) : (
-                    <Pill label={`#${index + 1}`} tone="warning" />
-                  )}
                 </View>
               ))
             ) : (
               <Text style={styles.empty}>
-                {tab === "confirmed"
-                  ? "Nenhum aluno confirmado"
-                  : "Nenhum aluno na lista de espera"}
+                Nenhum aluno na lista de espera.
               </Text>
             )}
           </RefreshableScrollView>
+
+          {/* Rodapé com Fechar, Editar Grade e Encerrar Aula (Print 2) */}
+          <View style={styles.modalFooterRow}>
+            <TouchableOpacity
+              style={styles.modalCloseFooterBtn}
+              onPress={onClose}
+            >
+              <Text style={styles.modalCloseFooterText}>Fechar</Text>
+            </TouchableOpacity>
+
+            <View style={styles.modalFooterRightGroup}>
+              {aulaTemplate && onEditRecurring && (
+                <TouchableOpacity
+                  style={styles.modalEditGradeBtn}
+                  onPress={() => {
+                    onClose();
+                    onEditRecurring(aulaTemplate);
+                  }}
+                >
+                  <Pencil size={14} color="#EA580C" />
+                  <Text style={styles.modalEditGradeText}>Editar grade</Text>
+                </TouchableOpacity>
+              )}
+
+              {!isClassClosed && (
+                <TouchableOpacity
+                  style={[
+                    styles.modalCloseClassBtn,
+                    isClosing && styles.modalCloseClassBtnDisabled,
+                  ]}
+                  onPress={handleCloseClass}
+                  disabled={isClosing}
+                >
+                  <Check size={15} color="#FFFFFF" />
+                  <Text style={styles.modalCloseClassBtnText}>
+                    {isClosing ? "Encerrando..." : "Encerrar aula"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
         </View>
       </View>
     </Modal>
@@ -982,11 +1601,22 @@ function ClassModal({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.white },
-  pageHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  pageHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 8 },
+  grow: { flex: 1 },
+  row: { flexDirection: "row", alignItems: "center", gap: 10 },
+  rowBetween: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  title: { color: COLORS.foreground, fontSize: 14, fontWeight: "700" },
+  muted: { color: COLORS.mutedForeground, fontSize: 12 },
   segment: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#E7E8EB",
+    marginBottom: 12,
   },
   segmentButton: {
     flex: 1,
@@ -999,7 +1629,134 @@ const styles = StyleSheet.create({
   segmentActive: { borderBottomColor: COLORS.mainOrange },
   segmentText: { fontSize: 13, fontWeight: "700", color: COLORS.mutedForeground },
   segmentTextActive: { color: COLORS.mainOrange },
-  filters: { gap: 8 },
+
+  /* Navegador de Semana / Fita de 7 Dias */
+  weekCalendarContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  weekCalendarHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  weekHeaderTitleGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  weekHeaderTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: COLORS.foreground,
+  },
+  weekHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  todayQuickButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FFF2E9",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  todayQuickText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.mainOrange,
+  },
+  weekNavArrows: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  weekArrowButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  weekDaysRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  dayPill: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    borderRadius: 10,
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  dayPillActive: {
+    backgroundColor: COLORS.mainOrange,
+    borderColor: COLORS.mainOrange,
+    shadowColor: COLORS.mainOrange,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  dayPillToday: {
+    borderColor: "#FED7AA",
+    backgroundColor: "#FFFBF7",
+  },
+  dayPillName: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#6B7280",
+    marginBottom: 2,
+  },
+  dayPillNameActive: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+  dayPillNum: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: COLORS.foreground,
+  },
+  dayPillNumActive: {
+    color: "#FFFFFF",
+  },
+  todayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.mainOrange,
+    marginTop: 3,
+  },
+  todayDotActive: {
+    backgroundColor: "#FFFFFF",
+  },
+
+  /* Filtros de Público */
+  filters: { gap: 8, marginBottom: 12 },
   filter: {
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -1018,34 +1775,192 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   filterTextActive: { color: COLORS.white },
-  row: { flexDirection: "row", alignItems: "center", gap: 10 },
-  rowBetween: {
+
+  /* Card de Ocorrência (Print 1) */
+  occurrenceCard: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 9,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  timeColumn: {
+    width: 46,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeTextStart: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COLORS.foreground,
+  },
+  timeTextEnd: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.mutedForeground,
+  },
+  modalityBar: {
+    width: 4,
+    height: 38,
+    borderRadius: 2,
+    marginHorizontal: 10,
+  },
+  occurrenceDetails: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  occurrenceTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  occurrenceTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.foreground,
+  },
+  waitlistTag: {
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  waitlistTagText: {
+    color: "#D97706",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  occurrenceProfessor: {
+    fontSize: 12,
+    color: COLORS.mutedForeground,
+    marginTop: 2,
+  },
+  occurrenceRight: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
-  time: { color: COLORS.mainOrange, fontSize: 24, fontWeight: "800" },
-  title: { color: COLORS.foreground, fontSize: 14, fontWeight: "700" },
-  muted: { color: COLORS.mutedForeground, fontSize: 12 },
-  count: { fontSize: 12, fontWeight: "700" },
+  capacityBlock: {
+    alignItems: "flex-end",
+    minWidth: 54,
+  },
+  capacityNumbers: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.mutedForeground,
+  },
+  capacityNumberNormal: {
+    color: COLORS.foreground,
+    fontWeight: "800",
+  },
+  capacityNumberFull: {
+    color: "#EA580C",
+    fontWeight: "800",
+  },
+  miniProgressTrack: {
+    width: 48,
+    height: 4,
+    backgroundColor: "#E5E7EB",
+    borderRadius: 2,
+    marginTop: 3,
+    overflow: "hidden",
+  },
+  miniProgressFill: {
+    height: 4,
+    borderRadius: 2,
+  },
+
+  /* Grade Semanal Polida (Refatoração dos botões grandes do Print 3) */
   weekRow: {
     flexDirection: "row",
     gap: 10,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     paddingTop: 10,
+    marginTop: 4,
   },
-  day: { width: 34, fontWeight: "800", color: COLORS.foreground },
-  grow: { flex: 1 },
-  slot: {
-    backgroundColor: "#FFF2E9",
-    borderRadius: 10,
-    padding: 9,
-    marginBottom: 6,
+  day: { width: 34, fontWeight: "800", color: COLORS.foreground, paddingTop: 4 },
+  weekSlotCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FAFBFD",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
-  slotTitle: { color: COLORS.mainOrange, fontSize: 12, fontWeight: "700" },
-  slotActions: { flexDirection: "row", gap: 8, marginTop: 8 },
+  weekSlotBar: {
+    width: 4,
+    height: 36,
+    borderRadius: 2,
+    marginRight: 10,
+  },
+  weekSlotMain: { flex: 1 },
+  weekSlotTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  weekSlotTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.foreground,
+    flex: 1,
+  },
+  weekSlotCapacityBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  weekSlotCapacityText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#4B5563",
+  },
+  weekSlotSub: {
+    fontSize: 11,
+    color: COLORS.mutedForeground,
+    marginTop: 2,
+  },
+  weekSlotActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginLeft: 8,
+  },
+  weekActionIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  weekActionDeleteBtn: {
+    backgroundColor: "#FEE2E2",
+    borderColor: "#FECACA",
+  },
+
+  /* Modal de Detalhes da Aula (Print 2) */
   backdrop: {
     flex: 1,
     backgroundColor: COLORS.overlay,
@@ -1056,28 +1971,211 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
-    gap: 14,
-    maxHeight: "88%",
+    gap: 12,
+    maxHeight: "90%",
   },
-  peopleList: { maxHeight: 320 },
-  person: {
+  modalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.foreground,
+  },
+  modalHeaderSubtitle: {
+    fontSize: 12,
+    color: COLORS.mutedForeground,
+    marginTop: 2,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+
+  /* 4 KPI Cards (Print 2) */
+  kpiRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginVertical: 4,
+  },
+  kpiBox: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  kpiBoxLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#6B7280",
+    letterSpacing: 0.3,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  kpiBoxValue: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#111827",
+  },
+
+  /* Listagem de Alunos no Modal */
+  peopleList: { maxHeight: 300 },
+  studentCardRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    padding: 9,
-    marginBottom: 5,
-    backgroundColor: "#F7F8FA",
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+    backgroundColor: "#F9FAFB",
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
   },
-  avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  studentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "#FFF0E6",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: COLORS.mainOrange, fontSize: 10, fontWeight: "800" },
+  studentAvatarText: {
+    color: COLORS.mainOrange,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  studentName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.foreground,
+  },
+  studentSubText: {
+    fontSize: 11,
+    color: COLORS.mutedForeground,
+  },
+  checkedInBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#ECFDF5",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  checkedInBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#059669",
+  },
+  pendingCheckInBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  pendingCheckInDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#2563EB",
+  },
+  pendingCheckInBtnText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#2563EB",
+  },
+  waitlistPosBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#FEF3C7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  waitlistPosText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#D97706",
+  },
+  waitlistStatusLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#9CA3AF",
+  },
+
+  /* Rodapé do Modal */
+  modalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+  },
+  modalCloseFooterBtn: {
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  modalCloseFooterText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#6B7280",
+  },
+  modalFooterRightGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalEditGradeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#FFF2E9",
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  modalEditGradeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#EA580C",
+  },
+  modalCloseClassBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: COLORS.mainOrange,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  modalCloseClassBtnDisabled: {
+    backgroundColor: "#9CA3AF",
+  },
+  modalCloseClassBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+
   empty: { textAlign: "center", color: COLORS.mutedForeground, padding: 24 },
   validationError: {
     color: COLORS.destructive,
