@@ -1,6 +1,7 @@
 import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import ConfirmModal from "@/components/ConfirmModal";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import { useToast } from "@/components/Toast";
 import {
@@ -49,7 +50,6 @@ import {
 } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -197,6 +197,7 @@ export default function AdminClasses() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [newClass, setNewClass] = useState(false);
   const [editingClass, setEditingClass] = useState<AulaType | null>(null);
+  const [classToDelete, setClassToDelete] = useState<AulaType | null>(null);
 
   const selectedDateStr = useMemo(
     () => format(selectedDate, "yyyy-MM-dd"),
@@ -264,31 +265,24 @@ export default function AdminClasses() {
   }, [currentOccurrences, aulasById, filter]);
 
   const handleDeleteClass = (item: AulaType) => {
-    Alert.alert(
-      "Excluir aula?",
-      "As ocorrências e reservas futuras desta aula serão canceladas e os alunos serão notificados.",
-      [
-        { text: "Voltar", style: "cancel" },
-        {
-          text: "Excluir aula",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteAula(item.id);
-              toast({ title: "Aula excluída com sucesso!" });
-            } catch (requestError) {
-              toast({
-                title: normalizeApiError(
-                  requestError,
-                  "Não foi possível excluir a aula.",
-                ).description,
-                variant: "destructive",
-              });
-            }
-          },
-        },
-      ],
-    );
+    setClassToDelete(item);
+  };
+
+  const confirmDeleteClass = async () => {
+    if (!classToDelete) return;
+    try {
+      await deleteAula(classToDelete.id);
+      toast({ title: "Aula excluída com sucesso!" });
+      setClassToDelete(null);
+    } catch (requestError) {
+      toast({
+        title: normalizeApiError(
+          requestError,
+          "Não foi possível excluir a aula.",
+        ).description,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -736,6 +730,17 @@ export default function AdminClasses() {
           setEditingClass(null);
           toast({ title: message, variant: "destructive" });
         }}
+      />
+      <ConfirmModal
+        visible={!!classToDelete}
+        title="Excluir aula?"
+        message="As ocorrências e reservas futuras desta aula serão canceladas e os alunos serão notificados."
+        confirmText="Excluir aula"
+        cancelText="Voltar"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={confirmDeleteClass}
+        onClose={() => setClassToDelete(null)}
       />
     </SafeAreaView>
   );
@@ -1338,33 +1343,27 @@ function ClassModal({
     }
   };
 
+  const [confirmCloseModal, setConfirmCloseModal] = useState(false);
+
   const handleCloseClass = () => {
-    Alert.alert(
-      "Encerrar aula?",
-      "Deseja encerrar a chamada desta aula agora? Alunos sem check-in serão marcados como ausentes.",
-      [
-        { text: "Voltar", style: "cancel" },
-        {
-          text: "Encerrar aula",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await closeOcorrencia(item.id);
-              toast({ title: "Aula encerrada com sucesso!" });
-              onClose();
-            } catch (err: any) {
-              toast({
-                title:
-                  err?.data?.detail ||
-                  err?.message ||
-                  "Não foi possível encerrar a aula.",
-                variant: "destructive",
-              });
-            }
-          },
-        },
-      ],
-    );
+    setConfirmCloseModal(true);
+  };
+
+  const confirmCloseAction = async () => {
+    try {
+      await closeOcorrencia(item.id);
+      toast({ title: "Aula encerrada com sucesso!" });
+      setConfirmCloseModal(false);
+      onClose();
+    } catch (err: any) {
+      toast({
+        title:
+          err?.data?.detail ||
+          err?.message ||
+          "Não foi possível encerrar a aula.",
+        variant: "destructive",
+      });
+    }
   };
 
   const modTitle =
@@ -1595,6 +1594,17 @@ function ClassModal({
           </View>
         </View>
       </View>
+      <ConfirmModal
+        visible={confirmCloseModal}
+        title="Encerrar aula?"
+        message="Deseja encerrar a chamada desta aula agora? Alunos sem check-in serão marcados como ausentes."
+        confirmText="Encerrar aula"
+        cancelText="Voltar"
+        variant="destructive"
+        isLoading={isClosing}
+        onConfirm={confirmCloseAction}
+        onClose={() => setConfirmCloseModal(false)}
+      />
     </Modal>
   );
 }

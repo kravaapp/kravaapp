@@ -83,7 +83,7 @@ export type AttendanceFilterStatusType = 'Confirmado' | 'FilaEspera';
  * Status da chamada de cada aluno: `Present` = presença marcada;
  * `Absent` = falta marcada; `Pending` = ainda sem presença nem falta.
  */
-export type AttendanceStudentStatusType = 'Pending' | 'Present' | 'Absent';
+export type AttendanceStudentStatusType = 'Pending' | 'Present' | 'Absent' | 'Waitlist';
 
 export type AttendanceStudentType = {
   bookingId: string;

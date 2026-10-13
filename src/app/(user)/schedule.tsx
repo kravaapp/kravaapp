@@ -155,10 +155,22 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
   const isReleased = !item.releaseAt || nowUtc >= item.releaseAt;
   const timeUntilRelease = !isReleased && item.releaseAt ? getTimeUntilClass(item.releaseAt.split('T')[0], item.releaseAt.split('T')[1]) : null;
 
+  const isClassPast = useMemo(() => {
+    if (!item.date || !startTime) return false;
+    const dateParts = item.date.split('-').map(Number);
+    const timeParts = startTime.split(':').map(Number);
+    if (dateParts.length !== 3 || timeParts.length !== 2) return false;
+    const classStartDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0], timeParts[1]);
+    return new Date() >= classStartDate;
+  }, [item.date, startTime]);
+
   const isGenderAllowed = gender === 'Mixed' || gender === userGender;
   const isLevelAllowed = getLevelWeight(userLevel) >= getLevelWeight(level);
 
-  const isCardDisabled = !isGenderAllowed || !isLevelAllowed;
+  const isCardDisabled =
+    !isGenderAllowed ||
+    !isLevelAllowed ||
+    (isClassPast && !item.subscriptionStatus);
 
   return (
     <View style={[styles.classCard, isCardDisabled && styles.classCardDisabled]}>
@@ -207,6 +219,11 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
                item.subscriptionStatus === 'CheckedIn' ? 'Check-in Realizado' :
                item.subscriptionStatus === 'Faltou' ? 'Faltou' : ''}
             </Text>
+          ) : isClassPast ? (
+            <View style={styles.closedBadge}>
+              <Clock size={16} color="#9CA3AF" />
+              <Text style={styles.closedBadgeText}>Horário encerrado</Text>
+            </View>
           ) : !isGenderAllowed ? (
             <Text style={styles.disabledReasonText}>Apenas para o gênero {getGenderLabel(gender)}</Text>
           ) : !isLevelAllowed ? (
@@ -577,6 +594,22 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 13,
     fontWeight: '500',
+  },
+  closedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    minHeight: 44,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  closedBadgeText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   loadingState: {
     flex: 1,
