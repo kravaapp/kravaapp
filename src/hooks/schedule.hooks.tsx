@@ -242,6 +242,7 @@ export function useDeleteSchedule() {
             queryClient.invalidateQueries({ queryKey: ["user-next-class"] });
             queryClient.invalidateQueries({ queryKey: ["user-week-classes"] });
             queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+            queryClient.invalidateQueries({ queryKey: ["checkin", "my-status"] });
         },
     });
 

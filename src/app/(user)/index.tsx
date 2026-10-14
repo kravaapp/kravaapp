@@ -13,6 +13,7 @@ import {
 
 import ClientHeader, { getInitials } from "@/components/ClientHeader";
 import { ConfirmBookingModal } from "@/components/ConfirmBookingModal";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/auth.hooks";
@@ -180,6 +181,24 @@ const NextClassCard = () => {
     const { userNextClass, isLoading, error } = useUserNextClass();
     const { deleteSchedule, isLoading: isCancelling } = useDeleteSchedule();
     const { toast } = useToast();
+    const [confirmCancelModalVisible, setConfirmCancelModalVisible] = useState(false);
+
+    const handleConfirmCancel = async () => {
+        if (!userNextClass?.bookingId) return;
+
+        try {
+            await deleteSchedule(userNextClass.bookingId);
+            setConfirmCancelModalVisible(false);
+            toast({ title: "Agendamento cancelado com sucesso." });
+        } catch (err: any) {
+            setConfirmCancelModalVisible(false);
+            toast({
+                title: "Não foi possível cancelar o agendamento.",
+                description: err?.data?.detail || err?.message || "Tente novamente mais tarde.",
+                variant: "destructive",
+            });
+        }
+    };
 
     if (isLoading) {
         return (
@@ -221,41 +240,48 @@ const NextClassCard = () => {
     }
 
     return (
-        <View style={styles.nextClassCard}>
-            <View style={styles.nextClassHeader}>
-                <Text style={styles.nextClassLabel}>próxima aula</Text>
-                <Dumbbell size={22} color="#FFFFFF" />
-            </View>
-            <Text style={styles.nextClassTitle}>{userNextClass.aulaName || 'Aula'}</Text>
-            <Text style={styles.nextClassDetail}>
-                {getClassTime(userNextClass.ocorrenciaDate || '', userNextClass.startTime || '')} · prof. {userNextClass.professorName || 'Professor'}
-            </Text>
-            <View style={styles.nextClassFooter}>
-                <View style={styles.nextClassMeta}>
-                    <Text style={styles.nextClassStatus}>{getClassStatus(userNextClass.bookingStatus || '')}</Text>
-                    <View style={styles.countdownRow}>
-                        <Clock3 size={14} color="#FFFFFF" />
-                        <Text style={styles.countdownText}>faltam {getTimeUntilClass(userNextClass.ocorrenciaDate || '', userNextClass.startTime || '')}</Text>
-                    </View>
+        <>
+            <View style={styles.nextClassCard}>
+                <View style={styles.nextClassHeader}>
+                    <Text style={styles.nextClassLabel}>próxima aula</Text>
+                    <Dumbbell size={22} color="#FFFFFF" />
                 </View>
-                <TouchableOpacity
-                    disabled={isCancelling}
-                    style={[styles.cancelButton, isCancelling && styles.disabledButton]}
-                    onPress={async () => {
-                        try {
-                            await deleteSchedule(userNextClass.bookingId);
-                            toast({ title: "Agendamento cancelado." });
-                        } catch {
-                            toast({ title: "Não foi possível cancelar o agendamento.", variant: "destructive" });
-                        }
-                    }}
-                    accessibilityRole="button"
-                >
-                    <Text style={styles.cancelButtonText}>{isCancelling ? "cancelando..." : "cancelar"}</Text>
-                </TouchableOpacity>
+                <Text style={styles.nextClassTitle}>{userNextClass.aulaName || 'Aula'}</Text>
+                <Text style={styles.nextClassDetail}>
+                    {getClassTime(userNextClass.ocorrenciaDate || '', userNextClass.startTime || '')} · prof. {userNextClass.professorName || 'Professor'}
+                </Text>
+                <View style={styles.nextClassFooter}>
+                    <View style={styles.nextClassMeta}>
+                        <Text style={styles.nextClassStatus}>{getClassStatus(userNextClass.bookingStatus || '')}</Text>
+                        <View style={styles.countdownRow}>
+                            <Clock3 size={14} color="#FFFFFF" />
+                            <Text style={styles.countdownText}>faltam {getTimeUntilClass(userNextClass.ocorrenciaDate || '', userNextClass.startTime || '')}</Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity
+                        disabled={isCancelling}
+                        style={[styles.cancelButton, isCancelling && styles.disabledButton]}
+                        onPress={() => setConfirmCancelModalVisible(true)}
+                        accessibilityRole="button"
+                    >
+                        <Text style={styles.cancelButtonText}>cancelar</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
-        </View>
-    )
+
+            <ConfirmModal
+                visible={confirmCancelModalVisible}
+                title="Cancelar agendamento?"
+                message={`Deseja cancelar seu agendamento em ${userNextClass.aulaName || "sua próxima aula"}? Sua vaga será liberada imediatamente. Lembre-se: cancelamentos só são permitidos com até 1 hora de antecedência.`}
+                confirmText="Sim, cancelar"
+                cancelText="Voltar"
+                variant="destructive"
+                isLoading={isCancelling}
+                onConfirm={handleConfirmCancel}
+                onClose={() => !isCancelling && setConfirmCancelModalVisible(false)}
+            />
+        </>
+    );
 };
 
 const WeekCalendar = () => {
