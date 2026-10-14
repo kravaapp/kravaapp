@@ -12,7 +12,8 @@ import { PaymentGateway, UpdatePaymentGateway } from "@/types/payments.types";
 import { PAYMENT_GATEWAYS, gatewayConfigurationDate } from "@/utils/paymentGateways";
 import { Check, Eye, EyeOff, ShieldCheck, X } from "lucide-react-native";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import Modal from "@/components/AppModal";
+import { ActivityIndicator, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type Editor = {

@@ -15,7 +15,7 @@ export function useBookingEligibility() {
                 ? "Aguarde a verificação do seu plano."
                 : error
                     ? "Não foi possível verificar seu plano. Tente novamente."
-                    : "Você não possui um plano ativo.",
+                    : "Você não possui um plano ativo para agendar aulas.",
             variant: "destructive",
         });
         return false;

@@ -1,6 +1,6 @@
+import Modal from "@/components/AppModal";
 import {
   ActivityIndicator,
-  Modal,
   StyleSheet,
   Text,
   TextInput,

@@ -28,9 +28,9 @@ import { AulaType, TodayOccurrenceType } from "@/types/schedules.types";
 import { maskInteger, maskTime } from "@/utils/masks";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Modal from "@/components/AppModal";
 import {
   Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   Switch,

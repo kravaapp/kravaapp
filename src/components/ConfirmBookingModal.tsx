@@ -1,7 +1,7 @@
 import { X } from 'lucide-react-native';
+import Modal from "@/components/AppModal";
 import {
   ActivityIndicator,
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,

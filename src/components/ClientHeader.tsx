@@ -6,8 +6,8 @@ import { Token } from "@/types/auth.types";
 import { router } from "expo-router";
 import { Bell, Building2, LogOut, UserRound } from "lucide-react-native";
 import { useContext, useState } from "react";
+import Modal from "@/components/AppModal";
 import {
-  Modal,
   Pressable,
   StyleSheet,
   Text,

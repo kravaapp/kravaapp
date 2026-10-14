@@ -54,7 +54,7 @@ for (const screen of screens) {
       await expect(button).toHaveCSS("opacity", "0.6");
       // O toque continua disponível para explicar o bloqueio pelo toast padrão.
       await button.click();
-      await expect(page.getByText("Você não possui um plano ativo.", { exact: true })).toBeVisible();
+      await expect(page.getByText("Você não possui um plano ativo para agendar aulas.", { exact: true })).toBeVisible();
       await expect(page.getByText("confirmar agendamento", { exact: true })).toHaveCount(0);
       expect(state.bookings).toEqual([]);
     });
@@ -74,6 +74,34 @@ for (const screen of screens) {
       await expect(page.getByText("confirmar agendamento", { exact: true })).toHaveCount(0);
     });
   }
+
+  test(`${screen.name}: toast visível permite clicar na navegação sob o aviso`, async ({ page }) => {
+    await setup(page, null);
+    await page.goto(screen.path);
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: /^agendar/ }).first().click();
+    const toast = page.getByTestId("toast");
+    await expect(toast).toBeVisible();
+    const target = page.getByTestId(screen.name === "início" ? "tab-schedule" : "tab-index");
+    const box = (await target.boundingBox())!;
+
+    // Sobrepõe o aviso ao alvo para testar o clique atravessando o toast.
+    await toast.evaluate((node, top) => {
+      node.style.top = `${top}px`;
+      node.style.bottom = "auto";
+      node.style.left = "0";
+      node.style.right = "0";
+    }, box.y - 5);
+    const toastBox = (await toast.boundingBox())!;
+    expect(toastBox.y).toBeLessThan(box.y + box.height / 2);
+    expect(toastBox.y + toastBox.height).toBeGreaterThan(box.y + box.height / 2);
+    await expect(toast).toHaveCSS("pointer-events", "none");
+    await expect(toast.getByText("Você não possui um plano ativo para agendar aulas.", { exact: true })).toHaveCSS("pointer-events", "none");
+
+    await target.click();
+    await expect(page.getByText(screen.name === "início" ? "agendar aulas" : "olá, Aluno", { exact: true })).toBeVisible();
+    await expect(toast).toBeVisible();
+  });
 }
 
 test("bloqueia enquanto verifica o plano e após falha de consulta", async ({ page }) => {
@@ -126,6 +154,6 @@ test("atualizar a agenda libera ou bloqueia o botão conforme o plano atual", as
   await refresh();
   await expect(button).toHaveCSS("opacity", "0.6");
   await button.click();
-  await expect(page.getByText("Você não possui um plano ativo.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Você não possui um plano ativo para agendar aulas.", { exact: true })).toBeVisible();
   expect(state.bookings).toEqual([]);
 });

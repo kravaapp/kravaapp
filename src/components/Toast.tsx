@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Animated, Modal, Platform, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '@/constants/colors';
 
@@ -24,16 +24,49 @@ type ToastContextValue = {
 const TOAST_DURATION = 3000;
 
 const ToastContext = createContext<ToastContextValue>({} as ToastContextValue);
+const ToastDisplayContext = createContext<{
+  current: (ToastOptions & { id: number }) | null;
+  opacity: Animated.Value;
+} | null>(null);
 
 export function useToast() {
   return useContext(ToastContext);
+}
+
+export function ToastViewport() {
+  const display = useContext(ToastDisplayContext);
+  const insets = useSafeAreaInsets();
+  if (!display?.current) return null;
+  const { current, opacity } = display;
+
+  return (
+    <View
+      testID="toast"
+      style={[styles.container, { bottom: insets.bottom + 80 }]}
+      pointerEvents="none"
+      accessibilityLiveRegion="polite"
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.toast,
+          current.variant === 'destructive' && styles.toastDestructive,
+          { opacity },
+        ]}
+      >
+        <Text style={styles.title}>{current.title}</Text>
+        {current.description && (
+          <Text style={styles.description}>{current.description}</Text>
+        )}
+      </Animated.View>
+    </View>
+  );
 }
 
 export function ToastProvider({ children }: PropsWithChildren) {
   // Cada toast recebe um id para que dois toasts com o mesmo texto reiniciem a animação.
   const [current, setCurrent] = useState<(ToastOptions & { id: number }) | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
-  const insets = useSafeAreaInsets();
 
   const toast = useCallback((options: ToastOptions) => {
     setCurrent({ ...options, id: Date.now() });
@@ -54,71 +87,31 @@ export function ToastProvider({ children }: PropsWithChildren) {
         toValue: 0,
         duration: 200,
         useNativeDriver: true,
-      }).start(() => setCurrent(null));
+      }).start(({ finished }) => {
+        if (finished) setCurrent(null);
+      });
     }, TOAST_DURATION);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      opacity.stopAnimation();
+    };
   }, [current, opacity]);
 
   return (
     <ToastContext.Provider value={{ toast }}>
-      {children}
-
-      <Modal
-        visible={!!current && Platform.OS !== 'web'}
-        transparent
-        animationType="none"
-        presentationStyle="overFullScreen"
-        statusBarTranslucent
-        onRequestClose={() => setCurrent(null)}
-      >
-        <View style={styles.modalLayer} pointerEvents="none">
-          {current && (
-            <View
-              style={[styles.container, { bottom: insets.bottom + 80 }]}
-            >
-              <Animated.View
-                style={[
-                  styles.toast,
-                  current.variant === 'destructive' && styles.toastDestructive,
-                  { opacity },
-                ]}
-              >
-                <Text style={styles.title}>{current.title}</Text>
-                {current.description && (
-                  <Text style={styles.description}>{current.description}</Text>
-                )}
-              </Animated.View>
-            </View>
-          )}
+      <ToastDisplayContext.Provider value={{ current, opacity }}>
+        <View style={styles.root}>
+          {children}
+          <ToastViewport />
         </View>
-      </Modal>
-
-      {current && Platform.OS === 'web' && (
-        <View
-          style={[styles.container, { bottom: insets.bottom + 80 }]}
-          pointerEvents="none"
-        >
-          <Animated.View
-            style={[
-              styles.toast,
-              current.variant === 'destructive' && styles.toastDestructive,
-              { opacity },
-            ]}
-          >
-            <Text style={styles.title}>{current.title}</Text>
-            {current.description && (
-              <Text style={styles.description}>{current.description}</Text>
-            )}
-          </Animated.View>
-        </View>
-      )}
+      </ToastDisplayContext.Provider>
     </ToastContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
-  modalLayer: { flex: 1 },
+  root: { flex: 1 },
   container: {
     position: Platform.OS === 'web' ? ('fixed' as any) : 'absolute',
     left: 16,
