@@ -1,9 +1,9 @@
 import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Modal from "@/components/AppModal";
 import {
     Image,
-    Modal,
     StyleSheet,
     Switch,
     Text,

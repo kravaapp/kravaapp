@@ -20,10 +20,10 @@ import {
   X,
 } from "lucide-react-native";
 import { useState } from "react";
+import Modal from "@/components/AppModal";
 import {
   ActivityIndicator,
   Image,
-  Modal,
   Platform,
   StyleSheet,
   Text,

@@ -1,6 +1,7 @@
 import { Check, ChevronDown } from 'lucide-react-native';
 import { useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Modal from "@/components/AppModal";
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS } from './ClientHeader';
 
 type SelectProps<T extends string> = {

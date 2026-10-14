@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ClientHeader, { COLORS } from '@/components/ClientHeader';
 import { ConfirmBookingModal } from '@/components/ConfirmBookingModal';
 import { useAuth } from '@/hooks/auth.hooks';
+import { useBookingEligibility } from '@/hooks/bookingEligibility.hooks';
 import { useCategories } from '@/hooks/categories.hooks';
 import { useCreateSchedule, useSchedule } from '@/hooks/schedule.hooks';
 import { Category } from '@/types/categories.types';
@@ -129,6 +130,7 @@ type ClassCardProps = {
   item: ScheduleOccurrenceType;
   userGender?: string;
   userLevel?: string;
+  canBook: boolean;
   onBookPress: (item: ScheduleOccurrenceType) => void;
 };
 
@@ -141,7 +143,7 @@ const getLevelWeight = (level: string) => {
   }
 };
 
-const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPress }: ClassCardProps) => {
+const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, onBookPress }: ClassCardProps) => {
   const progress = typeof item.maxCapacity === 'number' && item.maxCapacity > 0 && typeof item.confirmedCount === 'number'
     ? Math.min(100, Math.max(0, (item.confirmedCount / item.maxCapacity) * 100))
     : 50;
@@ -238,7 +240,12 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
           ) : !isLevelAllowed ? (
             <Text style={styles.disabledReasonText}>Requer nível {capitalizeText(level)}</Text>
           ) : isReleased ? (
-            <TouchableOpacity style={styles.bookButton} onPress={() => onBookPress(item)} accessibilityRole="button">
+            <TouchableOpacity
+              style={[styles.bookButton, !canBook && styles.bookButtonDisabled]}
+              onPress={() => onBookPress(item)}
+              accessibilityRole="button"
+              accessibilityHint={!canBook ? "É necessário um plano ativo para agendar." : undefined}
+            >
               <Text style={styles.bookButtonText}>agendar</Text>
               <ArrowRight size={17} color="#FFFFFF" />
             </TouchableOpacity>
@@ -255,8 +262,9 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
 };
 
 export default function Schedule() {
-    const refresh = useScreenRefresh([["categories"], ["schedule"]]);
+    const refresh = useScreenRefresh([["categories"], ["schedule"], ["plans", "current"]]);
   const { user } = useAuth();
+  const { canBook, ensureCanBook } = useBookingEligibility();
   const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
   const { createSchedule, isLoading: isCreatingSchedule } = useCreateSchedule();
 
@@ -264,12 +272,18 @@ export default function Schedule() {
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   const handleBookPress = (item: ScheduleOccurrenceType) => {
+    if (!ensureCanBook()) return;
     setSelectedClass(item);
     setIsModalVisible(true);
   };
 
   const handleConfirmBooking = async () => {
     if (!selectedClass) return;
+    if (!ensureCanBook()) {
+      setIsModalVisible(false);
+      setSelectedClass(null);
+      return;
+    }
 
     try {
       await createSchedule({ ocorrenciaId: selectedClass.id });
@@ -356,7 +370,7 @@ export default function Schedule() {
         <RefreshableFlatList {...refresh}
           data={scheduleLoading || scheduleError ? [] : schedule?.items || []}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ClassCard item={item} userGender={user?.gender} userLevel={user?.studentLevel} onBookPress={handleBookPress} key={item.id} />}
+          renderItem={({ item }) => <ClassCard item={item} userGender={user?.gender} userLevel={user?.studentLevel} canBook={canBook} onBookPress={handleBookPress} key={item.id} />}
           contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -378,6 +392,7 @@ export default function Schedule() {
         visible={isModalVisible}
         selectedClass={selectedClass}
         isCreatingSchedule={isCreatingSchedule}
+        isBookingBlocked={!canBook}
         onClose={() => setIsModalVisible(false)}
         onConfirm={handleConfirmBooking}
       />
@@ -599,6 +614,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  bookButtonDisabled: {
+    opacity: 0.6,
   },
   bookButtonText: {
     color: '#fff',

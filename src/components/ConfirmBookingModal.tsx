@@ -1,7 +1,7 @@
 import { X } from 'lucide-react-native';
+import Modal from "@/components/AppModal";
 import {
   ActivityIndicator,
-  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,6 +16,7 @@ type ConfirmBookingModalProps = {
   visible: boolean;
   selectedClass: ScheduleOccurrenceType | null;
   isCreatingSchedule: boolean;
+  isBookingBlocked: boolean;
   onClose: () => void;
   onConfirm: () => void;
 };
@@ -24,6 +25,7 @@ export const ConfirmBookingModal = ({
   visible,
   selectedClass,
   isCreatingSchedule,
+  isBookingBlocked,
   onClose,
   onConfirm
 }: ConfirmBookingModalProps) => {
@@ -69,9 +71,10 @@ export const ConfirmBookingModal = ({
                 </TouchableOpacity>
                 <TouchableOpacity
                   accessibilityRole="button"
-                  style={[styles.modalButton, styles.modalButtonConfirm]}
+                  style={[styles.modalButton, styles.modalButtonConfirm, isBookingBlocked && styles.modalButtonDisabled]}
                   onPress={onConfirm}
                   disabled={isCreatingSchedule}
+                  accessibilityHint={isBookingBlocked ? "É necessário um plano ativo para agendar." : undefined}
                 >
                   {isCreatingSchedule ? (
                     <ActivityIndicator size="small" color="#fff" />
@@ -149,5 +152,8 @@ const styles = StyleSheet.create({
   modalButtonConfirmText: {
     color: '#fff',
     fontWeight: '700',
+  },
+  modalButtonDisabled: {
+    opacity: 0.6,
   },
 });

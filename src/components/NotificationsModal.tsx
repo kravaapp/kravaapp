@@ -14,9 +14,9 @@ import {
   Users,
 } from "lucide-react-native";
 import React from "react";
+import Modal from "@/components/AppModal";
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   StyleSheet,
   Text,

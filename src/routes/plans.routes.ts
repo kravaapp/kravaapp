@@ -10,7 +10,7 @@ export class PlansRoutes {
     }
 
     async getCurrentPlan() {
-        return await api.get("/plans/current").json<CurrentPlanType>();
+        return await api.get("/plans/current").json<CurrentPlanType | null>();
     }
 
     async getAdminPlans(page = 1, pageSize = 20, activeOnly = false) {

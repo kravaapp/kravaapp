@@ -34,8 +34,8 @@ import {
 } from "lucide-react-native";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
+import Modal from "@/components/AppModal";
 import {
-  Modal,
   StyleSheet,
   Switch,
   Text,
