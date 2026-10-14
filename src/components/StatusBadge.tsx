@@ -1,4 +1,4 @@
-import { Check, Lock } from 'lucide-react-native';
+import { AlertTriangle, Check, Lock } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import { PulseDot } from './Badge';
 import { COLORS } from './ClientHeader';
@@ -10,7 +10,8 @@ export type BadgeStatus =
   | 'confirmado'
   | 'bloqueada'
   | 'agendada'
-  | 'em andamento';
+  | 'em andamento'
+  | 'cancelada';
 
 type StatusBadgeProps = {
   status: BadgeStatus;
@@ -62,12 +63,32 @@ export const StatusBadge = ({ status, label }: StatusBadgeProps) => {
           <Text style={styles.statusTextLocked}>{label || 'Nível insuficiente'}</Text>
         </View>
       );
+    case 'cancelada':
+      return (
+        <View style={styles.statusBadgeCancelled}>
+          <AlertTriangle size={14} color="#dc2626" style={{ marginRight: 4 }} />
+          <Text style={styles.statusTextCancelled}>{label || 'Cancelada'}</Text>
+        </View>
+      );
     default:
       return null;
   }
 };
 
 const styles = StyleSheet.create({
+  statusBadgeCancelled: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#fee2e2',
+  },
+  statusTextCancelled: {
+    fontSize: 12,
+    color: '#dc2626',
+    fontWeight: '600',
+  },
   statusBadgeEnded: {
     paddingHorizontal: 12,
     paddingVertical: 6,

@@ -25,6 +25,7 @@ export const STATUS_BADGE: Record<OccurrenceStatusType, BadgeStatus> = {
     "Em andamento": "em andamento",
     "Encerrada": "encerrada",
     "Concluida": "concluida",
+    "Cancelada": "cancelada",
 };
 
 const SIGLAS: Record<string, string> = {

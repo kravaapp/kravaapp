@@ -3,6 +3,7 @@ import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -384,6 +385,7 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', o
     const isGenderAllowed = gender === 'Mixed' || gender === userGender;
     const isLevelAllowed = getLevelWeight(userLevel) >= getLevelWeight(level);
     const isBlocked = aula.status?.toLowerCase() === "bloqueada";
+    const isCancelled = aula.status?.toLowerCase() === "cancelada";
 
     return (
         <View style={styles.classCard}>
@@ -409,6 +411,8 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', o
                         aula.subscriptionStatus === 'CheckedIn' ? 'check-in feito' :
                         aula.subscriptionStatus === 'Faltou' ? 'faltou' : ''}
                     </Text>
+                ) : isCancelled ? (
+                    <Text style={styles.classWarning}>cancelada</Text>
                 ) : isBlocked ? (
                     <Text style={styles.classWarning}>bloqueada</Text>
                 ) : !isGenderAllowed ? (
@@ -447,10 +451,25 @@ export default function Home() {
     const handleConfirmBooking = async () => {
         if (!selectedClass) return;
 
-        await createSchedule({ ocorrenciaId: selectedClass.id });
-
-        setIsModalVisible(false);
-        setSelectedClass(null);
+        try {
+            await createSchedule({ ocorrenciaId: selectedClass.id });
+            setIsModalVisible(false);
+            setSelectedClass(null);
+        } catch (err: any) {
+            let errorMsg =
+                err?.data?.detail ||
+                err?.message ||
+                "Não foi possível realizar o agendamento.";
+            if (err?.response && typeof err.response.json === "function") {
+                try {
+                    const errorBody = await err.response.json();
+                    if (errorBody?.detail) errorMsg = errorBody.detail;
+                } catch {}
+            }
+            Alert.alert("Agendamento", errorMsg);
+            setIsModalVisible(false);
+            setSelectedClass(null);
+        }
     };
 
     const dateParams = useMemo(() => {

@@ -55,6 +55,12 @@ function formatRelativeTime(dateString: string): string {
   }
 }
 
+function formatNotificationMessage(message: string): string {
+  if (!message) return "";
+  // Converte datas no formato americano/ISO (YYYY-MM-DD) para o padrão brasileiro (DD/MM/YYYY)
+  return message.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, "$3/$2/$1");
+}
+
 interface TypeStyleConfig {
   icon: React.ReactNode;
   iconBg: string;
@@ -227,7 +233,7 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
 
         <View style={styles.cardContent}>
           <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={styles.cardMessage}>{item.message}</Text>
+          <Text style={styles.cardMessage}>{formatNotificationMessage(item.message)}</Text>
           <Text style={styles.cardTime}>{formatRelativeTime(item.createdAtUtc)}</Text>
         </View>
       </TouchableOpacity>

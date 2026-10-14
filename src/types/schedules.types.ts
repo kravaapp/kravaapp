@@ -32,7 +32,7 @@ export type PaginatedType = {
 
 export type SubscriptionStatusType = 'Confirmado' | 'ListaEspera' | 'WaitlistPending' | 'CheckedIn' | 'Faltou';
 
-export type OccurrenceStatusType = 'Agendada' | 'Em andamento' | 'Encerrada' | 'Concluida';
+export type OccurrenceStatusType = 'Agendada' | 'Em andamento' | 'Encerrada' | 'Concluida' | 'Cancelada';
 
 export type ScheduleOccurrenceType = {
   id: string;

@@ -1,7 +1,7 @@
 import RefreshableFlatList from "@/components/RefreshableFlatList";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ClientHeader, { COLORS } from '@/components/ClientHeader';
@@ -11,7 +11,7 @@ import { useCategories } from '@/hooks/categories.hooks';
 import { useCreateSchedule, useSchedule } from '@/hooks/schedule.hooks';
 import { Category } from '@/types/categories.types';
 import { ScheduleOccurrenceType } from '@/types/schedules.types';
-import { ArrowRight, Clock } from 'lucide-react-native';
+import { AlertTriangle, ArrowRight, Clock } from 'lucide-react-native';
 import { getTimeUntilClass } from '.';
 
 // Types
@@ -155,6 +155,8 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
   const isReleased = !item.releaseAt || nowUtc >= item.releaseAt;
   const timeUntilRelease = !isReleased && item.releaseAt ? getTimeUntilClass(item.releaseAt.split('T')[0], item.releaseAt.split('T')[1]) : null;
 
+  const isCancelled = item.status === 'Cancelada';
+
   const isClassPast = useMemo(() => {
     if (!item.date || !startTime) return false;
     const dateParts = item.date.split('-').map(Number);
@@ -168,6 +170,7 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
   const isLevelAllowed = getLevelWeight(userLevel) >= getLevelWeight(level);
 
   const isCardDisabled =
+    isCancelled ||
     !isGenderAllowed ||
     !isLevelAllowed ||
     (isClassPast && !item.subscriptionStatus);
@@ -200,6 +203,7 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
           <View style={[
             styles.progressBarFill,
             { width: `${progress}%` },
+            isCancelled && styles.progressBarFillCancelled,
           ]} />
         </View>
         <Text style={styles.progressText}>
@@ -219,6 +223,11 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', onBookPres
                item.subscriptionStatus === 'CheckedIn' ? 'Check-in Realizado' :
                item.subscriptionStatus === 'Faltou' ? 'Faltou' : ''}
             </Text>
+          ) : isCancelled ? (
+            <View style={styles.cancelledBadge}>
+              <AlertTriangle size={16} color="#DC2626" />
+              <Text style={styles.cancelledBadgeText}>Aula cancelada</Text>
+            </View>
           ) : isClassPast ? (
             <View style={styles.closedBadge}>
               <Clock size={16} color="#9CA3AF" />
@@ -262,10 +271,25 @@ export default function Schedule() {
   const handleConfirmBooking = async () => {
     if (!selectedClass) return;
 
-    await createSchedule({ ocorrenciaId: selectedClass.id });
-
-    setIsModalVisible(false);
-    setSelectedClass(null);
+    try {
+      await createSchedule({ ocorrenciaId: selectedClass.id });
+      setIsModalVisible(false);
+      setSelectedClass(null);
+    } catch (err: any) {
+      let errorMsg =
+        err?.data?.detail ||
+        err?.message ||
+        "Não foi possível realizar o agendamento.";
+      if (err?.response && typeof err.response.json === "function") {
+        try {
+          const errorBody = await err.response.json();
+          if (errorBody?.detail) errorMsg = errorBody.detail;
+        } catch {}
+      }
+      Alert.alert("Agendamento", errorMsg);
+      setIsModalVisible(false);
+      setSelectedClass(null);
+    }
   };
 
   const next10Days = useMemo(() => {
@@ -610,6 +634,25 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontSize: 13,
     fontWeight: '600',
+  },
+  cancelledBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 12,
+    minHeight: 44,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  cancelledBadgeText: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  progressBarFillCancelled: {
+    backgroundColor: '#D1D5DB',
   },
   loadingState: {
     flex: 1,
