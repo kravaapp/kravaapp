@@ -15,6 +15,7 @@ import { ConfirmBookingModal } from "@/components/ConfirmBookingModal";
 import { BadgeStatus, StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/auth.hooks";
+import { useBookingEligibility } from "@/hooks/bookingEligibility.hooks";
 import { useCreateSchedule, useDeleteSchedule, useSchedule, useUserNextClass, useUserWeekClasses } from "@/hooks/schedule.hooks";
 import { Token } from "@/types/auth.types";
 import { ScheduleOccurrenceType } from "@/types/schedules.types";
@@ -358,7 +359,7 @@ const WeekCalendar = () => {
     );
 };
 
-const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', onBookPress }: { aula: ScheduleOccurrenceType; userGender?: string; userLevel?: string; onBookPress: (item: ScheduleOccurrenceType) => void }) => {
+const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', canBook, onBookPress }: { aula: ScheduleOccurrenceType; userGender?: string; userLevel?: string; canBook: boolean; onBookPress: (item: ScheduleOccurrenceType) => void }) => {
     const level = aula.minLevel || "iniciante";
     const gender = aula.publicGender || "Mixed";
 
@@ -417,10 +418,11 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', o
                     <Text style={styles.classWarning}>nível {capitalizeText(level).toLowerCase()}</Text>
                 ) : (
                     <TouchableOpacity
-                        style={styles.bookButton}
+                        style={[styles.bookButton, !canBook && styles.disabledButton]}
                         hitSlop={4}
                         onPress={() => onBookPress(aula)}
                         accessibilityRole="button"
+                        accessibilityHint={!canBook ? "É necessário um plano ativo para agendar." : undefined}
                         accessibilityLabel={`agendar ${aula.modalityName || aula.aulaName} em ${formatAvailableClassDate(aula.date)} às ${aula.startTime.substring(0, 5)}`}
                     >
                         <Text style={styles.bookButtonText}>agendar</Text>
@@ -432,20 +434,27 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', o
 };
 
 export default function Home() {
-    const refresh = useScreenRefresh([["user-next-class"], ["user-week-classes"], ["schedule"]]);
+    const refresh = useScreenRefresh([["user-next-class"], ["user-week-classes"], ["schedule"], ["plans", "current"]]);
     const { user } = useAuth();
+    const { canBook, ensureCanBook } = useBookingEligibility();
     const { createSchedule, isLoading: isCreatingSchedule } = useCreateSchedule();
 
     const [selectedClass, setSelectedClass] = useState<ScheduleOccurrenceType | null>(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
 
     const handleBookPress = (item: ScheduleOccurrenceType) => {
+        if (!ensureCanBook()) return;
         setSelectedClass(item);
         setIsModalVisible(true);
     };
 
     const handleConfirmBooking = async () => {
         if (!selectedClass) return;
+        if (!ensureCanBook()) {
+            setIsModalVisible(false);
+            setSelectedClass(null);
+            return;
+        }
 
         await createSchedule({ ocorrenciaId: selectedClass.id });
 
@@ -485,7 +494,7 @@ export default function Home() {
                 contentContainerStyle={styles.listContent}
                 data={scheduleLoading ? [] : (schedule?.items || []).slice(0, 3)}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => <AvailableClassItem aula={item} userGender={user?.gender} userLevel={user?.studentLevel} onBookPress={handleBookPress} />}
+                renderItem={({ item }) => <AvailableClassItem aula={item} userGender={user?.gender} userLevel={user?.studentLevel} canBook={canBook} onBookPress={handleBookPress} />}
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={
                     <View>
@@ -526,6 +535,7 @@ export default function Home() {
                 visible={isModalVisible}
                 selectedClass={selectedClass}
                 isCreatingSchedule={isCreatingSchedule}
+                isBookingBlocked={!canBook}
                 onClose={() => setIsModalVisible(false)}
                 onConfirm={handleConfirmBooking}
             />
