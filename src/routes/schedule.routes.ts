@@ -94,4 +94,10 @@ export class ScheduleRoutes {
     async closeOcorrencia(ocorrenciaId: string) {
         await api.post(`/scheduling/ocorrencias/${ocorrenciaId}/close`);
     }
+
+    async cancelOcorrencia(ocorrenciaId: string, reason?: string) {
+        await api.post(`/scheduling/ocorrencias/${ocorrenciaId}/cancel`, {
+            json: { reason: reason || null }
+        });
+    }
 }

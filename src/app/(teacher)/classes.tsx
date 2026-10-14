@@ -24,6 +24,7 @@ import { consumePendingOcorrenciaId } from "@/hooks/attendanceSelection";
 import { useFocusEffect } from "expo-router";
 import {
     useAttendance,
+    useCancelOcorrencia,
     useCloseOcorrencia,
     useMarkAttendance,
     useTodayOccurrences,
@@ -181,6 +182,7 @@ export default function AulaAoVivo() {
     });
     const { markAttendance } = useMarkAttendance();
     const { closeOcorrencia, isLoading: isEncerrando } = useCloseOcorrencia();
+    const { cancelOcorrencia, isLoading: isCancelando } = useCancelOcorrencia();
 
     const [presencaOverrides, setPresencaOverrides] = useState<
         Record<string, AttendanceStudentStatusType>
@@ -188,6 +190,8 @@ export default function AulaAoVivo() {
     const [salvandoPresenca, setSalvandoPresenca] = useState<Record<string, boolean>>({});
     const [extras, setExtras] = useState<AttendanceStudentType[]>([]);
     const [encerrarModal, setEncerrarModal] = useState(false);
+    const [cancelarModal, setCancelarModal] = useState(false);
+    const [cancelReason, setCancelReason] = useState("");
     const [pagamentoModal, setPagamentoModal] = useState<AttendanceStudentType | null>(null);
     const [searchAdd, setSearchAdd] = useState("");
     const [expNome, setExpNome] = useState("");
@@ -288,6 +292,27 @@ export default function AulaAoVivo() {
         } catch (err) {
             toast({
                 title: "Não foi possível encerrar a chamada",
+                description:
+                    (err as any)?.data?.detail || (err as Error)?.message || "Tente novamente.",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const handleCancelarAula = async () => {
+        if (!ocorrenciaId) return;
+
+        try {
+            await cancelOcorrencia({ ocorrenciaId, reason: cancelReason });
+            setCancelarModal(false);
+            setCancelReason("");
+            toast({
+                title: "Aula cancelada",
+                description: "A aula foi cancelada e os alunos foram notificados ✓",
+            });
+        } catch (err) {
+            toast({
+                title: "Não foi possível cancelar a aula",
                 description:
                     (err as any)?.data?.detail || (err as Error)?.message || "Tente novamente.",
                 variant: "destructive",
@@ -520,13 +545,32 @@ export default function AulaAoVivo() {
                         </RefreshableScrollView>
 
                         <View style={styles.footer}>
-                            <TouchableOpacity
-                                style={styles.destructiveOutlineButton}
-                                onPress={() => setEncerrarModal(true)}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.destructiveOutlineText}>Encerrar chamada</Text>
-                            </TouchableOpacity>
+                            {ocorrencia.status === "Cancelada" ? (
+                                <View style={styles.cancelledBanner}>
+                                    <Text style={styles.cancelledBannerText}>Esta aula está cancelada</Text>
+                                </View>
+                            ) : (
+                                <>
+                                    <TouchableOpacity
+                                        style={styles.cancelarAulaButton}
+                                        onPress={() => setCancelarModal(true)}
+                                        activeOpacity={0.8}
+                                        disabled={isCancelando || isEncerrando}
+                                    >
+                                        <Text style={styles.cancelarAulaText}>
+                                            {isCancelando ? "Cancelando..." : "Cancelar aula"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.destructiveOutlineButton}
+                                        onPress={() => setEncerrarModal(true)}
+                                        activeOpacity={0.8}
+                                        disabled={isCancelando || isEncerrando}
+                                    >
+                                        <Text style={styles.destructiveOutlineText}>Encerrar chamada</Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
                         </View>
                     </View>
                 )}
@@ -804,6 +848,63 @@ export default function AulaAoVivo() {
                     </View>
                 </View>
             </Modal>
+
+            <Modal
+                visible={cancelarModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => {
+                    setCancelarModal(false);
+                    setCancelReason("");
+                }}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>
+                            Cancelar aula das {formatHora(ocorrencia.startTime)}?
+                        </Text>
+                        <Text style={styles.modalText}>
+                            Os check-ins dos alunos inscritos não serão debitados e eles receberão uma notificação com o motivo.
+                        </Text>
+                        <View style={{ gap: 6, marginVertical: 12 }}>
+                            <Text style={styles.label}>Motivo do cancelamento (opcional)</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Ex: Chuva, professor indisposto..."
+                                placeholderTextColor="#9ca3af"
+                                value={cancelReason}
+                                onChangeText={setCancelReason}
+                            />
+                        </View>
+                        <Text style={styles.modalWarning}>Esta ação não pode ser desfeita.</Text>
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.modalButtonCancel]}
+                                onPress={() => {
+                                    setCancelarModal(false);
+                                    setCancelReason("");
+                                }}
+                                disabled={isCancelando}
+                            >
+                                <Text style={styles.modalButtonCancelText}>Voltar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.modalButton,
+                                    styles.destructiveButton,
+                                    isCancelando && styles.buttonDisabled,
+                                ]}
+                                onPress={handleCancelarAula}
+                                disabled={isCancelando}
+                            >
+                                <Text style={styles.solidButtonText}>
+                                    {isCancelando ? "Cancelando..." : "Confirmar cancelamento"}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -987,8 +1088,24 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: COLORS.border,
         backgroundColor: "#fff",
+        flexDirection: "row",
+        gap: 10,
+    },
+    cancelarAulaButton: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: "#9ca3af",
+        borderRadius: 8,
+        paddingVertical: 12,
+        alignItems: "center",
+    },
+    cancelarAulaText: {
+        color: "#4b5563",
+        fontSize: 14,
+        fontWeight: "600",
     },
     destructiveOutlineButton: {
+        flex: 1,
         borderWidth: 1,
         borderColor: COLORS.destructive,
         borderRadius: 8,
@@ -996,6 +1113,18 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     destructiveOutlineText: {
+        color: COLORS.destructive,
+        fontSize: 14,
+        fontWeight: "600",
+    },
+    cancelledBanner: {
+        flex: 1,
+        backgroundColor: "#fee2e2",
+        borderRadius: 8,
+        paddingVertical: 12,
+        alignItems: "center",
+    },
+    cancelledBannerText: {
         color: COLORS.destructive,
         fontSize: 14,
         fontWeight: "600",

@@ -349,6 +349,36 @@ export function useCloseOcorrencia() {
     };
 }
 
+/** Cancela a aula pontualmente sem debitar check-ins e notificando os alunos. */
+export function useCancelOcorrencia() {
+    const queryClient = useQueryClient();
+
+    const mutation = useMutation({
+        mutationFn: async ({ ocorrenciaId, reason }: { ocorrenciaId: string; reason?: string }) => {
+            const scheduleRoutes = new ScheduleRoutes();
+            return await scheduleRoutes.cancelOcorrencia(ocorrenciaId, reason);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["attendance"] });
+            queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+            queryClient.invalidateQueries({ queryKey: ["schedule"] });
+            queryClient.invalidateQueries({ queryKey: ["classes", "next"] });
+            queryClient.invalidateQueries({ queryKey: ["classes", "week"] });
+            queryClient.invalidateQueries({ queryKey: ["checkin", "my-status"] });
+        },
+    });
+
+    return {
+        cancelOcorrencia: mutation.mutateAsync,
+        isLoading: mutation.isPending,
+        error: mutation.error
+            ? (mutation.error as ApiError).data?.detail ||
+            mutation.error.message ||
+            "Erro ao cancelar a aula"
+            : null,
+    };
+}
+
 export function useAttendance({ ocorrenciaId, status }: GetAttendanceRequestSchema) {
     const query = useQuery({
         queryKey: ["attendance", ocorrenciaId, status],

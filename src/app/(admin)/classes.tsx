@@ -18,6 +18,7 @@ import {
 import {
   useAttendance,
   useAulas,
+  useCancelOcorrencia,
   useClassFormOptions,
   useCloseOcorrencia,
   useCreateAula,
@@ -1292,7 +1293,10 @@ function ClassModal({
 
   const { markAttendance } = useMarkAttendance();
   const { closeOcorrencia, isLoading: isClosing } = useCloseOcorrencia();
+  const { cancelOcorrencia, isLoading: isCancelling } = useCancelOcorrencia();
   const [savingBookingId, setSavingBookingId] = useState<string | null>(null);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   const rawConfirmed = confirmedData?.lista ?? [];
   const confirmedStudents = useMemo(() => {
@@ -1312,8 +1316,9 @@ function ClassModal({
   if (!item) return null;
 
   const checkInsCount = confirmedData?.presentCount ?? 0;
+  const isCancelled = item.status === "Cancelada";
   const isClassClosed =
-    item.status === "Encerrada" || item.status === "Concluida";
+    item.status === "Encerrada" || item.status === "Concluida" || isCancelled;
 
   const handleToggleCheckIn = async (student: AttendanceStudentType) => {
     if (savingBookingId || !student.bookingId) return;
@@ -1362,6 +1367,27 @@ function ClassModal({
           err?.data?.detail ||
           err?.message ||
           "Não foi possível encerrar a aula.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelAction = async () => {
+    try {
+      await cancelOcorrencia({ ocorrenciaId: item.id, reason: cancelReason });
+      toast({
+        title: "Aula cancelada com sucesso!",
+        description: "Os check-ins não foram debitados e os alunos foram notificados.",
+      });
+      setCancelModalVisible(false);
+      setCancelReason("");
+      onClose();
+    } catch (err: any) {
+      toast({
+        title:
+          err?.data?.detail ||
+          err?.message ||
+          "Não foi possível cancelar a aula.",
         variant: "destructive",
       });
     }
@@ -1576,21 +1602,41 @@ function ClassModal({
                 </TouchableOpacity>
               )}
 
-              {!isClassClosed && (
-                <TouchableOpacity
-                  style={[
-                    styles.modalCloseClassBtn,
-                    isClosing && styles.modalCloseClassBtnDisabled,
-                  ]}
-                  onPress={handleCloseClass}
-                  disabled={isClosing}
-                >
-                  <Check size={15} color="#FFFFFF" />
-                  <Text style={styles.modalCloseClassBtnText}>
-                    {isClosing ? "Encerrando..." : "Encerrar aula"}
-                  </Text>
-                </TouchableOpacity>
-              )}
+              {isCancelled ? (
+                <View style={styles.modalCancelledBanner}>
+                  <Text style={styles.modalCancelledBannerText}>Esta aula está cancelada</Text>
+                </View>
+              ) : !isClassClosed ? (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalCancelClassBtn,
+                      isCancelling && styles.modalCloseClassBtnDisabled,
+                    ]}
+                    onPress={() => setCancelModalVisible(true)}
+                    disabled={isCancelling || isClosing}
+                  >
+                    <X size={15} color="#DC2626" />
+                    <Text style={styles.modalCancelClassBtnText}>
+                      {isCancelling ? "Cancelando..." : "Cancelar aula"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.modalCloseClassBtn,
+                      isClosing && styles.modalCloseClassBtnDisabled,
+                    ]}
+                    onPress={handleCloseClass}
+                    disabled={isClosing || isCancelling}
+                  >
+                    <Check size={15} color="#FFFFFF" />
+                    <Text style={styles.modalCloseClassBtnText}>
+                      {isClosing ? "Encerrando..." : "Encerrar aula"}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
             </View>
           </View>
         </View>
@@ -1606,6 +1652,59 @@ function ClassModal({
         onConfirm={confirmCloseAction}
         onClose={() => setConfirmCloseModal(false)}
       />
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setCancelModalVisible(false);
+          setCancelReason("");
+        }}
+      >
+        <View style={styles.cancelOverlay}>
+          <View style={styles.cancelContent}>
+            <Text style={styles.cancelTitle}>Cancelar ocorrência da aula?</Text>
+            <Text style={styles.cancelSubtitle}>
+              Os check-ins dos alunos inscritos não serão debitados e os alunos receberão uma notificação.
+            </Text>
+            <View style={{ gap: 6, marginVertical: 12 }}>
+              <Text style={styles.inputLabel}>Motivo do cancelamento (opcional)</Text>
+              <TextInput
+                style={styles.cancelInput}
+                placeholder="Ex: Chuva, professor indisposto..."
+                placeholderTextColor="#9ca3af"
+                value={cancelReason}
+                onChangeText={setCancelReason}
+              />
+            </View>
+            <Text style={styles.cancelWarning}>Esta ação não pode ser desfeita.</Text>
+            <View style={styles.cancelActionsRow}>
+              <TouchableOpacity
+                style={styles.cancelVoltarBtn}
+                onPress={() => {
+                  setCancelModalVisible(false);
+                  setCancelReason("");
+                }}
+                disabled={isCancelling}
+              >
+                <Text style={styles.cancelVoltarText}>Voltar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.cancelConfirmBtn,
+                  isCancelling && styles.modalCloseClassBtnDisabled,
+                ]}
+                onPress={handleCancelAction}
+                disabled={isCancelling}
+              >
+                <Text style={styles.cancelConfirmText}>
+                  {isCancelling ? "Cancelando..." : "Confirmar cancelamento"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -2184,6 +2283,107 @@ const styles = StyleSheet.create({
   modalCloseClassBtnText: {
     fontSize: 12,
     fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  modalCancelClassBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#FEE2E2",
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+  },
+  modalCancelClassBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#DC2626",
+  },
+  modalCancelledBanner: {
+    backgroundColor: "#FEE2E2",
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalCancelledBannerText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#DC2626",
+  },
+  cancelOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  cancelContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    width: "100%",
+    maxWidth: 420,
+  },
+  cancelTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.foreground,
+    marginBottom: 6,
+  },
+  cancelSubtitle: {
+    fontSize: 13,
+    color: COLORS.mutedForeground,
+    lineHeight: 18,
+  },
+  cancelWarning: {
+    fontSize: 12,
+    color: COLORS.destructive,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.foreground,
+  },
+  cancelInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: COLORS.foreground,
+  },
+  cancelActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "flex-end",
+  },
+  cancelVoltarBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  cancelVoltarText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.mutedForeground,
+  },
+  cancelConfirmBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.destructive,
+  },
+  cancelConfirmText: {
+    fontSize: 13,
+    fontWeight: "600",
     color: "#FFFFFF",
   },
 

@@ -217,7 +217,12 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
 
       <View style={styles.statusRow}>
         <View>
-          {item.subscriptionStatus ? (
+          {isCancelled ? (
+            <View style={styles.cancelledBadge}>
+              <AlertTriangle size={16} color="#DC2626" />
+              <Text style={styles.cancelledBadgeText}>Aula cancelada</Text>
+            </View>
+          ) : item.subscriptionStatus ? (
             <Text style={styles.subscriptionStatusText}>
               {item.subscriptionStatus === 'Confirmado' ? 'Agendamento Confirmado ✓' :
                item.subscriptionStatus === 'ListaEspera' ? 'Na Fila de Espera' :
@@ -225,11 +230,6 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
                item.subscriptionStatus === 'CheckedIn' ? 'Check-in Realizado' :
                item.subscriptionStatus === 'Faltou' ? 'Faltou' : ''}
             </Text>
-          ) : isCancelled ? (
-            <View style={styles.cancelledBadge}>
-              <AlertTriangle size={16} color="#DC2626" />
-              <Text style={styles.cancelledBadgeText}>Aula cancelada</Text>
-            </View>
           ) : isClassPast ? (
             <View style={styles.closedBadge}>
               <Clock size={16} color="#9CA3AF" />
