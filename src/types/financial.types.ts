@@ -30,8 +30,16 @@ export type TenantSettingsType = {
   partnerCheckInLimit: number;
   churnReengageMessage?: string | null;
   saasStatus: string | null; saasPlanName: string | null; nextBillingAt: string | null;
+  cnpj?: string | null;
+  phone?: string | null;
+  email?: string | null;
 };
 export type UpdateTenantSettingsType = Pick<TenantSettingsType,
   "name" | "slug" | "logoUrl" | "address" | "contact" | "gympassRepasse" |
   "totalpassRepasse" | "waitlistTimeoutMinutes" | "cancellationTimeoutMinutes" |
-  "noShowPenaltyFee" | "partnerCheckInLimit"> & { churnReengageMessage?: string | null };
+  "noShowPenaltyFee" | "partnerCheckInLimit"> & {
+    churnReengageMessage?: string | null;
+    cnpj?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  };

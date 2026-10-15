@@ -24,6 +24,7 @@ export type AvailableTenant = {
   tenantName: string;
   role: string;
   isActive: boolean;
+  logoUrl?: string | null;
 }
 
 export type LoginResponse = {

@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import { ArrowLeft, Check, Store } from "lucide-react-native";
+import { ArrowLeft, Building2, Check, Store } from "lucide-react-native";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
 import { useToast } from "@/components/Toast";
 import {
@@ -25,14 +25,43 @@ import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { useCategories } from "@/hooks/categories.hooks";
 import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
 import { normalizeApiError } from "@/routes/apiError";
+import { maskCnpj, maskPhone } from "@/utils/masks";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AdminProfile() {
-  const refresh = useScreenRefresh([["catalog-profile"], ["categories"]]);
+  const refresh = useScreenRefresh([
+    ["catalog-profile"],
+    ["tenant-settings"],
+    ["categories"],
+  ]);
   const { toast } = useToast();
-  const { catalogProfile, loading } = useAdminSettings();
-  const { updateCatalogProfile, isUpdatingCatalogProfile } = useSettingsActions();
+  const { catalogProfile, tenantSettings, loading } = useAdminSettings();
+  const {
+    updateCatalogProfile,
+    isUpdatingCatalogProfile,
+    updateTenant,
+    isUpdatingTenant,
+  } = useSettingsActions();
   const { categories, isLoading: categoriesLoading } = useCategories();
+
+  const [tenantForm, setTenantFormState] = useState<{
+    name: string;
+    cnpj: string;
+    phone: string;
+    email: string;
+    logoUrl: string | null;
+  }>({
+    name: "",
+    cnpj: "",
+    phone: "",
+    email: "",
+    logoUrl: null,
+  });
+  const tenantDirty = useRef(false);
+  const setTenantForm = (value: Parameters<typeof setTenantFormState>[0]) => {
+    tenantDirty.current = true;
+    setTenantFormState(value);
+  };
 
   const [profile, setProfileState] = useState<{
     showInCatalog: boolean;
@@ -50,6 +79,18 @@ export default function AdminProfile() {
     profileDirty.current = true;
     setProfileState(value);
   };
+
+  useEffect(() => {
+    if (tenantSettings && !tenantDirty.current) {
+      setTenantFormState({
+        name: tenantSettings.name || "",
+        cnpj: maskCnpj(tenantSettings.cnpj || ""),
+        phone: maskPhone(tenantSettings.phone || ""),
+        email: tenantSettings.email || "",
+        logoUrl: tenantSettings.logoUrl || null,
+      });
+    }
+  }, [tenantSettings]);
 
   useEffect(() => {
     if (catalogProfile && !profileDirty.current) {
@@ -70,8 +111,31 @@ export default function AdminProfile() {
     }
   }, [catalogProfile, categories]);
 
+  const isSaving = isUpdatingCatalogProfile || isUpdatingTenant;
+
   const saveProfile = async () => {
     try {
+      if (tenantSettings) {
+        await updateTenant({
+          name: tenantForm.name.trim() || tenantSettings.name || "",
+          slug: tenantSettings.slug,
+          logoUrl: tenantForm.logoUrl,
+          address: tenantSettings.address,
+          contact: tenantSettings.contact,
+          cnpj: tenantForm.cnpj.trim() || null,
+          phone: tenantForm.phone.trim() || null,
+          email: tenantForm.email.trim() || null,
+          gympassRepasse: tenantSettings.gympassRepasse,
+          totalpassRepasse: tenantSettings.totalpassRepasse,
+          waitlistTimeoutMinutes: tenantSettings.waitlistTimeoutMinutes,
+          cancellationTimeoutMinutes: tenantSettings.cancellationTimeoutMinutes,
+          noShowPenaltyFee: tenantSettings.noShowPenaltyFee,
+          partnerCheckInLimit: tenantSettings.partnerCheckInLimit,
+          churnReengageMessage: tenantSettings.churnReengageMessage,
+        });
+        tenantDirty.current = false;
+      }
+
       const activeNames = new Set(
         (categories ?? []).filter((item) => item.isActive).map((item) => item.name),
       );
@@ -114,11 +178,89 @@ export default function AdminProfile() {
             <View style={styles.headerTextWrap}>
               <AdminPageHeader
                 title="perfil do ct"
-                subtitle="Vitrine pública no catálogo, banner e apresentação"
+                subtitle="Dados cadastrais, logo oficial e vitrine no catálogo"
               />
             </View>
           </View>
 
+          {/* Dados Cadastrais e Identidade */}
+          {loading.tenant ? (
+            <AdminSkeleton width="100%" height={320} radius={14} />
+          ) : (
+            <AdminCard style={styles.cardGap}>
+              <View style={styles.cardHeader}>
+                <View style={styles.iconWrap}>
+                  <Building2 size={22} color={COLORS.mainOrange} />
+                </View>
+                <View style={styles.grow}>
+                  <SectionTitle>Identidade e Contato</SectionTitle>
+                  <Text style={styles.subtext}>
+                    Dados institucionais da sua academia e logotipo oficial
+                  </Text>
+                </View>
+              </View>
+
+              <ImageUploadField
+                label="Logo do CT (Marca oficial)"
+                value={tenantForm.logoUrl}
+                category="logo"
+                aspectRatio={1}
+                onChange={(logoUrl) =>
+                  setTenantForm((prev) => ({ ...prev, logoUrl }))
+                }
+              />
+
+              <Text style={styles.fieldLabel}>Nome do CT</Text>
+              <TextInput
+                value={tenantForm.name}
+                onChangeText={(val) =>
+                  setTenantForm((prev) => ({ ...prev, name: val }))
+                }
+                placeholder="Ex: CT Demo - Academia Krava"
+                placeholderTextColor={COLORS.mutedForeground}
+                style={styles.textInput}
+              />
+
+              <Text style={styles.fieldLabel}>CNPJ (Opcional)</Text>
+              <TextInput
+                value={tenantForm.cnpj}
+                onChangeText={(val) =>
+                  setTenantForm((prev) => ({ ...prev, cnpj: maskCnpj(val) }))
+                }
+                placeholder="00.000.000/0000-00"
+                keyboardType="numeric"
+                placeholderTextColor={COLORS.mutedForeground}
+                style={styles.textInput}
+              />
+
+              <Text style={styles.fieldLabel}>Telefone / WhatsApp</Text>
+              <TextInput
+                value={tenantForm.phone}
+                onChangeText={(val) =>
+                  setTenantForm((prev) => ({ ...prev, phone: maskPhone(val) }))
+                }
+                placeholder="(00) 00000-0000"
+                keyboardType="phone-pad"
+                placeholderTextColor={COLORS.mutedForeground}
+                style={styles.textInput}
+              />
+
+              <Text style={styles.fieldLabel}>E-mail institucional</Text>
+              <TextInput
+                value={tenantForm.email}
+                onChangeText={(val) =>
+                  setTenantForm((prev) => ({ ...prev, email: val }))
+                }
+                placeholder="contato@seuct.com.br"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor={COLORS.mutedForeground}
+                style={styles.textInput}
+              />
+            </AdminCard>
+          )}
+
+          {/* Vitrine do Catálogo */}
           {loading.catalogProfile ? (
             <AdminSkeleton width="100%" height={260} radius={14} />
           ) : (
@@ -128,7 +270,7 @@ export default function AdminProfile() {
                   <Store size={22} color={COLORS.mainOrange} />
                 </View>
                 <View style={styles.grow}>
-                  <SectionTitle>Apresentação do CT</SectionTitle>
+                  <SectionTitle>Apresentação no Catálogo</SectionTitle>
                   <Text style={styles.subtext}>
                     Estas informações são exibidas para novos alunos no catálogo
                   </Text>
@@ -219,12 +361,10 @@ export default function AdminProfile() {
 
               <View style={styles.submitWrap}>
                 <ActionButton
-                  label={
-                    isUpdatingCatalogProfile ? "Salvando..." : "Salvar alterações"
-                  }
+                  label={isSaving ? "Salvando..." : "Salvar alterações"}
                   icon={<Check size={16} color="#fff" />}
                   onPress={saveProfile}
-                  disabled={isUpdatingCatalogProfile}
+                  disabled={isSaving}
                 />
               </View>
             </AdminCard>
@@ -273,6 +413,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.mutedForeground,
     marginTop: 2,
+  },
+  cardGap: {
+    marginBottom: 16,
   },
   switchRow: {
     flexDirection: "row",

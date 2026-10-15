@@ -48,6 +48,29 @@ const RoleIcon = ({ role }: { role: string }) =>
   ) : (
     <Users color={COLORS.mainOrange} size={21} />
   );
+
+function TenantCardLogo({ logoUrl, role }: { logoUrl?: string | null; role: string }) {
+  const [hasError, setHasError] = useState(false);
+  const uri = publicImageUrl(logoUrl);
+
+  if (!uri || hasError) {
+    return (
+      <View style={styles.roleIcon}>
+        <RoleIcon role={role} />
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={styles.tenantLogo}
+      resizeMode="cover"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
 const currency = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     value,
@@ -215,9 +238,7 @@ export default function SelectTenant() {
                       !tenant.isActive || selecting ? styles.disabled : {},
                     ]}
                   >
-                    <View style={styles.roleIcon}>
-                      <RoleIcon role={tenant.role} />
-                    </View>
+                    <TenantCardLogo logoUrl={tenant.logoUrl} role={tenant.role} />
                     <View style={styles.grow}>
                       <Text style={styles.cardTitle}>{tenant.tenantName}</Text>
                       <Text style={styles.muted}>{roleLabel(tenant.role)}</Text>
@@ -706,6 +727,12 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#FFF2E9",
+  },
+  tenantLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 13,
     backgroundColor: "#FFF2E9",
   },
   cardTitle: { color: COLORS.foreground, fontSize: 16, fontWeight: "800", letterSpacing: -0.3 },
