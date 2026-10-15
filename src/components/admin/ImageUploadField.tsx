@@ -23,6 +23,7 @@ import { useState } from "react";
 import Modal from "@/components/AppModal";
 import {
   ActivityIndicator,
+  DimensionValue,
   Image,
   Platform,
   StyleSheet,
@@ -39,6 +40,8 @@ type Props = {
   /** Chamado com a URL devolvida pela API depois do upload. */
   onChange: (url: string) => void;
   aspectRatio?: number;
+  maxWidth?: DimensionValue;
+  maxHeight?: DimensionValue;
 };
 
 /**
@@ -53,6 +56,8 @@ export function ImageUploadField({
   category,
   onChange,
   aspectRatio = 16 / 9,
+  maxWidth,
+  maxHeight,
 }: Props) {
   const { toast } = useToast();
   const { uploadImage, isUploading } = useUploadTenantImage();
@@ -117,13 +122,32 @@ export function ImageUploadField({
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
 
-      <View style={[styles.preview, { aspectRatio }]}>
+      <View
+        style={[
+          styles.preview,
+          { aspectRatio },
+          maxWidth !== undefined
+            ? { maxWidth }
+            : category === "logo"
+              ? { maxWidth: 140 }
+              : null,
+          maxHeight !== undefined
+            ? { maxHeight }
+            : category === "logo"
+              ? { maxHeight: 140 }
+              : category === "banner"
+                ? { maxHeight: 220 }
+                : null,
+        ]}
+      >
         {preview ? (
           <Image source={{ uri: preview }} style={styles.image} resizeMode="cover" />
         ) : (
           <View style={styles.empty}>
             <ImageIcon size={26} color={COLORS.mutedForeground} />
-            <Text style={styles.emptyText}>Nenhuma imagem configurada</Text>
+            <Text style={styles.emptyText}>
+              {category === "logo" ? "Sem logo configurada" : "Nenhuma imagem configurada"}
+            </Text>
           </View>
         )}
 
@@ -289,8 +313,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   image: { width: "100%", height: "100%" },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 6 },
-  emptyText: { color: COLORS.mutedForeground, fontSize: 12 },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 10 },
+  emptyText: { color: COLORS.mutedForeground, fontSize: 12, textAlign: "center" },
   overlay: {
     position: "absolute",
     top: 0,

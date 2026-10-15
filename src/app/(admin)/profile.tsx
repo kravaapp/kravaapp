@@ -35,7 +35,7 @@ export default function AdminProfile() {
     ["categories"],
   ]);
   const { toast } = useToast();
-  const { catalogProfile, tenantSettings, loading } = useAdminSettings();
+  const { catalogProfile, tenantSettings, loading, hasError } = useAdminSettings();
   const {
     updateCatalogProfile,
     isUpdatingCatalogProfile,
@@ -165,50 +165,60 @@ export default function AdminProfile() {
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
       <RefreshableScrollView {...refresh} style={styles.content}>
-        <AdminScreen>
-          <View style={styles.headerRow}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Voltar"
-            >
-              <ArrowLeft size={20} color={COLORS.foreground} />
-            </TouchableOpacity>
-            <View style={styles.headerTextWrap}>
-              <AdminPageHeader
-                title="perfil do ct"
-                subtitle="Dados cadastrais, logo oficial e vitrine no catálogo"
-              />
-            </View>
-          </View>
-
-          {/* Dados Cadastrais e Identidade */}
-          {loading.tenant ? (
-            <AdminSkeleton width="100%" height={320} radius={14} />
-          ) : (
-            <AdminCard style={styles.cardGap}>
-              <View style={styles.cardHeader}>
-                <View style={styles.iconWrap}>
-                  <Building2 size={22} color={COLORS.mainOrange} />
-                </View>
-                <View style={styles.grow}>
-                  <SectionTitle>Identidade e Contato</SectionTitle>
-                  <Text style={styles.subtext}>
-                    Dados institucionais da sua academia e logotipo oficial
-                  </Text>
-                </View>
+        <View style={styles.screenContainer}>
+          <AdminScreen>
+            <View style={styles.headerRow}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.backBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Voltar"
+              >
+                <ArrowLeft size={20} color={COLORS.foreground} />
+              </TouchableOpacity>
+              <View style={styles.headerTextWrap}>
+                <AdminPageHeader
+                  title="perfil do ct"
+                  subtitle="Dados cadastrais, logo oficial e vitrine no catálogo"
+                />
               </View>
+            </View>
 
-              <ImageUploadField
-                label="Logo do CT (Marca oficial)"
-                value={tenantForm.logoUrl}
-                category="logo"
-                aspectRatio={1}
-                onChange={(logoUrl) =>
-                  setTenantForm((prev) => ({ ...prev, logoUrl }))
-                }
-              />
+            {hasError && (
+              <View style={styles.errorCard}>
+                <Text style={styles.errorText}>
+                  Não foi possível carregar as informações do CT. Puxe para atualizar.
+                </Text>
+              </View>
+            )}
+
+            {/* Dados Cadastrais e Identidade */}
+            {loading.tenant ? (
+              <AdminSkeleton width="100%" height={320} radius={14} />
+            ) : (
+              <AdminCard style={styles.cardGap}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.iconWrap}>
+                    <Building2 size={22} color={COLORS.mainOrange} />
+                  </View>
+                  <View style={styles.grow}>
+                    <SectionTitle>Identidade e Contato</SectionTitle>
+                    <Text style={styles.subtext}>
+                      Dados institucionais da sua academia e logotipo oficial
+                    </Text>
+                  </View>
+                </View>
+
+                <ImageUploadField
+                  label="Logo do CT (Marca oficial)"
+                  value={tenantForm.logoUrl}
+                  category="logo"
+                  aspectRatio={1}
+                  maxWidth={140}
+                  onChange={(logoUrl) =>
+                    setTenantForm((prev) => ({ ...prev, logoUrl }))
+                  }
+                />
 
               <Text style={styles.fieldLabel}>Nome do CT</Text>
               <TextInput
@@ -309,6 +319,7 @@ export default function AdminProfile() {
                 label="Banner de capa do catálogo"
                 value={profile.bannerUrl || null}
                 category="banner"
+                maxHeight={220}
                 onChange={(bannerUrl) =>
                   setProfile((prev) => ({ ...prev, bannerUrl }))
                 }
@@ -370,6 +381,7 @@ export default function AdminProfile() {
             </AdminCard>
           )}
         </AdminScreen>
+        </View>
       </RefreshableScrollView>
     </SafeAreaView>
   );
@@ -490,5 +502,22 @@ const styles = StyleSheet.create({
   },
   submitWrap: {
     marginTop: 16,
+  },
+  screenContainer: {
+    width: "100%",
+    maxWidth: 840,
+    alignSelf: "center",
+  },
+  errorCard: {
+    backgroundColor: "#FEE2E2",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+  },
+  errorText: {
+    color: COLORS.destructive,
+    fontSize: 13,
+    fontWeight: "600",
   },
 });
