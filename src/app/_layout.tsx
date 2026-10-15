@@ -103,6 +103,10 @@ export default function Layout() {
                 options={{ headerShown: false }}
               />
               <Stack.Screen
+                name="definir-senha"
+                options={{ headerShown: false, animation: "none" }}
+              />
+              <Stack.Screen
                 name="(tenant)"
                 options={{ headerShown: false, animation: "none" }}
               />

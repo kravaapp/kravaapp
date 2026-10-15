@@ -1,4 +1,5 @@
 import {
+  ChangePasswordRequest,
   ConfirmEmailRequest,
   CreateInvitationRequest,
   ForgotPasswordRequest,
@@ -8,6 +9,7 @@ import {
   ResetPasswordRequest,
   SelectTenantRequest,
   SelfRegisterRequest,
+  SetInitialPasswordRequest,
   VerifyResetCodeRequest,
 } from "@/schemas/auth.schemas";
 import {
@@ -50,6 +52,16 @@ export class AuthRoutes {
 
   async resendConfirmationCode(request: ResendConfirmationCodeRequest) {
     await api.post("/auth/resend-confirmation-code", { json: request });
+  }
+
+  async changePassword(request: ChangePasswordRequest) {
+    await api.post("/auth/change-password", { json: request });
+  }
+
+  async setInitialPassword(request: SetInitialPasswordRequest) {
+    return await api
+      .post("/auth/set-initial-password", { json: request })
+      .json<Token>();
   }
 
   async selectTenant(request: SelectTenantRequest) {

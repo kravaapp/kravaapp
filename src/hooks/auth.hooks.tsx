@@ -2,6 +2,7 @@ import { AuthContext } from "@/contexts/authContext";
 import { AuthRoutes } from "@/routes/auth.routes";
 import { normalizeApiError } from "@/routes/apiError";
 import {
+  ChangePasswordRequest,
   ConfirmEmailRequest,
   CreateInvitationRequest,
   ForgotPasswordRequest,
@@ -10,6 +11,7 @@ import {
   ResetPasswordRequest,
   SelectTenantRequest,
   SelfRegisterRequest,
+  SetInitialPasswordRequest,
   VerifyResetCodeRequest,
 } from "@/schemas/auth.schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -120,6 +122,30 @@ export function useResetPassword() {
 
   return {
     resetPassword: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+  };
+}
+
+export function useChangePassword() {
+  const mutation = useMutation({
+    mutationFn: (request: ChangePasswordRequest) =>
+      new AuthRoutes().changePassword(request),
+  });
+
+  return {
+    changePassword: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+  };
+}
+
+export function useSetInitialPassword() {
+  const mutation = useMutation({
+    mutationFn: (request: SetInitialPasswordRequest) =>
+      new AuthRoutes().setInitialPassword(request),
+  });
+
+  return {
+    setInitialPassword: mutation.mutateAsync,
     isLoading: mutation.isPending,
   };
 }

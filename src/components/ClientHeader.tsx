@@ -4,9 +4,10 @@ export { COLORS } from "@/constants/colors";
 import { useUnreadNotificationCount } from "@/hooks/notifications.hooks";
 import { Token } from "@/types/auth.types";
 import { router } from "expo-router";
-import { Bell, Building2, LogOut, UserRound } from "lucide-react-native";
+import { Bell, Building2, Lock, LogOut, UserRound } from "lucide-react-native";
 import { useContext, useState } from "react";
 import Modal from "@/components/AppModal";
+import ChangePasswordModal from "./ChangePasswordModal";
 import {
   Pressable,
   StyleSheet,
@@ -23,6 +24,7 @@ type DropdownProps = {
   onLogout: () => void;
   onProfile?: () => void;
   onExplore?: () => void;
+  onChangePassword: () => void;
   user: Token | null;
 };
 
@@ -32,6 +34,7 @@ const ProfileDropdown = ({
   onLogout,
   onProfile,
   onExplore,
+  onChangePassword,
   user,
 }: DropdownProps) => (
   <Modal
@@ -91,6 +94,18 @@ const ProfileDropdown = ({
           activeOpacity={0.7}
           onPress={() => {
             onClose();
+            onChangePassword();
+          }}
+        >
+          <Lock color={COLORS.foreground} size={16} />
+          <Text style={styles.dropdownExploreText}>Alterar senha</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.dropdownItem}
+          activeOpacity={0.7}
+          onPress={() => {
+            onClose();
             onLogout();
           }}
         >
@@ -112,6 +127,7 @@ export const getInitials = (name: string) => {
 const AlunoHeader = () => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const { signOut, user, selectTenantState } = useContext(AuthContext);
   const { unreadCount } = useUnreadNotificationCount();
 
@@ -164,12 +180,18 @@ const AlunoHeader = () => {
         onExplore={
           selectTenantState ? () => router.push("/selectTenant") : undefined
         }
+        onChangePassword={() => setChangePasswordVisible(true)}
         user={user}
       />
 
       <NotificationsModal
         visible={notificationsVisible}
         onClose={() => setNotificationsVisible(false)}
+      />
+
+      <ChangePasswordModal
+        visible={changePasswordVisible}
+        onClose={() => setChangePasswordVisible(false)}
       />
     </>
   );

@@ -86,3 +86,56 @@ export type ConfirmEmailRequest = z.infer<typeof confirmEmailSchema>;
 export type ResendConfirmationCodeRequest = z.infer<
   typeof resendConfirmationCodeSchema
 >;
+
+/** Payload enviado à API para alterar a senha autenticada */
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Informe a senha atual."),
+  newPassword: z
+    .string()
+    .min(8, "Mínimo de 8 caracteres.")
+    .regex(/[A-Z]/, "Inclua ao menos 1 letra maiúscula.")
+    .regex(/[a-z]/, "Inclua ao menos 1 letra minúscula.")
+    .regex(/[0-9]/, "Inclua ao menos 1 número."),
+});
+
+/** Schema usado no formulário do modal de troca de senha */
+export const changePasswordFormSchema = changePasswordSchema
+  .extend({ confirmPassword: z.string().min(1, "Confirme a nova senha.") })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "As senhas não coincidem.",
+  })
+  .refine(
+    (data) =>
+      !data.currentPassword ||
+      !data.newPassword ||
+      data.currentPassword !== data.newPassword,
+    {
+      path: ["newPassword"],
+      message: "A nova senha não pode ser igual à senha atual.",
+    }
+  );
+
+/** Payload enviado à API para definir senha inicial de primeiro acesso */
+export const setInitialPasswordSchema = z.object({
+  token: z.string().trim().min(1, "Token de acesso obrigatório."),
+  newPassword: z
+    .string()
+    .min(8, "Mínimo de 8 caracteres.")
+    .regex(/[A-Z]/, "Inclua ao menos 1 letra maiúscula.")
+    .regex(/[a-z]/, "Inclua ao menos 1 letra minúscula.")
+    .regex(/[0-9]/, "Inclua ao menos 1 número."),
+});
+
+/** Schema usado no formulário de primeiro acesso */
+export const setInitialPasswordFormSchema = setInitialPasswordSchema
+  .extend({ confirmPassword: z.string().min(1, "Confirme a nova senha.") })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "As senhas não coincidem.",
+  });
+
+export type ChangePasswordRequest = z.infer<typeof changePasswordSchema>;
+export type ChangePasswordFormValues = z.infer<typeof changePasswordFormSchema>;
+export type SetInitialPasswordRequest = z.infer<typeof setInitialPasswordSchema>;
+export type SetInitialPasswordFormValues = z.infer<typeof setInitialPasswordFormSchema>;

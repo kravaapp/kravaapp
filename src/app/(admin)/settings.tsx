@@ -20,6 +20,7 @@ import {
   Check,
   ChevronRight,
   Clock,
+  Lock,
   Plus,
   ShieldAlert,
   Trash2,
@@ -27,6 +28,7 @@ import {
   X,
 } from "lucide-react-native";
 import ClientHeader, { COLORS } from "@/components/ClientHeader";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import { useToast } from "@/components/Toast";
 import {
@@ -79,6 +81,7 @@ export default function AdminSettings() {
     ["tenant-partners"],
   ]);
   const { toast } = useToast();
+  const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const {
     rules,
     tenantSettings,
@@ -319,8 +322,36 @@ export default function AdminSettings() {
               ⓘ Defina limites mensais de check-in e valores de repasse por parceiro (Gympass, TotalPass, etc).
             </Text>
           </SettingsCard>
+
+          {/* Segurança e Senha */}
+          <SettingsCard
+            icon={<Lock color={COLORS.mainOrange} size={20} />}
+            title="Segurança e Senha"
+          >
+            <TouchableOpacity
+              style={styles.editableRow}
+              activeOpacity={0.7}
+              onPress={() => setChangePasswordVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Alterar senha do gestor"
+            >
+              <View style={styles.grow}>
+                <Text style={styles.itemTitle}>Alterar senha do gestor</Text>
+                <Text style={styles.muted}>
+                  Atualize sua senha de acesso ao painel Krava
+                </Text>
+              </View>
+              <ChevronRight size={18} color={COLORS.mutedForeground} />
+            </TouchableOpacity>
+          </SettingsCard>
         </AdminScreen>
       </RefreshableScrollView>
+
+      {/* Modal de Troca de Senha */}
+      <ChangePasswordModal
+        visible={changePasswordVisible}
+        onClose={() => setChangePasswordVisible(false)}
+      />
 
       {/* Modal de Regra de Agendamento */}
       <RuleModal

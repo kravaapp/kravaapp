@@ -15,8 +15,9 @@ import {
   toIsoDate,
 } from "@/utils/masks";
 import { Redirect, router } from "expo-router";
-import { ChevronLeft, Check } from "lucide-react-native";
+import { ChevronLeft, Check, Lock } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -52,6 +53,7 @@ export default function Profile() {
   const { aluno, isLoading, error, updateMeuPerfil, isSaving } =
     useMeuPerfilAluno(isStudent);
   const [form, setFormState] = useState<ProfileForm>(emptyForm);
+  const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const formDirty = useRef(false);
   const setForm = (value: Parameters<typeof setFormState>[0]) => {
     formDirty.current = true;
@@ -219,9 +221,22 @@ export default function Profile() {
                 </>
               )}
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.changePasswordButton}
+              onPress={() => setChangePasswordVisible(true)}
+            >
+              <Lock size={16} color={COLORS.primary} />
+              <Text style={styles.changePasswordButtonText}>Alterar Senha</Text>
+            </TouchableOpacity>
           </View>
         )}
       </RefreshableScrollView>
+
+      <ChangePasswordModal
+        visible={changePasswordVisible}
+        onClose={() => setChangePasswordVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -324,4 +339,21 @@ const styles = StyleSheet.create({
   },
   saveText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   disabled: { opacity: 0.65 },
+  changePasswordButton: {
+    minHeight: 46,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+  changePasswordButtonText: {
+    color: COLORS.foreground,
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });
