@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect, router } from "expo-router";
 import { ChevronLeft, Send } from "lucide-react-native";
+import ClientHeader from "@/components/ClientHeader";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import { useToast } from "@/components/Toast";
 import { useAuth, useSupportContact } from "@/hooks/auth.hooks";
@@ -76,19 +77,24 @@ export default function SupportScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          accessibilityLabel="Voltar"
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ChevronLeft size={22} color={COLORS.foreground} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Suporte</Text>
-      </View>
+      <ClientHeader />
 
       <KeyboardAvoider>
         <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.titleRow}>
+            <TouchableOpacity
+              accessibilityLabel="Voltar"
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <ChevronLeft size={20} color={COLORS.foreground} />
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.title}>Fale com o suporte</Text>
+              <Text style={styles.subtitle}>Dúvidas, problemas ou sugestões</Text>
+            </View>
+          </View>
+
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Fale com a gente</Text>
             <Text style={styles.infoDescription}>
@@ -168,26 +174,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
-    height: 52,
+  titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.card,
+    gap: 10,
+    marginBottom: 4,
   },
   backButton: {
     width: 40,
     height: 40,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+  title: {
     color: COLORS.foreground,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  subtitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 2,
   },
   content: {
     padding: 20,

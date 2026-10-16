@@ -25,6 +25,7 @@ import {
   Trash2,
 } from "lucide-react-native";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
+import ClientHeader from "@/components/ClientHeader";
 import { useToast } from "@/components/Toast";
 import { useAuth, useDeleteAccount } from "@/hooks/auth.hooks";
 import { normalizeApiError } from "@/routes/apiError";
@@ -84,18 +85,23 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          accessibilityLabel="Voltar"
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ChevronLeft size={22} color={COLORS.foreground} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Configurações</Text>
-      </View>
+      <ClientHeader />
 
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.titleRow}>
+          <TouchableOpacity
+            accessibilityLabel="Voltar"
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ChevronLeft size={20} color={COLORS.foreground} />
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.title}>Configurações</Text>
+            <Text style={styles.subtitle}>Preferências, transparência e conta</Text>
+          </View>
+        </View>
+
         {/* Bloco: Segurança */}
         <Text style={styles.sectionHeader}>SEGURANÇA</Text>
         <View style={styles.card}>
@@ -325,26 +331,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  header: {
-    height: 52,
+  titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.card,
+    gap: 10,
+    marginBottom: 6,
   },
   backButton: {
     width: 40,
     height: 40,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+  title: {
     color: COLORS.foreground,
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  subtitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 2,
   },
   content: {
     padding: 20,

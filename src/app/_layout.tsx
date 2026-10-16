@@ -73,7 +73,7 @@ export default function Layout() {
         <PushNotificationManager />
         <ToastProvider>
           <KeyboardDismissView>
-            <Stack>
+            <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen
                 name="(user)"
                 options={{ headerShown: false, animation: "none" }}
@@ -101,6 +101,18 @@ export default function Layout() {
               <Stack.Screen
                 name="profile"
                 options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="settings"
+                options={{ headerShown: false, animation: "none" }}
+              />
+              <Stack.Screen
+                name="support"
+                options={{ headerShown: false, animation: "none" }}
+              />
+              <Stack.Screen
+                name="legal"
+                options={{ headerShown: false, animation: "none" }}
               />
               <Stack.Screen
                 name="definir-senha"
