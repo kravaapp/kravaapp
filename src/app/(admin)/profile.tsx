@@ -111,31 +111,38 @@ export default function AdminProfile() {
     }
   }, [catalogProfile, categories]);
 
-  const isSaving = isUpdatingCatalogProfile || isUpdatingTenant;
-
-  const saveProfile = async () => {
+  const saveTenantData = async () => {
     try {
-      if (tenantSettings) {
-        await updateTenant({
-          name: tenantForm.name.trim() || tenantSettings.name || "",
-          slug: tenantSettings.slug,
-          logoUrl: tenantForm.logoUrl,
-          address: tenantSettings.address,
-          contact: tenantSettings.contact,
-          cnpj: tenantForm.cnpj.trim() || null,
-          phone: tenantForm.phone.trim() || null,
-          email: tenantForm.email.trim() || null,
-          gympassRepasse: tenantSettings.gympassRepasse,
-          totalpassRepasse: tenantSettings.totalpassRepasse,
-          waitlistTimeoutMinutes: tenantSettings.waitlistTimeoutMinutes,
-          cancellationTimeoutMinutes: tenantSettings.cancellationTimeoutMinutes,
-          noShowPenaltyFee: tenantSettings.noShowPenaltyFee,
-          partnerCheckInLimit: tenantSettings.partnerCheckInLimit,
-          churnReengageMessage: tenantSettings.churnReengageMessage,
-        });
-        tenantDirty.current = false;
-      }
+      if (!tenantSettings) return;
+      await updateTenant({
+        name: tenantForm.name.trim() || tenantSettings.name || "",
+        slug: tenantSettings.slug,
+        logoUrl: tenantForm.logoUrl,
+        address: tenantSettings.address,
+        contact: tenantSettings.contact,
+        cnpj: tenantForm.cnpj.trim() || null,
+        phone: tenantForm.phone.trim() || null,
+        email: tenantForm.email.trim() || null,
+        gympassRepasse: tenantSettings.gympassRepasse,
+        totalpassRepasse: tenantSettings.totalpassRepasse,
+        waitlistTimeoutMinutes: tenantSettings.waitlistTimeoutMinutes,
+        cancellationTimeoutMinutes: tenantSettings.cancellationTimeoutMinutes,
+        noShowPenaltyFee: tenantSettings.noShowPenaltyFee,
+        partnerCheckInLimit: tenantSettings.partnerCheckInLimit,
+        churnReengageMessage: tenantSettings.churnReengageMessage,
+      });
+      tenantDirty.current = false;
+      toast({ title: "Dados cadastrais atualizados com sucesso!" });
+    } catch (err) {
+      toast({
+        title: normalizeApiError(err, "Não foi possível atualizar os dados cadastrais.").description,
+        variant: "destructive",
+      });
+    }
+  };
 
+  const saveCatalogData = async () => {
+    try {
       const activeNames = new Set(
         (categories ?? []).filter((item) => item.isActive).map((item) => item.name),
       );
@@ -152,10 +159,10 @@ export default function AdminProfile() {
       });
       setProfileState((prev) => ({ ...prev, modalities: sanitizedModalities }));
       profileDirty.current = false;
-      toast({ title: "Perfil do CT atualizado com sucesso!" });
+      toast({ title: "Vitrine do catálogo atualizada com sucesso!" });
     } catch (err) {
       toast({
-        title: normalizeApiError(err, "Não foi possível atualizar o perfil.").description,
+        title: normalizeApiError(err, "Não foi possível atualizar a vitrine.").description,
         variant: "destructive",
       });
     }
@@ -165,9 +172,8 @@ export default function AdminProfile() {
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
       <RefreshableScrollView {...refresh} style={styles.content}>
-        <View style={styles.screenContainer}>
-          <AdminScreen>
-            <View style={styles.headerRow}>
+        <AdminScreen>
+          <View style={styles.headerRow}>
               <TouchableOpacity
                 onPress={() => router.back()}
                 style={styles.backBtn}
@@ -267,6 +273,15 @@ export default function AdminProfile() {
                 placeholderTextColor={COLORS.mutedForeground}
                 style={styles.textInput}
               />
+
+              <View style={styles.submitWrap}>
+                <ActionButton
+                  label={isUpdatingTenant ? "Salvando..." : "Salvar dados cadastrais"}
+                  icon={<Check size={16} color="#fff" />}
+                  onPress={saveTenantData}
+                  disabled={isUpdatingTenant}
+                />
+              </View>
             </AdminCard>
           )}
 
@@ -372,16 +387,19 @@ export default function AdminProfile() {
 
               <View style={styles.submitWrap}>
                 <ActionButton
-                  label={isSaving ? "Salvando..." : "Salvar alterações"}
+                  label={
+                    isUpdatingCatalogProfile
+                      ? "Salvando..."
+                      : "Salvar vitrine do catálogo"
+                  }
                   icon={<Check size={16} color="#fff" />}
-                  onPress={saveProfile}
-                  disabled={isSaving}
+                  onPress={saveCatalogData}
+                  disabled={isUpdatingCatalogProfile}
                 />
               </View>
             </AdminCard>
           )}
         </AdminScreen>
-        </View>
       </RefreshableScrollView>
     </SafeAreaView>
   );
@@ -502,11 +520,6 @@ const styles = StyleSheet.create({
   },
   submitWrap: {
     marginTop: 16,
-  },
-  screenContainer: {
-    width: "100%",
-    maxWidth: 840,
-    alignSelf: "center",
   },
   errorCard: {
     backgroundColor: "#FEE2E2",

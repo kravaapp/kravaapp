@@ -11,8 +11,11 @@ import {
   ViewStyle,
 } from "react-native";
 
-export const AdminScreen = ({ children }: PropsWithChildren) => (
-  <View style={styles.screen}>{children}</View>
+export const AdminScreen = ({
+  children,
+  style,
+}: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) => (
+  <View style={[styles.screen, style]}>{children}</View>
 );
 export const AdminCard = ({
   children,
@@ -153,7 +156,15 @@ export const AdminSkeleton = ({
 };
 
 const styles = StyleSheet.create({
-  screen: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 110, gap: 20 },
+  screen: {
+    width: "100%",
+    maxWidth: 960,
+    alignSelf: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 110,
+    gap: 20,
+  },
   card: {
     backgroundColor: COLORS.white,
     borderWidth: 1,
