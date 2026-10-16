@@ -47,6 +47,7 @@ export function useLogin() {
           tenantName: data.token.tenantName,
           role: data.token.role,
           isActive: true,
+          logoUrl: data.token.logoUrl ?? null,
         });
       }
       setSelectTenant({
@@ -282,3 +283,18 @@ export function useCatalogActions(accessToken: string) {
     isAccepting: accept.isPending,
   };
 }
+
+export function useMyCts(accessToken: string | null) {
+  const query = useQuery({
+    queryKey: ["my-cts"],
+    queryFn: () => new AuthRoutes().getMyCts(accessToken ?? undefined),
+    enabled: !!accessToken,
+  });
+  return {
+    tenants: query.data ?? [],
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+

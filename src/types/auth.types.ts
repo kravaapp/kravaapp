@@ -17,6 +17,7 @@ export type Token = {
   role: string;
   gender: string;
   studentLevel: string;
+  logoUrl?: string | null;
 }
 
 export type AvailableTenant = {

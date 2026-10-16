@@ -9,6 +9,7 @@ import {
   useCatalog,
   useCatalogActions,
   useCatalogTenant,
+  useMyCts,
   usePendingInvitations,
   useSelectTenant,
 } from "@/hooks/auth.hooks";
@@ -27,7 +28,7 @@ import {
   Search,
   Users,
 } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   StyleSheet,
@@ -71,6 +72,50 @@ function TenantCardLogo({ logoUrl, role }: { logoUrl?: string | null; role: stri
   );
 }
 
+function CatalogCardLogo({ logoUrl, name }: { logoUrl?: string | null; name: string }) {
+  const [hasError, setHasError] = useState(false);
+  const uri = publicImageUrl(logoUrl);
+
+  if (!uri || hasError) {
+    return (
+      <View style={styles.logoFallback}>
+        <Text style={styles.logoText}>{initials(name)}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={styles.logo}
+      resizeMode="cover"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
+function CatalogDetailLogo({ logoUrl, name }: { logoUrl?: string | null; name: string }) {
+  const [hasError, setHasError] = useState(false);
+  const uri = publicImageUrl(logoUrl);
+
+  if (!uri || hasError) {
+    return (
+      <View style={styles.detailLogoFallback}>
+        <Text style={styles.detailLogoText}>{initials(name)}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={styles.detailLogo}
+      resizeMode="cover"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
 const currency = (value: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
     value,
@@ -78,9 +123,9 @@ const currency = (value: number) =>
 type TenantTab = "linked" | "invitations" | "catalog";
 
 export default function SelectTenant() {
-  const refresh = useScreenRefresh([["auth-catalog"], ["pending-invitations"]]);
+  const refresh = useScreenRefresh([["auth-catalog"], ["pending-invitations"], ["my-cts"]]);
   const { toast } = useToast();
-  const { selectTenantState, signOut, signIn, user } = useAuth();
+  const { selectTenantState, signOut, signIn, user, updateAvailableTenants } = useAuth();
   const {
     selectTenant,
     isLoading: selecting,
@@ -101,6 +146,15 @@ export default function SelectTenant() {
     user?.accessToken ??
     selectTenantState?.currentToken?.accessToken ??
     null;
+
+  const accessToken = user?.accessToken ?? selectTenantState?.currentToken?.accessToken ?? null;
+  const { tenants: myCts } = useMyCts(accessToken);
+
+  useEffect(() => {
+    if (myCts && myCts.length > 0) {
+      updateAvailableTenants(myCts);
+    }
+  }, [myCts]);
   const roles = [
     user?.role,
     selectTenantState?.currentToken?.role,
@@ -416,16 +470,7 @@ function CatalogCard({
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel={`Ver ${tenant.name}`}>
       <View style={styles.catalogCard}>
-        {tenant.logoUrl ? (
-          <Image
-            source={{ uri: publicImageUrl(tenant.logoUrl) ?? undefined }}
-            style={styles.logo}
-          />
-        ) : (
-          <View style={styles.logoFallback}>
-            <Text style={styles.logoText}>{initials(tenant.name)}</Text>
-          </View>
-        )}
+        <CatalogCardLogo logoUrl={tenant.logoUrl} name={tenant.name} />
         <View style={styles.catalogInfo}>
           <Text style={styles.cardTitle}>{tenant.name}</Text>
           <View style={styles.pills}>
@@ -509,18 +554,7 @@ function CatalogDetails({
                 <View style={styles.bannerFallback} />
               )}
               <View style={styles.tenantIdentity}>
-                {tenant.logoUrl ? (
-                  <Image
-                    source={{ uri: publicImageUrl(tenant.logoUrl) ?? undefined }}
-                    style={styles.detailLogo}
-                  />
-                ) : (
-                  <View style={styles.detailLogoFallback}>
-                    <Text style={styles.detailLogoText}>
-                      {initials(tenant.name)}
-                    </Text>
-                  </View>
-                )}
+                <CatalogDetailLogo logoUrl={tenant.logoUrl} name={tenant.name} />
                 <View style={styles.grow}>
                   <Text style={styles.tenantName}>{tenant.name}</Text>
                   <Text style={styles.description}>
@@ -791,7 +825,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   catalogInfo: { flex: 1, minWidth: 0 },
-  logo: { width: 54, height: 54, borderRadius: 12 },
+  logo: {
+    width: 54,
+    height: 54,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+  },
   logoFallback: {
     width: 54,
     height: 54,

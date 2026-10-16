@@ -15,6 +15,7 @@ type AuthState = {
   selectTenantState: SelectTenantState | null;
   setSelectTenant: (data: SelectTenantState) => void;
   addAvailableTenant: (tenant: AvailableTenant) => void;
+  updateAvailableTenants: (tenants: AvailableTenant[]) => void;
   signIn: (data: Token) => void;
   signOut: () => void;
 };
@@ -33,6 +34,7 @@ const tenantFromToken = (token: Token): AvailableTenant => ({
   tenantName: token.tenantName,
   role: token.role,
   isActive: true,
+  logoUrl: token.logoUrl ?? null,
 });
 
 export function getHomeRoute(role: string): Href {
@@ -68,14 +70,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
     storageState(data);
     setSelectTenantState((current) => {
       const currentTenant = tokenHasTenant(data) ? tenantFromToken(data) : null;
-      const availableTenants = currentTenant
-        ? [
-            ...(current?.availableTenants ?? []).filter(
-              (tenant) => tenant.tenantId !== currentTenant.tenantId,
-            ),
-            currentTenant,
-          ]
-        : (current?.availableTenants ?? []);
+      let availableTenants = current?.availableTenants ?? [];
+      if (currentTenant) {
+        const existingIndex = availableTenants.findIndex(
+          (t) => t.tenantId === currentTenant.tenantId,
+        );
+        if (existingIndex >= 0) {
+          const existing = availableTenants[existingIndex];
+          const merged: AvailableTenant = {
+            ...existing,
+            ...currentTenant,
+            logoUrl: currentTenant.logoUrl ?? existing.logoUrl ?? null,
+          };
+          availableTenants = [
+            ...availableTenants.slice(0, existingIndex),
+            merged,
+            ...availableTenants.slice(existingIndex + 1),
+          ];
+        } else {
+          availableTenants = [...availableTenants, currentTenant];
+        }
+      }
       const next: SelectTenantState = {
         // Depois que o JWT foi emitido, nunca reutilizar o token temporário.
         preAuthToken: null,
@@ -107,8 +122,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
         availableTenants: current.availableTenants.some(
           (item) => item.tenantId === tenant.tenantId,
         )
-          ? current.availableTenants
+          ? current.availableTenants.map((item) =>
+              item.tenantId === tenant.tenantId
+                ? { ...item, ...tenant, logoUrl: tenant.logoUrl ?? item.logoUrl }
+                : item,
+            )
           : [...current.availableTenants, tenant],
+      };
+      AsyncStorage.setItem(TENANT_SELECTION_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const updateAvailableTenants = (tenants: AvailableTenant[]) => {
+    setSelectTenantState((current) => {
+      if (!current) {
+        return {
+          preAuthToken: null,
+          currentToken: user,
+          availableTenants: tenants,
+        };
+      }
+      const next: SelectTenantState = {
+        ...current,
+        availableTenants: tenants,
       };
       AsyncStorage.setItem(TENANT_SELECTION_STORAGE_KEY, JSON.stringify(next));
       return next;
@@ -187,6 +224,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         selectTenantState,
         setSelectTenant,
         addAvailableTenant,
+        updateAvailableTenants,
       }}
     >
       {children}

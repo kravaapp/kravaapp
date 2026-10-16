@@ -13,6 +13,7 @@ import {
   VerifyResetCodeRequest,
 } from "@/schemas/auth.schemas";
 import {
+  AvailableTenant,
   CatalogTenantDetailsType,
   CatalogTenantType,
   LoginResponse,
@@ -72,6 +73,14 @@ export class AuthRoutes {
 
   async createInvitation(request: CreateInvitationRequest) {
     await api.post("/auth/invitations", { json: request });
+  }
+
+  async getMyCts(accessToken?: string) {
+    return await api
+      .get("/auth/my-cts", {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      })
+      .json<AvailableTenant[]>();
   }
 
   async getCatalog(searchTerm?: string) {
