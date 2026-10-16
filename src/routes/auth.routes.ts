@@ -59,6 +59,14 @@ export class AuthRoutes {
     await api.post("/auth/change-password", { json: request });
   }
 
+  async supportContact(request: { subject: string; message: string }) {
+    await api.post("/auth/support/contact", { json: request });
+  }
+
+  async deleteAccountRequest(request: { password: string; reason?: string }) {
+    await api.post("/auth/delete-account-request", { json: request });
+  }
+
   async setInitialPassword(request: SetInitialPasswordRequest) {
     return await api
       .post("/auth/set-initial-password", { json: request })

@@ -484,11 +484,63 @@ export default function Login() {
               <ArrowRight size={16} color={BRAND_ORANGE} />
             </TouchableOpacity>
           </View>
+
+          {mode === "register" && (
+            <Text style={styles.disclaimerText}>
+              Ao criar sua conta, você declara que concorda com os{" "}
+              <Text
+                style={styles.disclaimerLink}
+                onPress={() => router.push({ pathname: "/legal" as any, params: { section: "termos" } })}
+              >
+                Termos de Uso
+              </Text>{" "}
+              e com a{" "}
+              <Text
+                style={styles.disclaimerLink}
+                onPress={() => router.push({ pathname: "/legal" as any, params: { section: "privacidade" } })}
+              >
+                Política de Privacidade
+              </Text>.
+            </Text>
+          )}
+
+          <View style={styles.legalFooterRow}>
+            <TouchableOpacity
+              onPress={() =>
+                router.push({ pathname: "/legal" as any, params: { section: "termos" } })
+              }
+            >
+              <Text style={styles.legalFooterLink}>Termos de Uso</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalFooterDot}>•</Text>
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/legal" as any,
+                  params: { section: "privacidade" },
+                })
+              }
+            >
+              <Text style={styles.legalFooterLink}>Privacidade</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalFooterDot}>•</Text>
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/legal" as any,
+                  params: { section: "lgpd" },
+                })
+              }
+            >
+              <Text style={styles.legalFooterLink}>LGPD</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScreenScrollView>
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -686,4 +738,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  disclaimerText: {
+    color: "#626973",
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center",
+    marginTop: 16,
+  },
+  disclaimerLink: {
+    color: BRAND_ORANGE,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
+  legalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+  },
+  legalFooterLink: {
+    color: "#626973",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  legalFooterDot: {
+    color: "#9CA3AF",
+    fontSize: 12,
+  },
 });
+

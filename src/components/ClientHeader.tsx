@@ -4,7 +4,7 @@ export { COLORS } from "@/constants/colors";
 import { useUnreadNotificationCount } from "@/hooks/notifications.hooks";
 import { Token } from "@/types/auth.types";
 import { router } from "expo-router";
-import { Bell, Building2, Lock, LogOut, UserRound } from "lucide-react-native";
+import { Bell, Building2, Lock, LogOut, Settings, UserRound } from "lucide-react-native";
 import { useContext, useState } from "react";
 import Modal from "@/components/AppModal";
 import ChangePasswordModal from "./ChangePasswordModal";
@@ -106,6 +106,18 @@ const ProfileDropdown = ({
           activeOpacity={0.7}
           onPress={() => {
             onClose();
+            router.push("/settings");
+          }}
+        >
+          <Settings color={COLORS.foreground} size={16} />
+          <Text style={styles.dropdownExploreText}>Configurações</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.dropdownItem}
+          activeOpacity={0.7}
+          onPress={() => {
+            onClose();
             onLogout();
           }}
         >
@@ -116,6 +128,7 @@ const ProfileDropdown = ({
     </Pressable>
   </Modal>
 );
+
 
 export const getInitials = (name: string) => {
   return name

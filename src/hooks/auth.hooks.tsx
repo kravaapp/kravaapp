@@ -298,3 +298,31 @@ export function useMyCts(accessToken: string | null) {
   };
 }
 
+export function useSupportContact() {
+  const mutation = useMutation({
+    mutationFn: (data: { subject: string; message: string }) =>
+      new AuthRoutes().supportContact(data),
+  });
+
+  return {
+    sendSupportMessage: mutation.mutateAsync,
+    isSending: mutation.isPending,
+  };
+}
+
+export function useDeleteAccount() {
+  const { signOut } = useAuth();
+  const mutation = useMutation({
+    mutationFn: (data: { password: string; reason?: string }) =>
+      new AuthRoutes().deleteAccountRequest(data),
+    onSuccess: () => {
+      signOut();
+    },
+  });
+
+  return {
+    requestDeletion: mutation.mutateAsync,
+    isDeleting: mutation.isPending,
+  };
+}
+
