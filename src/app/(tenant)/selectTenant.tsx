@@ -28,7 +28,7 @@ import {
   Search,
   Users,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Image,
   StyleSheet,
@@ -53,6 +53,10 @@ const RoleIcon = ({ role }: { role: string }) =>
 function TenantCardLogo({ logoUrl, role }: { logoUrl?: string | null; role: string }) {
   const [hasError, setHasError] = useState(false);
   const uri = publicImageUrl(logoUrl);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [uri]);
 
   if (!uri || hasError) {
     return (
@@ -141,6 +145,7 @@ export default function SelectTenant() {
     isLoading: catalogLoading,
     error: catalogError,
   } = useCatalog(search);
+  const { tenants: allCatalogTenants } = useCatalog("");
   const token =
     selectTenantState?.preAuthToken ??
     user?.accessToken ??
@@ -150,11 +155,41 @@ export default function SelectTenant() {
   const accessToken = user?.accessToken ?? selectTenantState?.currentToken?.accessToken ?? null;
   const { tenants: myCts } = useMyCts(accessToken);
 
+  const catalogLogoMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of allCatalogTenants) {
+      if (item.logoUrl) {
+        map.set(item.id, item.logoUrl);
+      }
+    }
+    for (const item of tenants) {
+      if (item.logoUrl) {
+        map.set(item.id, item.logoUrl);
+      }
+    }
+    return map;
+  }, [allCatalogTenants, tenants]);
+
   useEffect(() => {
     if (myCts && myCts.length > 0) {
       updateAvailableTenants(myCts);
     }
   }, [myCts]);
+
+  useEffect(() => {
+    if (catalogLogoMap.size > 0 && selectTenantState?.availableTenants) {
+      const hasMissingLogo = selectTenantState.availableTenants.some(
+        (t) => !t.logoUrl && catalogLogoMap.has(t.tenantId),
+      );
+      if (hasMissingLogo) {
+        const enriched = selectTenantState.availableTenants.map((t) => ({
+          ...t,
+          logoUrl: t.logoUrl || catalogLogoMap.get(t.tenantId) || null,
+        }));
+        updateAvailableTenants(enriched);
+      }
+    }
+  }, [catalogLogoMap, selectTenantState?.availableTenants]);
   const roles = [
     user?.role,
     selectTenantState?.currentToken?.role,
@@ -292,7 +327,10 @@ export default function SelectTenant() {
                       !tenant.isActive || selecting ? styles.disabled : {},
                     ]}
                   >
-                    <TenantCardLogo logoUrl={tenant.logoUrl} role={tenant.role} />
+                    <TenantCardLogo
+                      logoUrl={tenant.logoUrl || catalogLogoMap.get(tenant.tenantId)}
+                      role={tenant.role}
+                    />
                     <View style={styles.grow}>
                       <Text style={styles.cardTitle}>{tenant.tenantName}</Text>
                       <Text style={styles.muted}>{roleLabel(tenant.role)}</Text>
@@ -329,7 +367,14 @@ export default function SelectTenant() {
               invitations.map((invitation) => (
                 <View key={invitation.id} style={styles.inviteCard}>
                   <View style={styles.inviteTopRow}>
-                    <View style={styles.inviteIcon}><Mail size={19} color={COLORS.mainOrange} /></View>
+                    {catalogLogoMap.get(invitation.ctId) ? (
+                      <CatalogCardLogo
+                        logoUrl={catalogLogoMap.get(invitation.ctId)}
+                        name={invitation.ctName}
+                      />
+                    ) : (
+                      <View style={styles.inviteIcon}><Mail size={19} color={COLORS.mainOrange} /></View>
+                    )}
                     <View style={styles.grow}>
                       <Text style={styles.cardTitle}>{invitation.ctName}</Text>
                       <Text style={styles.muted}>Convite para entrar como {roleLabel(invitation.role)}</Text>
@@ -767,7 +812,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 13,
-    backgroundColor: "#FFF2E9",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
   },
   cardTitle: { color: COLORS.foreground, fontSize: 16, fontWeight: "800", letterSpacing: -0.3 },
   inactiveLabel: { color: COLORS.mutedForeground, fontSize: 11, fontWeight: "700" },
