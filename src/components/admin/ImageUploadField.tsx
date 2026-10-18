@@ -37,8 +37,8 @@ type Props = {
   /** URL já persistida da imagem, se houver. */
   value: string | null;
   category: ImageUploadCategoryType;
-  /** Chamado com a URL devolvida pela API depois do upload. */
-  onChange: (url: string) => void;
+  /** Chamado com a URL devolvida pela API depois do upload. Pode ser assíncrono para persistir. */
+  onChange: (url: string) => void | Promise<void>;
   aspectRatio?: number;
   maxWidth?: DimensionValue;
   maxHeight?: DimensionValue;
@@ -61,8 +61,11 @@ export function ImageUploadField({
 }: Props) {
   const { toast } = useToast();
   const { uploadImage, isUploading } = useUploadTenantImage();
+  const [isPersisting, setIsPersisting] = useState(false);
   const [picked, setPicked] = useState<PickedImageType | null>(null);
   const [choosing, setChoosing] = useState(false);
+
+  const busy = isUploading || isPersisting;
   // No iOS o seletor só é apresentado depois que o modal termina de sair.
   const [pendingSource, setPendingSource] = useState<ImageSourceType | null>(
     null,
@@ -99,15 +102,22 @@ export function ImageUploadField({
   };
 
   const upload = async () => {
-    // A guarda fecha a janela entre o toque e o `isPending` do react-query,
-    // que é o que impediria dois envios do mesmo arquivo.
-    if (!picked || isUploading) return;
+    // A guarda fecha a janela entre o toque e o envio do react-query
+    if (!picked || busy) return;
 
     try {
+      setIsPersisting(true);
       const { url } = await uploadImage({ file: picked, category });
-      onChange(url);
+      await onChange(url);
       setPicked(null);
-      toast({ title: "Imagem enviada!" });
+      toast({
+        title:
+          category === "logo"
+            ? "Logo do CT atualizada com sucesso!"
+            : category === "banner"
+              ? "Banner atualizado com sucesso!"
+              : "Imagem salva com sucesso!",
+      });
     } catch (error) {
       // A imagem anterior continua configurada — só o preview local sai.
       toast({
@@ -115,6 +125,8 @@ export function ImageUploadField({
           .description,
         variant: "destructive",
       });
+    } finally {
+      setIsPersisting(false);
     }
   };
 
@@ -151,10 +163,12 @@ export function ImageUploadField({
           </View>
         )}
 
-        {isUploading ? (
+        {busy ? (
           <View style={styles.overlay}>
             <ActivityIndicator color="#fff" />
-            <Text style={styles.overlayText}>Enviando imagem...</Text>
+            <Text style={styles.overlayText}>
+              {isUploading ? "Enviando imagem..." : "Salvando alterações..."}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -172,8 +186,8 @@ export function ImageUploadField({
           </View>
           <TouchableOpacity
             onPress={() => setPicked(null)}
-            disabled={isUploading}
-            style={[styles.cancel, isUploading && styles.disabled]}
+            disabled={busy}
+            style={[styles.cancel, busy && styles.disabled]}
           >
             <X size={15} color={COLORS.mutedForeground} />
           </TouchableOpacity>
@@ -186,22 +200,22 @@ export function ImageUploadField({
         {picked ? (
           <>
             <ActionButton
-              label={isUploading ? "Enviando..." : "Enviar imagem"}
+              label={busy ? (isUploading ? "Enviando..." : "Salvando...") : "Enviar imagem"}
               icon={
-                isUploading ? (
+                busy ? (
                   <Loader2 size={14} color="#fff" />
                 ) : (
                   <Upload size={14} color="#fff" />
                 )
               }
               onPress={upload}
-              disabled={isUploading}
+              disabled={busy}
             />
             <ActionButton
               label="Escolher outra"
               outline
               onPress={() => setChoosing(true)}
-              disabled={isUploading}
+              disabled={busy}
             />
           </>
         ) : (
@@ -209,6 +223,7 @@ export function ImageUploadField({
             label={value ? "Trocar imagem" : "Escolher imagem"}
             icon={<ImageIcon size={14} color="#fff" />}
             onPress={() => setChoosing(true)}
+            disabled={busy}
           />
         )}
       </View>

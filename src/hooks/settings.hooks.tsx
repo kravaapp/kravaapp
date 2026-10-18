@@ -77,14 +77,19 @@ export function useSettingsActions() {
   const updateTenant = useMutation({
     mutationFn: (settings: UpdateTenantSettingsType) =>
       new FinancialRoutes().updateSettings(settings),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: ["tenant-settings"] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["tenant-settings"] });
+      client.invalidateQueries({ queryKey: ["my-cts"] });
+      client.invalidateQueries({ queryKey: ["auth-catalog"] });
+    },
   });
   const updateCatalogProfile = useMutation({
     mutationFn: (profile: UpdateCatalogProfileType) =>
       new SettingsRoutes().updateCatalogProfile(profile),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: ["catalog-profile"] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["catalog-profile"] });
+      client.invalidateQueries({ queryKey: ["auth-catalog"] });
+    },
   });
   return {
     createRule: createRule.mutateAsync,

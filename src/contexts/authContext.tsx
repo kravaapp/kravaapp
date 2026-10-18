@@ -16,6 +16,7 @@ type AuthState = {
   setSelectTenant: (data: SelectTenantState) => void;
   addAvailableTenant: (tenant: AvailableTenant) => void;
   updateAvailableTenants: (tenants: AvailableTenant[]) => void;
+  updateCurrentTenantLogo: (logoUrl: string | null) => void;
   signIn: (data: Token) => void;
   signOut: () => void;
 };
@@ -152,6 +153,31 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
   };
 
+  const updateCurrentTenantLogo = (logoUrl: string | null) => {
+    setUser((currentUser) => {
+      if (!currentUser) return null;
+      const updatedUser: Token = { ...currentUser, logoUrl };
+      storageState(updatedUser);
+      return updatedUser;
+    });
+
+    setSelectTenantState((current) => {
+      if (!current) return current;
+      const tenantId = current.currentToken?.tenantId ?? user?.tenantId;
+      const next: SelectTenantState = {
+        ...current,
+        currentToken: current.currentToken
+          ? { ...current.currentToken, logoUrl }
+          : null,
+        availableTenants: current.availableTenants.map((t) =>
+          !tenantId || t.tenantId === tenantId ? { ...t, logoUrl } : t,
+        ),
+      };
+      AsyncStorage.setItem(TENANT_SELECTION_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   const signOut = () => {
     setUser(null);
     setIsAuthenticated(false);
@@ -225,6 +251,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setSelectTenant,
         addAvailableTenant,
         updateAvailableTenants,
+        updateCurrentTenantLogo,
       }}
     >
       {children}

@@ -22,6 +22,7 @@ import {
   SectionTitle,
 } from "@/components/admin/AdminUi";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { useAuth } from "@/hooks/auth.hooks";
 import { useCategories } from "@/hooks/categories.hooks";
 import { useAdminSettings, useSettingsActions } from "@/hooks/settings.hooks";
 import { normalizeApiError } from "@/routes/apiError";
@@ -35,6 +36,7 @@ export default function AdminProfile() {
     ["categories"],
   ]);
   const { toast } = useToast();
+  const { updateCurrentTenantLogo } = useAuth();
   const { catalogProfile, tenantSettings, loading, hasError } = useAdminSettings();
   const {
     updateCatalogProfile,
@@ -111,6 +113,52 @@ export default function AdminProfile() {
     }
   }, [catalogProfile, categories]);
 
+  const handleLogoChange = async (newLogoUrl: string) => {
+    if (!tenantSettings) return;
+
+    await updateTenant({
+      name: tenantForm.name.trim() || tenantSettings.name || "",
+      slug: tenantSettings.slug,
+      logoUrl: newLogoUrl,
+      address: tenantSettings.address,
+      contact: tenantSettings.contact,
+      cnpj: tenantForm.cnpj.trim() || null,
+      phone: tenantForm.phone.trim() || null,
+      email: tenantForm.email.trim() || null,
+      gympassRepasse: tenantSettings.gympassRepasse,
+      totalpassRepasse: tenantSettings.totalpassRepasse,
+      waitlistTimeoutMinutes: tenantSettings.waitlistTimeoutMinutes,
+      cancellationTimeoutMinutes: tenantSettings.cancellationTimeoutMinutes,
+      noShowPenaltyFee: tenantSettings.noShowPenaltyFee,
+      partnerCheckInLimit: tenantSettings.partnerCheckInLimit,
+      churnReengageMessage: tenantSettings.churnReengageMessage,
+    });
+    setTenantFormState((prev) => ({ ...prev, logoUrl: newLogoUrl }));
+    updateCurrentTenantLogo(newLogoUrl);
+    tenantDirty.current = false;
+  };
+
+  const handleBannerChange = async (newBannerUrl: string) => {
+    if (!catalogProfile) return;
+
+    const activeNames = new Set(
+      (categories ?? []).filter((item) => item.isActive).map((item) => item.name),
+    );
+    const sanitizedModalities =
+      categories && categories.length > 0
+        ? profile.modalities.filter((name) => activeNames.has(name))
+        : profile.modalities;
+
+    await updateCatalogProfile({
+      showInCatalog: profile.showInCatalog,
+      description: profile.description.trim() || null,
+      bannerUrl: newBannerUrl,
+      modalities: sanitizedModalities,
+    });
+    setProfileState((prev) => ({ ...prev, bannerUrl: newBannerUrl }));
+    profileDirty.current = false;
+  };
+
   const saveTenantData = async () => {
     try {
       if (!tenantSettings) return;
@@ -131,6 +179,7 @@ export default function AdminProfile() {
         partnerCheckInLimit: tenantSettings.partnerCheckInLimit,
         churnReengageMessage: tenantSettings.churnReengageMessage,
       });
+      updateCurrentTenantLogo(tenantForm.logoUrl);
       tenantDirty.current = false;
       toast({ title: "Dados cadastrais atualizados com sucesso!" });
     } catch (err) {
@@ -221,9 +270,7 @@ export default function AdminProfile() {
                   category="logo"
                   aspectRatio={1}
                   maxWidth={140}
-                  onChange={(logoUrl) =>
-                    setTenantForm((prev) => ({ ...prev, logoUrl }))
-                  }
+                  onChange={handleLogoChange}
                 />
 
               <Text style={styles.fieldLabel}>Nome do CT</Text>
@@ -335,9 +382,7 @@ export default function AdminProfile() {
                 value={profile.bannerUrl || null}
                 category="banner"
                 maxHeight={220}
-                onChange={(bannerUrl) =>
-                  setProfile((prev) => ({ ...prev, bannerUrl }))
-                }
+                onChange={handleBannerChange}
               />
 
               <Text style={styles.fieldLabel}>
