@@ -31,6 +31,7 @@ import {
 } from "@/hooks/tenant.hooks";
 import { createInvitationSchema } from "@/schemas/auth.schemas";
 import { AlunoType } from "@/types/alunos.types";
+import { CtInvitationSummaryType } from "@/types/tenant.types";
 import {
   maskCpf,
   maskDate,
@@ -133,6 +134,7 @@ export default function AdminStudents() {
   const [teacherSearch, setTeacherSearch] = useState("");
   const [invitingTeacher, setInvitingTeacher] = useState(false);
   const [cancellingInvitationId, setCancellingInvitationId] = useState<string | null>(null);
+  const [selectedInvitation, setSelectedInvitation] = useState<CtInvitationSummaryType | null>(null);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(
     null,
   );
@@ -483,46 +485,39 @@ export default function AdminStudents() {
               </AdminCard>
             ) : (
               <>
-                {filteredTeacherInvitations.map((invitation) => {
-                  const cancelling = cancellingInvitationId === invitation.id;
-                  return (
-                    <AdminCard key={invitation.id} style={styles.studentCard}>
+                {filteredTeacherInvitations.map((invitation) => (
+                  <TouchableOpacity
+                    key={invitation.id}
+                    onPress={() => setSelectedInvitation(invitation)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Gerenciar convite de ${invitation.email}`}
+                  >
+                    <AdminCard style={styles.studentCard}>
                       <View style={[styles.avatar, { backgroundColor: "#FEF3C7" }]}>
                         <Text style={[styles.avatarText, { color: "#D97706" }]}>
                           {initials(invitation.email || "P")}
                         </Text>
                       </View>
                       <View style={styles.grow}>
-                        <Text style={styles.name}>{invitation.email}</Text>
+                        <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
+                          {invitation.email}
+                        </Text>
                         <Text style={styles.secondary}>
                           Convite enviado em{" "}
-                          {new Date(invitation.createdAtUtc).toLocaleDateString(
-                            "pt-BR",
-                          )}
+                          {invitation.createdAtUtc
+                            ? new Date(invitation.createdAtUtc).toLocaleDateString("pt-BR")
+                            : "Data não disponível"}
                         </Text>
                         <View style={styles.pills}>
                           <Pill label="Convite Pendente" tone="warning" />
                           <Pill label={invitation.role || "Professor"} tone="neutral" />
                         </View>
                       </View>
-                      <TouchableOpacity
-                        onPress={() => handleCancelInvitation(invitation.id)}
-                        disabled={cancelling}
-                        style={[
-                          styles.rejectButton,
-                          cancelling && styles.disabled,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Cancelar convite"
-                      >
-                        <X size={14} color={COLORS.destructive} />
-                        <Text style={styles.rejectButtonText}>
-                          {cancelling ? "Cancelando..." : "Cancelar"}
-                        </Text>
-                      </TouchableOpacity>
+                      <ChevronRight size={18} color={COLORS.mutedForeground} />
                     </AdminCard>
-                  );
-                })}
+                  </TouchableOpacity>
+                ))}
 
                 {filteredProfessors.map((teacher) => (
                   <AdminCard key={teacher.userId} style={styles.studentCard}>
@@ -601,18 +596,24 @@ export default function AdminStudents() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {filteredStudentInvitations.length > 0 && (
             <View style={{ marginBottom: 12 }}>
-              {filteredStudentInvitations.map((invitation) => {
-                const cancelling = cancellingInvitationId === invitation.id;
-                const resending = resendingInvitationId === invitation.id;
-                return (
-                  <AdminCard key={invitation.id} style={styles.studentCard}>
+              {filteredStudentInvitations.map((invitation) => (
+                <TouchableOpacity
+                  key={invitation.id}
+                  onPress={() => setSelectedInvitation(invitation)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Gerenciar convite de ${invitation.email}`}
+                >
+                  <AdminCard style={styles.studentCard}>
                     <View style={[styles.avatar, { backgroundColor: "#FEF3C7" }]}>
                       <Text style={[styles.avatarText, { color: "#D97706" }]}>
                         {initials(invitation.email || "A")}
                       </Text>
                     </View>
                     <View style={styles.grow}>
-                      <Text style={styles.name}>{invitation.email}</Text>
+                      <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
+                        {invitation.email}
+                      </Text>
                       <Text style={styles.secondary}>
                         Convite enviado em{" "}
                         {invitation.createdAtUtc
@@ -626,41 +627,10 @@ export default function AdminStudents() {
                         <Pill label={invitation.role || "Aluno"} tone="neutral" />
                       </View>
                     </View>
-                    <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-                      <TouchableOpacity
-                        onPress={() => handleResendInvitation(invitation.id)}
-                        disabled={resending || cancelling}
-                        style={[
-                          styles.resendButton,
-                          resending && styles.disabled,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Reenviar convite"
-                      >
-                        <Mail size={14} color={COLORS.mainOrange} />
-                        <Text style={styles.resendButtonText}>
-                          {resending ? "Enviando..." : "Reenviar"}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleCancelInvitation(invitation.id)}
-                        disabled={cancelling || resending}
-                        style={[
-                          styles.rejectButton,
-                          cancelling && styles.disabled,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Cancelar convite"
-                      >
-                        <X size={14} color={COLORS.destructive} />
-                        <Text style={styles.rejectButtonText}>
-                          {cancelling ? "Cancelando..." : "Cancelar"}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                    <ChevronRight size={18} color={COLORS.mutedForeground} />
                   </AdminCard>
-                );
-              })}
+                </TouchableOpacity>
+              ))}
             </View>
           )}
           {isLoading ? (
@@ -794,6 +764,124 @@ export default function AdminStudents() {
                 <Text style={styles.clearFiltersText}>Limpar</Text>
               </TouchableOpacity>
               <ActionButton label="Aplicar filtros" onPress={applyFilters} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={!!selectedInvitation}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedInvitation(null)}
+      >
+        <View style={styles.filterOverlay}>
+          <TouchableOpacity
+            style={styles.filterDismiss}
+            activeOpacity={1}
+            onPress={() => setSelectedInvitation(null)}
+            accessibilityLabel="Fechar modal"
+          />
+          <View style={[styles.filterSheet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+            <View style={styles.filterSheetHeader}>
+              <View style={{ flex: 1, paddingVertical: 4 }}>
+                <Text style={styles.filterSheetTitle}>Gerenciar Convite</Text>
+                <Text style={styles.secondary} numberOfLines={1}>
+                  {selectedInvitation?.email}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setSelectedInvitation(null)}
+                style={styles.filterClose}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar modal"
+              >
+                <X size={20} color={COLORS.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, gap: 14 }}>
+              <View style={styles.invitationDetailBox}>
+                <View style={styles.invitationDetailRow}>
+                  <Text style={styles.invitationDetailLabel}>E-mail convidado</Text>
+                  <Text style={styles.invitationDetailValue} numberOfLines={1}>
+                    {selectedInvitation?.email}
+                  </Text>
+                </View>
+                <View style={styles.invitationDetailRow}>
+                  <Text style={styles.invitationDetailLabel}>Perfil</Text>
+                  <Text style={styles.invitationDetailValue}>{selectedInvitation?.role || "Aluno"}</Text>
+                </View>
+                <View style={styles.invitationDetailRow}>
+                  <Text style={styles.invitationDetailLabel}>Enviado em</Text>
+                  <Text style={styles.invitationDetailValue}>
+                    {selectedInvitation?.createdAtUtc
+                      ? new Date(selectedInvitation.createdAtUtc).toLocaleDateString("pt-BR")
+                      : "—"}
+                  </Text>
+                </View>
+                <View style={styles.invitationDetailRow}>
+                  <Text style={styles.invitationDetailLabel}>Status</Text>
+                  <Pill label="Convite Pendente" tone="warning" />
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.invitationModalActionBtn,
+                  styles.invitationResendBtn,
+                  resendingInvitationId === selectedInvitation?.id && styles.disabled,
+                ]}
+                onPress={async () => {
+                  if (!selectedInvitation) return;
+                  const invId = selectedInvitation.id;
+                  await handleResendInvitation(invId);
+                  setSelectedInvitation(null);
+                }}
+                disabled={
+                  resendingInvitationId === selectedInvitation?.id ||
+                  cancellingInvitationId === selectedInvitation?.id
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Reenviar e-mail de convite"
+              >
+                {resendingInvitationId === selectedInvitation?.id ? (
+                  <ActivityIndicator size="small" color={COLORS.mainOrange} />
+                ) : (
+                  <>
+                    <Mail size={18} color={COLORS.mainOrange} />
+                    <Text style={styles.invitationResendBtnText}>Reenviar E-mail de Convite</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.invitationModalActionBtn,
+                  styles.invitationCancelBtn,
+                  cancellingInvitationId === selectedInvitation?.id && styles.disabled,
+                ]}
+                onPress={async () => {
+                  if (!selectedInvitation) return;
+                  const invId = selectedInvitation.id;
+                  await handleCancelInvitation(invId);
+                  setSelectedInvitation(null);
+                }}
+                disabled={
+                  resendingInvitationId === selectedInvitation?.id ||
+                  cancellingInvitationId === selectedInvitation?.id
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar convite"
+              >
+                {cancellingInvitationId === selectedInvitation?.id ? (
+                  <ActivityIndicator size="small" color={COLORS.destructive} />
+                ) : (
+                  <>
+                    <Trash2 size={18} color={COLORS.destructive} />
+                    <Text style={styles.invitationCancelBtnText}>Cancelar Convite</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -2029,38 +2117,58 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 3,
   },
-  rejectButton: {
-    minHeight: 44,
+  invitationDetailBox: {
+    backgroundColor: "#F9FAFB",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    padding: 16,
+    gap: 10,
+  },
+  invitationDetailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  invitationDetailLabel: {
+    fontSize: 13,
+    color: COLORS.mutedForeground,
+    fontWeight: "500",
+  },
+  invitationDetailValue: {
+    fontSize: 13,
+    color: COLORS.foreground,
+    fontWeight: "700",
+    maxWidth: "60%",
+    textAlign: "right",
+  },
+  invitationModalActionBtn: {
+    minHeight: 48,
+    borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 8,
-    backgroundColor: "#fff",
+    gap: 8,
+    paddingHorizontal: 16,
   },
-  rejectButtonText: {
-    color: COLORS.destructive,
-    fontSize: 12,
+  invitationResendBtn: {
+    backgroundColor: "#FFF7ED",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  invitationResendBtnText: {
+    color: COLORS.mainOrange,
+    fontSize: 14,
     fontWeight: "700",
   },
-  resendButton: {
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    paddingHorizontal: 10,
+  invitationCancelBtn: {
+    backgroundColor: "#FEF2F2",
     borderWidth: 1,
-    borderColor: "#fed7aa",
-    borderRadius: 8,
-    backgroundColor: "#fff",
+    borderColor: "#FECACA",
   },
-  resendButtonText: {
-    color: COLORS.mainOrange,
-    fontSize: 12,
+  invitationCancelBtnText: {
+    color: COLORS.destructive,
+    fontSize: 14,
     fontWeight: "700",
   },
   error: {
