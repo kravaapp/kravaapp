@@ -79,3 +79,14 @@ export type PendingInvitationType = {
   status: number;
   createdAtUtc: string;
 }
+
+export type InvitationDetailsType = {
+  id: string;
+  ctId: string;
+  ctName: string;
+  email: string;
+  role: string;
+  status: string;
+  userExists: boolean;
+  planId?: string | null;
+};

@@ -12,7 +12,7 @@ import {
   onlyDigits,
   toIsoDate,
 } from "@/utils/masks";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -40,14 +40,15 @@ function isEmailNotConfirmed(error: unknown) {
 
 export default function Login() {
   const { toast } = useToast();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const params = useLocalSearchParams<{ email?: string; mode?: string }>();
+  const [mode, setMode] = useState<"login" | "register">(params.mode === "register" ? "register" : "login");
   const [registerStep, setRegisterStep] = useState(0);
   const [name, setName] = useState("");
   const [cpf, setCpf] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [sex, setSex] = useState<"M" | "F" | "prefer_not" | null>(null);
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(params.email ? String(params.email).trim() : "");
   const [senha, setSenha] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

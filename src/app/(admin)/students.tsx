@@ -27,6 +27,7 @@ import {
   useCtInvitations,
   useJoinRequestActions,
   usePendingJoinRequests,
+  useResendCtInvitation,
 } from "@/hooks/tenant.hooks";
 import { createInvitationSchema } from "@/schemas/auth.schemas";
 import { AlunoType } from "@/types/alunos.types";
@@ -46,6 +47,7 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
+  Mail,
   Plus,
   RotateCcw,
   Search,
@@ -148,7 +150,15 @@ export default function AdminStudents() {
     error: teacherInvitationsError,
     refetch: refetchTeacherInvitations,
   } = useCtInvitations("Professor");
+  const {
+    invitations: studentInvitations,
+    isLoading: studentInvitationsLoading,
+    error: studentInvitationsError,
+    refetch: refetchStudentInvitations,
+  } = useCtInvitations("Aluno");
   const { cancelInvitation } = useCancelCtInvitation();
+  const { resendInvitation } = useResendCtInvitation();
+  const [resendingInvitationId, setResendingInvitationId] = useState<string | null>(null);
   const { removeProfessor } = useRemoveProfessor();
   const [removingTeacherId, setRemovingTeacherId] = useState<string | null>(null);
 
@@ -226,19 +236,47 @@ export default function AdminStudents() {
     );
   }, [teacherInvitations, teacherSearch]);
 
+  const filteredStudentInvitations = useMemo(() => {
+    if (!search.trim()) return studentInvitations;
+    const term = search.toLowerCase();
+    return studentInvitations.filter(
+      (inv) => inv.email?.toLowerCase().includes(term) ?? false
+    );
+  }, [studentInvitations, search]);
+
   const handleCancelInvitation = async (id: string) => {
     setCancellingInvitationId(id);
     try {
       await cancelInvitation(id);
       toast({ title: "Convite cancelado com sucesso." });
       refetchTeacherInvitations();
-    } catch {
+      refetchStudentInvitations();
+    } catch (err) {
+      const info = normalizeApiError(err, "Não foi possível cancelar o convite.");
       toast({
-        title: "Não foi possível cancelar o convite.",
+        title: "Erro ao cancelar convite",
+        description: info.description,
         variant: "destructive",
       });
     } finally {
       setCancellingInvitationId(null);
+    }
+  };
+
+  const handleResendInvitation = async (id: string) => {
+    setResendingInvitationId(id);
+    try {
+      await resendInvitation(id);
+      toast({ title: "Convite reenviado com sucesso!" });
+    } catch (err) {
+      const info = normalizeApiError(err, "Não foi possível reenviar o convite.");
+      toast({
+        title: "Erro ao reenviar convite",
+        description: info.description,
+        variant: "destructive",
+      });
+    } finally {
+      setResendingInvitationId(null);
     }
   };
 
@@ -561,6 +599,70 @@ export default function AdminStudents() {
             )}
           </TouchableOpacity>
           {error ? <Text style={styles.error}>{error}</Text> : null}
+          {filteredStudentInvitations.length > 0 && (
+            <View style={{ marginBottom: 12 }}>
+              {filteredStudentInvitations.map((invitation) => {
+                const cancelling = cancellingInvitationId === invitation.id;
+                const resending = resendingInvitationId === invitation.id;
+                return (
+                  <AdminCard key={invitation.id} style={styles.studentCard}>
+                    <View style={[styles.avatar, { backgroundColor: "#FEF3C7" }]}>
+                      <Text style={[styles.avatarText, { color: "#D97706" }]}>
+                        {initials(invitation.email || "A")}
+                      </Text>
+                    </View>
+                    <View style={styles.grow}>
+                      <Text style={styles.name}>{invitation.email}</Text>
+                      <Text style={styles.secondary}>
+                        Convite enviado em{" "}
+                        {invitation.createdAtUtc
+                          ? new Date(invitation.createdAtUtc).toLocaleDateString(
+                              "pt-BR",
+                            )
+                          : "Data não disponível"}
+                      </Text>
+                      <View style={styles.pills}>
+                        <Pill label="Convite Pendente" tone="warning" />
+                        <Pill label={invitation.role || "Aluno"} tone="neutral" />
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+                      <TouchableOpacity
+                        onPress={() => handleResendInvitation(invitation.id)}
+                        disabled={resending || cancelling}
+                        style={[
+                          styles.resendButton,
+                          resending && styles.disabled,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Reenviar convite"
+                      >
+                        <Mail size={14} color={COLORS.mainOrange} />
+                        <Text style={styles.resendButtonText}>
+                          {resending ? "Enviando..." : "Reenviar"}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleCancelInvitation(invitation.id)}
+                        disabled={cancelling || resending}
+                        style={[
+                          styles.rejectButton,
+                          cancelling && styles.disabled,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel="Cancelar convite"
+                      >
+                        <X size={14} color={COLORS.destructive} />
+                        <Text style={styles.rejectButtonText}>
+                          {cancelling ? "Cancelando..." : "Cancelar"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </AdminCard>
+                );
+              })}
+            </View>
+          )}
           {isLoading ? (
             Array.from({ length: 5 }).map((_, index) => (
               <AdminSkeleton key={index} height={92} radius={8} />
@@ -602,6 +704,11 @@ export default function AdminStudents() {
                         label={student.level || "Sem nível"}
                         tone="warning"
                       />
+                      {student.planoAtivo ? (
+                        <Pill label={student.planoAtivo} tone="success" />
+                      ) : (
+                        <Pill label="Sem plano ativo" tone="neutral" />
+                      )}
                       {(student.paymentMethods ?? []).map((method) => (
                         <Pill key={method} label={method} tone="info" />
                       ))}
@@ -649,6 +756,9 @@ export default function AdminStudents() {
         visible={inviting}
         onClose={() => setInviting(false)}
         role="Aluno"
+        onSuccess={() => {
+          refetchStudentInvitations();
+        }}
       />
       <InviteModal
         visible={invitingTeacher}
@@ -1933,6 +2043,23 @@ const styles = StyleSheet.create({
   },
   rejectButtonText: {
     color: COLORS.destructive,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  resendButton: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: "#fed7aa",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+  },
+  resendButtonText: {
+    color: COLORS.mainOrange,
     fontSize: 12,
     fontWeight: "700",
   },

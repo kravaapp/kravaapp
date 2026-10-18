@@ -100,3 +100,18 @@ export function useCancelCtInvitation() {
   };
 }
 
+export function useResendCtInvitation() {
+  const client = useQueryClient();
+  const resend = useMutation({
+    mutationFn: (id: string) => new TenantRoutes().resendInvitation(id),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["tenant-invitations"] });
+    },
+  });
+
+  return {
+    resendInvitation: resend.mutateAsync,
+    isResending: resend.isPending,
+  };
+}
+

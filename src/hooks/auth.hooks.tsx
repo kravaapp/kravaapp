@@ -326,3 +326,17 @@ export function useDeleteAccount() {
   };
 }
 
+export function useInvitationDetails(invitationId: string | null) {
+  const query = useQuery({
+    queryKey: ["invitation-details", invitationId],
+    queryFn: () => new AuthRoutes().getInvitationDetails(invitationId!),
+    enabled: !!invitationId,
+  });
+
+  return {
+    invitation: query.data ?? null,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+}
+

@@ -16,6 +16,7 @@ import {
   AvailableTenant,
   CatalogTenantDetailsType,
   CatalogTenantType,
+  InvitationDetailsType,
   LoginResponse,
   PendingInvitationType,
   Token,
@@ -138,5 +139,9 @@ export class AuthRoutes {
     await api.post(`/auth/invitations/${id}/accept`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+  }
+
+  async getInvitationDetails(id: string) {
+    return await api.get(`/auth/invitations/${id}/details`).json<InvitationDetailsType>();
   }
 }

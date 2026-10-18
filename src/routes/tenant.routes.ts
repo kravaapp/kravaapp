@@ -58,6 +58,10 @@ export class TenantRoutes {
     await api.delete(`/tenant/invitations/${id}`);
   }
 
+  async resendInvitation(id: string) {
+    await api.post(`/tenant/invitations/${id}/resend`);
+  }
+
   async getPartners(onlyActive = false) {
     const searchParams = { onlyActive: String(Boolean(onlyActive)) };
     try {
