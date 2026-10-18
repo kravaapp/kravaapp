@@ -772,13 +772,19 @@ export default function AdminStudents() {
         visible={!!selectedInvitation}
         transparent
         animationType="slide"
-        onRequestClose={() => setSelectedInvitation(null)}
+        onRequestClose={() => {
+          if (resendingInvitationId || cancellingInvitationId) return;
+          setSelectedInvitation(null);
+        }}
       >
         <View style={styles.filterOverlay}>
           <TouchableOpacity
             style={styles.filterDismiss}
             activeOpacity={1}
-            onPress={() => setSelectedInvitation(null)}
+            onPress={() => {
+              if (resendingInvitationId || cancellingInvitationId) return;
+              setSelectedInvitation(null);
+            }}
             accessibilityLabel="Fechar modal"
           />
           <View style={[styles.filterSheet, { paddingBottom: Math.max(insets.bottom, 24) }]}>
@@ -790,7 +796,10 @@ export default function AdminStudents() {
                 </Text>
               </View>
               <TouchableOpacity
-                onPress={() => setSelectedInvitation(null)}
+                onPress={() => {
+                  if (resendingInvitationId || cancellingInvitationId) return;
+                  setSelectedInvitation(null);
+                }}
                 style={styles.filterClose}
                 accessibilityRole="button"
                 accessibilityLabel="Fechar modal"
@@ -860,11 +869,24 @@ export default function AdminStudents() {
                   styles.invitationCancelBtn,
                   cancellingInvitationId === selectedInvitation?.id && styles.disabled,
                 ]}
-                onPress={async () => {
+                onPress={() => {
                   if (!selectedInvitation) return;
-                  const invId = selectedInvitation.id;
-                  await handleCancelInvitation(invId);
-                  setSelectedInvitation(null);
+                  const inv = selectedInvitation;
+                  Alert.alert(
+                    "Cancelar Convite",
+                    `Deseja realmente cancelar o convite enviado para "${inv.email}"?`,
+                    [
+                      { text: "Não", style: "cancel" },
+                      {
+                        text: "Sim, cancelar",
+                        style: "destructive",
+                        onPress: async () => {
+                          await handleCancelInvitation(inv.id);
+                          setSelectedInvitation(null);
+                        },
+                      },
+                    ],
+                  );
                 }}
                 disabled={
                   resendingInvitationId === selectedInvitation?.id ||
