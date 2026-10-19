@@ -591,14 +591,11 @@ export default function PaymentPlans() {
         ) : partnerRequest?.status === "Rejected" ? (
           <View style={[styles.cardLightBlue, styles.cardRejected]}>
             <View style={styles.partnerHeaderRow}>
-              <View style={[styles.rowAlign, { marginBottom: 0 }]}>
+              <View style={[styles.rowAlign, { marginBottom: 0, flex: 1 }]}>
                 <ShieldAlert size={18} color={COLORS.destructive} />
-                <Text style={[styles.lightBlueTitle, { color: COLORS.destructive }]}>
+                <Text style={[styles.lightBlueTitle, { color: COLORS.destructive, flexShrink: 1 }]}>
                   Solicitação recusada ({partnerRequest.partner})
                 </Text>
-              </View>
-              <View style={styles.badgeRejected}>
-                <Text style={styles.badgeRejectedText}>Recusada</Text>
               </View>
             </View>
             <Text style={[styles.lightBlueDesc, { color: "#7F1D1D" }]}>
@@ -1220,19 +1217,6 @@ const styles = StyleSheet.create({
   cardRejected: {
     backgroundColor: "#FEF2F2",
     borderColor: "#FECACA",
-  },
-  badgeRejected: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: "#FEE2E2",
-    borderWidth: 1,
-    borderColor: "#EF4444",
-  },
-  badgeRejectedText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#B91C1C",
   },
   modalOverlay: {
     flex: 1,
