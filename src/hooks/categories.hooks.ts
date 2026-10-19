@@ -2,12 +2,12 @@ import { CategoriesRoutes } from "@/routes/categories.routes";
 import { CreateCategory, UpdateCategory } from "@/types/categories.types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-export function useCategories() {
+export function useCategories(params?: { isActive?: boolean; search?: string }) {
     const query = useQuery({
-        queryKey: ["categories"],
+        queryKey: ["categories", params],
         queryFn: async () => {
             const categoriesRoutes = new CategoriesRoutes();
-            return await categoriesRoutes.getCategories();
+            return await categoriesRoutes.getCategories(params);
         },
     });
 

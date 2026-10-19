@@ -259,11 +259,20 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
 };
 
 export default function Schedule() {
-  const refresh = useScreenRefresh([["categories"], ["schedule"], ["plans", "current"]]);
+  const refresh = useScreenRefresh([
+    ["categories", { isActive: true }],
+    ["schedule"],
+    ["plans", "current"],
+  ]);
   const { user } = useAuth();
   const { toast } = useToast();
   const { canBook, ensureCanBook } = useBookingEligibility();
-  const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
+  const { categories: rawCategories, isLoading: categoriesLoading, error: categoriesError } =
+    useCategories({ isActive: true });
+  const categories = useMemo(
+    () => (rawCategories ?? []).filter((c) => c.isActive),
+    [rawCategories],
+  );
   const { createSchedule, isLoading: isCreatingSchedule } = useCreateSchedule();
 
   const [selectedClass, setSelectedClass] = useState<ScheduleOccurrenceType | null>(null);

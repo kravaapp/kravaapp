@@ -4,8 +4,8 @@ import api from "./client";
 export class CategoriesRoutes {
     constructor() {}
 
-    async getCategories() {
-        return (await api.get("/scheduling/modalidades").json<{ items: Category[] }>()).items;
+    async getCategories(params?: { isActive?: boolean; search?: string }) {
+        return (await api.get("/scheduling/modalidades", { searchParams: params }).json<{ items: Category[] }>()).items;
     }
 
     async createCategory(data: CreateCategory) {
