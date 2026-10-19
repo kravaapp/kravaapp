@@ -33,6 +33,8 @@ export type TenantSettingsType = {
   cnpj?: string | null;
   phone?: string | null;
   email?: string | null;
+  memberBookingWindowMinutes?: number | null;
+  partnerBookingWindowMinutes?: number | null;
 };
 export type UpdateTenantSettingsType = Pick<TenantSettingsType,
   "name" | "slug" | "logoUrl" | "address" | "contact" | "gympassRepasse" |
@@ -42,4 +44,6 @@ export type UpdateTenantSettingsType = Pick<TenantSettingsType,
     cnpj?: string | null;
     phone?: string | null;
     email?: string | null;
+    memberBookingWindowMinutes?: number | null;
+    partnerBookingWindowMinutes?: number | null;
   };

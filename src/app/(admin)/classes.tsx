@@ -1579,65 +1579,67 @@ function ClassModal({
             )}
           </RefreshableScrollView>
 
-          {/* Rodapé com Fechar, Editar Grade e Encerrar Aula (Print 2) */}
-          <View style={styles.modalFooterRow}>
-            <TouchableOpacity
-              style={styles.modalCloseFooterBtn}
-              onPress={onClose}
-            >
-              <Text style={styles.modalCloseFooterText}>Fechar</Text>
-            </TouchableOpacity>
+          {/* Rodapé Redesenhado com Ações da Aula */}
+          <View style={styles.modalFooterContainer}>
+            {isCancelled ? (
+              <View style={styles.modalCancelledBanner}>
+                <Text style={styles.modalCancelledBannerText}>Esta aula está cancelada</Text>
+              </View>
+            ) : (
+              <>
+                {/* Linha de Ações Secundárias: Editar Grade e Cancelar Aula */}
+                <View style={styles.modalSecondaryActionsRow}>
+                  {aulaTemplate && onEditRecurring && (
+                    <TouchableOpacity
+                      style={styles.modalSecondaryBtnOrange}
+                      onPress={() => {
+                        onClose();
+                        onEditRecurring(aulaTemplate);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Pencil size={14} color="#EA580C" />
+                      <Text style={styles.modalSecondaryBtnOrangeText}>Editar grade</Text>
+                    </TouchableOpacity>
+                  )}
 
-            <View style={styles.modalFooterRightGroup}>
-              {aulaTemplate && onEditRecurring && (
-                <TouchableOpacity
-                  style={styles.modalEditGradeBtn}
-                  onPress={() => {
-                    onClose();
-                    onEditRecurring(aulaTemplate);
-                  }}
-                >
-                  <Pencil size={14} color="#EA580C" />
-                  <Text style={styles.modalEditGradeText}>Editar grade</Text>
-                </TouchableOpacity>
-              )}
-
-              {isCancelled ? (
-                <View style={styles.modalCancelledBanner}>
-                  <Text style={styles.modalCancelledBannerText}>Esta aula está cancelada</Text>
+                  {!isClassClosed && (
+                    <TouchableOpacity
+                      style={[
+                        styles.modalSecondaryBtnRed,
+                        isCancelling && styles.modalCloseClassBtnDisabled,
+                      ]}
+                      onPress={() => setCancelModalVisible(true)}
+                      disabled={isCancelling || isClosing}
+                      activeOpacity={0.7}
+                    >
+                      <X size={15} color="#DC2626" />
+                      <Text style={styles.modalSecondaryBtnRedText}>
+                        {isCancelling ? "Cancelando..." : "Cancelar aula"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-              ) : !isClassClosed ? (
-                <>
-                  <TouchableOpacity
-                    style={[
-                      styles.modalCancelClassBtn,
-                      isCancelling && styles.modalCloseClassBtnDisabled,
-                    ]}
-                    onPress={() => setCancelModalVisible(true)}
-                    disabled={isCancelling || isClosing}
-                  >
-                    <X size={15} color="#DC2626" />
-                    <Text style={styles.modalCancelClassBtnText}>
-                      {isCancelling ? "Cancelando..." : "Cancelar aula"}
-                    </Text>
-                  </TouchableOpacity>
 
+                {/* Linha de Ação Principal: Encerrar Aula */}
+                {!isClassClosed && (
                   <TouchableOpacity
                     style={[
-                      styles.modalCloseClassBtn,
+                      styles.modalPrimaryActionBtn,
                       isClosing && styles.modalCloseClassBtnDisabled,
                     ]}
                     onPress={handleCloseClass}
                     disabled={isClosing || isCancelling}
+                    activeOpacity={0.8}
                   >
-                    <Check size={15} color="#FFFFFF" />
-                    <Text style={styles.modalCloseClassBtnText}>
+                    <Check size={16} color="#FFFFFF" />
+                    <Text style={styles.modalPrimaryActionBtnText}>
                       {isClosing ? "Encerrando..." : "Encerrar aula"}
                     </Text>
                   </TouchableOpacity>
-                </>
-              ) : null}
-            </View>
+                )}
+              </>
+            )}
           </View>
         </View>
       </View>
@@ -2227,89 +2229,82 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
   },
 
-  /* Rodapé do Modal */
-  modalFooterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  /* Rodapé do Modal Redesenhado */
+  modalFooterContainer: {
     gap: 10,
-    paddingTop: 10,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
   },
-  modalCloseFooterBtn: {
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  modalCloseFooterText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#6B7280",
-  },
-  modalFooterRightGroup: {
+  modalSecondaryActionsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
-  modalEditGradeBtn: {
+  modalSecondaryBtnOrange: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    justifyContent: "center",
+    gap: 6,
     backgroundColor: "#FFF2E9",
-    paddingVertical: 9,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#FED7AA",
   },
-  modalEditGradeText: {
-    fontSize: 12,
+  modalSecondaryBtnOrangeText: {
+    fontSize: 13,
     fontWeight: "700",
     color: "#EA580C",
   },
-  modalCloseClassBtn: {
+  modalSecondaryBtnRed: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
-    backgroundColor: COLORS.mainOrange,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  modalCloseClassBtnDisabled: {
-    backgroundColor: "#9CA3AF",
-  },
-  modalCloseClassBtnText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  modalCancelClassBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
     backgroundColor: "#FEE2E2",
-    paddingVertical: 9,
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#FECACA",
   },
-  modalCancelClassBtnText: {
-    fontSize: 12,
+  modalSecondaryBtnRedText: {
+    fontSize: 13,
     fontWeight: "700",
     color: "#DC2626",
   },
+  modalPrimaryActionBtn: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: COLORS.mainOrange,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  modalPrimaryActionBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  modalCloseClassBtnDisabled: {
+    backgroundColor: "#9CA3AF",
+  },
   modalCancelledBanner: {
     backgroundColor: "#FEE2E2",
-    paddingVertical: 9,
+    paddingVertical: 11,
     paddingHorizontal: 14,
     borderRadius: 10,
     alignItems: "center",
   },
   modalCancelledBannerText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
     color: "#DC2626",
   },

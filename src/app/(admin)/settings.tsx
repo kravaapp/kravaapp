@@ -121,6 +121,8 @@ export default function AdminSettings() {
   const [tenantValues, setTenantValues] = useState({
     cancellationTimeoutMinutes: "",
     noShowPenaltyFee: "",
+    memberBookingWindowMinutes: "",
+    partnerBookingWindowMinutes: "",
   });
 
   useEffect(() => {
@@ -134,6 +136,14 @@ export default function AdminSettings() {
           tenantSettings.noShowPenaltyFee !== undefined
             ? toCurrencyInput(tenantSettings.noShowPenaltyFee)
             : "",
+        memberBookingWindowMinutes:
+          tenantSettings.memberBookingWindowMinutes != null
+            ? String(tenantSettings.memberBookingWindowMinutes)
+            : "",
+        partnerBookingWindowMinutes:
+          tenantSettings.partnerBookingWindowMinutes != null
+            ? String(tenantSettings.partnerBookingWindowMinutes)
+            : "",
       });
     }
   }, [tenantSettings]);
@@ -144,11 +154,22 @@ export default function AdminSettings() {
       tenantValues.cancellationTimeoutMinutes,
     );
     const noShowPenaltyFee = parseCurrency(tenantValues.noShowPenaltyFee);
+    const memberBookingWindowMinutes =
+      tenantValues.memberBookingWindowMinutes.trim() !== ""
+        ? Number(tenantValues.memberBookingWindowMinutes)
+        : null;
+    const partnerBookingWindowMinutes =
+      tenantValues.partnerBookingWindowMinutes.trim() !== ""
+        ? Number(tenantValues.partnerBookingWindowMinutes)
+        : null;
+
     if (
       !Number.isInteger(cancellationTimeoutMinutes) ||
       cancellationTimeoutMinutes < 0 ||
       !Number.isFinite(noShowPenaltyFee) ||
-      noShowPenaltyFee < 0
+      noShowPenaltyFee < 0 ||
+      (memberBookingWindowMinutes !== null && (!Number.isInteger(memberBookingWindowMinutes) || memberBookingWindowMinutes < 0)) ||
+      (partnerBookingWindowMinutes !== null && (!Number.isInteger(partnerBookingWindowMinutes) || partnerBookingWindowMinutes < 0))
     ) {
       toast({
         title: "Informe valores válidos para a configuração.",
@@ -170,6 +191,8 @@ export default function AdminSettings() {
         noShowPenaltyFee,
         partnerCheckInLimit: tenantSettings.partnerCheckInLimit ?? 0,
         churnReengageMessage: tenantSettings.churnReengageMessage,
+        memberBookingWindowMinutes,
+        partnerBookingWindowMinutes,
       });
       setTenantEditing(null);
       toast({ title: "Políticas do CT atualizadas!" });
@@ -244,6 +267,36 @@ export default function AdminSettings() {
                 </View>
               ))
             )}
+          </SettingsCard>
+
+          {/* Janela de Check-in / Reserva (Mensalista vs Parceiros) */}
+          <SettingsCard
+            icon={<Clock color={COLORS.mainOrange} size={20} />}
+            title="Janela de check-in / agendamento"
+          >
+            {loading.tenant ? (
+              <AdminSkeleton width="100%" height={130} radius={12} />
+            ) : tenantSettings ? (
+              <>
+                <EditableRow
+                  label="Antecedência para Mensalistas"
+                  value={tenantValues.memberBookingWindowMinutes || "Sem restrição"}
+                  suffix={tenantValues.memberBookingWindowMinutes ? "minuto(s) antes da aula" : ""}
+                  onPress={() => setTenantEditing("memberBookingWindowMinutes")}
+                />
+                <EditableRow
+                  label="Antecedência para Parceiros (Gympass/TotalPass)"
+                  value={tenantValues.partnerBookingWindowMinutes || "Sem restrição"}
+                  suffix={tenantValues.partnerBookingWindowMinutes ? "minuto(s) antes da aula" : ""}
+                  onPress={() => setTenantEditing("partnerBookingWindowMinutes")}
+                />
+              </>
+            ) : (
+              <Text style={styles.empty}>Configurações indisponíveis.</Text>
+            )}
+            <Text style={styles.info}>
+              ⓘ Defina com quantos minutos de antecedência os alunos podem realizar o check-in/reserva da aula. Deixe em branco ou 0 para liberar a qualquer momento da agenda aberta.
+            </Text>
           </SettingsCard>
 
           {/* Regras de Cancelamento */}
@@ -403,18 +456,26 @@ export default function AdminSettings() {
         title={
           tenantEditing === "cancellationTimeoutMinutes"
             ? "Prazo de cancelamento"
-            : "Multa por falta (No-Show)"
+            : tenantEditing === "noShowPenaltyFee"
+            ? "Multa por falta (No-Show)"
+            : tenantEditing === "memberBookingWindowMinutes"
+            ? "Antecedência para Mensalistas"
+            : "Antecedência para Parceiros (Gympass/TotalPass)"
         }
         subtitle="Defina o novo valor da política"
         value={
           tenantEditing === "cancellationTimeoutMinutes"
             ? tenantValues.cancellationTimeoutMinutes
-            : tenantValues.noShowPenaltyFee
+            : tenantEditing === "noShowPenaltyFee"
+            ? tenantValues.noShowPenaltyFee
+            : tenantEditing === "memberBookingWindowMinutes"
+            ? tenantValues.memberBookingWindowMinutes
+            : tenantValues.partnerBookingWindowMinutes
         }
         suffix={
-          tenantEditing === "cancellationTimeoutMinutes"
-            ? "minuto(s) antes da aula"
-            : "reais"
+          tenantEditing === "noShowPenaltyFee"
+            ? "reais"
+            : "minuto(s) antes da aula"
         }
         mask={tenantEditing === "noShowPenaltyFee" ? maskCurrency : maskInteger}
         onChange={(val) => {
@@ -431,6 +492,14 @@ export default function AdminSettings() {
               noShowPenaltyFee: toCurrencyInput(
                 tenantSettings.noShowPenaltyFee ?? 0,
               ),
+              memberBookingWindowMinutes:
+                tenantSettings.memberBookingWindowMinutes != null
+                  ? String(tenantSettings.memberBookingWindowMinutes)
+                  : "",
+              partnerBookingWindowMinutes:
+                tenantSettings.partnerBookingWindowMinutes != null
+                  ? String(tenantSettings.partnerBookingWindowMinutes)
+                  : "",
             });
           }
           setTenantEditing(null);
