@@ -51,7 +51,9 @@ import {
   maskTime,
   maskTimeList,
   parseCurrency,
+  parseDurationInput,
   toCurrencyInput,
+  toDurationInput,
 } from "@/utils/masks";
 
 const currency = (value: number) =>
@@ -118,6 +120,8 @@ export default function AdminSettings() {
     TenantPartnerType | null | undefined
   >(undefined);
   const [tenantEditing, setTenantEditing] = useState<string | null>(null);
+  const isBookingWindow = tenantEditing === "memberBookingWindowMinutes"
+    || tenantEditing === "partnerBookingWindowMinutes";
   const [tenantValues, setTenantValues] = useState({
     cancellationTimeoutMinutes: "",
     noShowPenaltyFee: "",
@@ -136,14 +140,8 @@ export default function AdminSettings() {
           tenantSettings.noShowPenaltyFee !== undefined
             ? toCurrencyInput(tenantSettings.noShowPenaltyFee)
             : "",
-        memberBookingWindowMinutes:
-          tenantSettings.memberBookingWindowMinutes != null
-            ? String(tenantSettings.memberBookingWindowMinutes)
-            : "",
-        partnerBookingWindowMinutes:
-          tenantSettings.partnerBookingWindowMinutes != null
-            ? String(tenantSettings.partnerBookingWindowMinutes)
-            : "",
+        memberBookingWindowMinutes: toDurationInput(tenantSettings.memberBookingWindowMinutes),
+        partnerBookingWindowMinutes: toDurationInput(tenantSettings.partnerBookingWindowMinutes),
       });
     }
   }, [tenantSettings]);
@@ -156,11 +154,11 @@ export default function AdminSettings() {
     const noShowPenaltyFee = parseCurrency(tenantValues.noShowPenaltyFee);
     const memberBookingWindowMinutes =
       tenantValues.memberBookingWindowMinutes.trim() !== ""
-        ? Number(tenantValues.memberBookingWindowMinutes)
+        ? parseDurationInput(tenantValues.memberBookingWindowMinutes)
         : null;
     const partnerBookingWindowMinutes =
       tenantValues.partnerBookingWindowMinutes.trim() !== ""
-        ? Number(tenantValues.partnerBookingWindowMinutes)
+        ? parseDurationInput(tenantValues.partnerBookingWindowMinutes)
         : null;
 
     if (
@@ -281,13 +279,13 @@ export default function AdminSettings() {
                 <EditableRow
                   label="Antecedência para Mensalistas"
                   value={tenantValues.memberBookingWindowMinutes || "Sem restrição"}
-                  suffix={tenantValues.memberBookingWindowMinutes ? "minuto(s) antes da aula" : ""}
+                  suffix={tenantValues.memberBookingWindowMinutes ? "h antes da aula" : ""}
                   onPress={() => setTenantEditing("memberBookingWindowMinutes")}
                 />
                 <EditableRow
                   label="Antecedência para Parceiros (Gympass/TotalPass)"
                   value={tenantValues.partnerBookingWindowMinutes || "Sem restrição"}
-                  suffix={tenantValues.partnerBookingWindowMinutes ? "minuto(s) antes da aula" : ""}
+                  suffix={tenantValues.partnerBookingWindowMinutes ? "h antes da aula" : ""}
                   onPress={() => setTenantEditing("partnerBookingWindowMinutes")}
                 />
               </>
@@ -295,7 +293,7 @@ export default function AdminSettings() {
               <Text style={styles.empty}>Configurações indisponíveis.</Text>
             )}
             <Text style={styles.info}>
-              ⓘ Defina com quantos minutos de antecedência os alunos podem realizar o check-in/reserva da aula. Deixe em branco ou 0 para liberar a qualquer momento da agenda aberta.
+              ⓘ Defina a antecedência em horas e minutos (HH:MM) para realizar o check-in/reserva da aula. Deixe em branco ou 00:00 para liberar a qualquer momento da agenda aberta.
             </Text>
           </SettingsCard>
 
@@ -462,7 +460,7 @@ export default function AdminSettings() {
             ? "Antecedência para Mensalistas"
             : "Antecedência para Parceiros (Gympass/TotalPass)"
         }
-        subtitle="Defina o novo valor da política"
+        subtitle={isBookingWindow ? "Informe a antecedência em horas e minutos (HH:MM)" : "Defina o novo valor da política"}
         value={
           tenantEditing === "cancellationTimeoutMinutes"
             ? tenantValues.cancellationTimeoutMinutes
@@ -475,9 +473,12 @@ export default function AdminSettings() {
         suffix={
           tenantEditing === "noShowPenaltyFee"
             ? "reais"
+            : isBookingWindow
+            ? "horas (HH:MM) antes da aula"
             : "minuto(s) antes da aula"
         }
-        mask={tenantEditing === "noShowPenaltyFee" ? maskCurrency : maskInteger}
+        placeholder={isBookingWindow ? "00:00" : "0"}
+        mask={tenantEditing === "noShowPenaltyFee" ? maskCurrency : isBookingWindow ? maskTime : maskInteger}
         onChange={(val) => {
           if (tenantEditing) {
             setTenantValues((prev) => ({ ...prev, [tenantEditing]: val }));
@@ -492,14 +493,8 @@ export default function AdminSettings() {
               noShowPenaltyFee: toCurrencyInput(
                 tenantSettings.noShowPenaltyFee ?? 0,
               ),
-              memberBookingWindowMinutes:
-                tenantSettings.memberBookingWindowMinutes != null
-                  ? String(tenantSettings.memberBookingWindowMinutes)
-                  : "",
-              partnerBookingWindowMinutes:
-                tenantSettings.partnerBookingWindowMinutes != null
-                  ? String(tenantSettings.partnerBookingWindowMinutes)
-                  : "",
+              memberBookingWindowMinutes: toDurationInput(tenantSettings.memberBookingWindowMinutes),
+              partnerBookingWindowMinutes: toDurationInput(tenantSettings.partnerBookingWindowMinutes),
             });
           }
           setTenantEditing(null);
@@ -623,6 +618,7 @@ function EditSettingModal({
   saving,
   suffix,
   mask,
+  placeholder = "0",
 }: {
   visible: boolean;
   title: string;
@@ -634,6 +630,7 @@ function EditSettingModal({
   saving?: boolean;
   suffix: string;
   mask?: (val: string) => string;
+  placeholder?: string;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -672,7 +669,7 @@ function EditSettingModal({
                   onChangeText={(val) => onChange(mask ? mask(val) : val)}
                   keyboardType="number-pad"
                   style={styles.fullInput}
-                  placeholder="0"
+                  placeholder={placeholder}
                   placeholderTextColor={COLORS.mutedForeground}
                 />
               </View>

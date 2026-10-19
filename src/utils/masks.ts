@@ -27,6 +27,21 @@ export function maskTime(value: string) {
   return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 }
 
+/** Duração em minutos da API para o campo HH:MM, inclusive acima de 24 horas. */
+export function toDurationInput(value: number | null | undefined) {
+  if (value == null) return "";
+  const hours = Math.floor(value / 60);
+  const minutes = value % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/** Converte uma duração HH:MM para minutos; devolve NaN se estiver incompleta. */
+export function parseDurationInput(value: string) {
+  const match = /^(\d{2,}):([0-5]\d)$/.exec(value);
+  if (!match) return Number.NaN;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
 /**
  * Lista de horários separados por vírgula ("18:00, 19:00"). Cada trecho entre
  * vírgulas recebe `maskTime`; a vírgula final é preservada para o usuário
