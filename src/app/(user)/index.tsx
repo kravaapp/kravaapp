@@ -3,7 +3,6 @@ import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -19,6 +18,7 @@ import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/auth.hooks";
 import { useBookingEligibility } from "@/hooks/bookingEligibility.hooks";
 import { useCreateSchedule, useDeleteSchedule, useSchedule, useUserNextClass, useUserWeekClasses } from "@/hooks/schedule.hooks";
+import { normalizeApiError } from "@/routes/apiError";
 import { Token } from "@/types/auth.types";
 import { ScheduleOccurrenceType } from "@/types/schedules.types";
 import { ArrowRight, CalendarDays, Clock3, Dumbbell } from "lucide-react-native";
@@ -466,6 +466,7 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', c
 export default function Home() {
     const refresh = useScreenRefresh([["user-next-class"], ["user-week-classes"], ["schedule"], ["plans", "current"]]);
     const { user } = useAuth();
+    const { toast } = useToast();
     const { canBook, ensureCanBook } = useBookingEligibility();
     const { createSchedule, isLoading: isCreatingSchedule } = useCreateSchedule();
 
@@ -490,20 +491,14 @@ export default function Home() {
             await createSchedule({ ocorrenciaId: selectedClass.id });
             setIsModalVisible(false);
             setSelectedClass(null);
-        } catch (err: any) {
-            let errorMsg =
-                err?.data?.detail ||
-                err?.message ||
-                "Não foi possível realizar o agendamento.";
-            if (err?.response && typeof err.response.json === "function") {
-                try {
-                    const errorBody = await err.response.json();
-                    if (errorBody?.detail) errorMsg = errorBody.detail;
-                } catch {}
-            }
-            Alert.alert("Agendamento", errorMsg);
+        } catch (err) {
             setIsModalVisible(false);
             setSelectedClass(null);
+            toast({
+                title: "Agendamento",
+                description: normalizeApiError(err, "Não foi possível realizar o agendamento.").description,
+                variant: "destructive",
+            });
         }
     };
 

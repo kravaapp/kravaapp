@@ -1,15 +1,17 @@
 import RefreshableFlatList from "@/components/RefreshableFlatList";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import ClientHeader, { COLORS } from '@/components/ClientHeader';
 import { ConfirmBookingModal } from '@/components/ConfirmBookingModal';
+import { useToast } from '@/components/Toast';
 import { useAuth } from '@/hooks/auth.hooks';
 import { useBookingEligibility } from '@/hooks/bookingEligibility.hooks';
 import { useCategories } from '@/hooks/categories.hooks';
 import { useCreateSchedule, useSchedule } from '@/hooks/schedule.hooks';
+import { normalizeApiError } from '@/routes/apiError';
 import { Category } from '@/types/categories.types';
 import { ScheduleOccurrenceType } from '@/types/schedules.types';
 import { AlertTriangle, ArrowRight, Clock } from 'lucide-react-native';
@@ -264,6 +266,7 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
 export default function Schedule() {
     const refresh = useScreenRefresh([["categories"], ["schedule"], ["plans", "current"]]);
   const { user } = useAuth();
+  const { toast } = useToast();
   const { canBook, ensureCanBook } = useBookingEligibility();
   const { categories, isLoading: categoriesLoading, error: categoriesError } = useCategories();
   const { createSchedule, isLoading: isCreatingSchedule } = useCreateSchedule();
@@ -289,20 +292,14 @@ export default function Schedule() {
       await createSchedule({ ocorrenciaId: selectedClass.id });
       setIsModalVisible(false);
       setSelectedClass(null);
-    } catch (err: any) {
-      let errorMsg =
-        err?.data?.detail ||
-        err?.message ||
-        "Não foi possível realizar o agendamento.";
-      if (err?.response && typeof err.response.json === "function") {
-        try {
-          const errorBody = await err.response.json();
-          if (errorBody?.detail) errorMsg = errorBody.detail;
-        } catch {}
-      }
-      Alert.alert("Agendamento", errorMsg);
+    } catch (err) {
       setIsModalVisible(false);
       setSelectedClass(null);
+      toast({
+        title: "Agendamento",
+        description: normalizeApiError(err, "Não foi possível realizar o agendamento.").description,
+        variant: "destructive",
+      });
     }
   };
 
