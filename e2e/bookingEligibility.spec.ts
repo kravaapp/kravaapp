@@ -7,14 +7,15 @@ const activePlan: CurrentPlanType = {
   classesRemainingThisMonth: null, modalitiesPermitted: [], autoRenew: false,
 };
 
-async function setup(page: Page, plan: CurrentPlanType | null, full = false) {
-  await page.addInitScript(() => {
+async function setup(page: Page, plan: CurrentPlanType | null, full = false,
+  levels = { studentLevel: "Iniciante", minLevel: "iniciante" }) {
+  await page.addInitScript((studentLevel) => {
     localStorage.setItem("@krava:auth-state", JSON.stringify({
       accessToken: "test-token", refreshToken: "test-refresh", expiresAtUtc: "2099-01-01T00:00:00Z",
       userId: "student", userName: "Aluno Teste", email: "aluno@example.com", tenantId: "ct",
-      tenantName: "CT Teste", role: "Aluno", gender: "M", studentLevel: "Iniciante",
+      tenantName: "CT Teste", role: "Aluno", gender: "M", studentLevel,
     }));
-  });
+  }, levels.studentLevel);
   const state = { plan, planReads: 0, bookings: [] as unknown[] };
   await page.route("**/api/**", async (route) => {
     const request = route.request();
@@ -29,7 +30,7 @@ async function setup(page: Page, plan: CurrentPlanType | null, full = false) {
     }
     if (path.endsWith("/scheduling/ocorrencias")) return route.fulfill({ json: { items: [{
       id: "occurrence", aulaName: "Muay Thai", modalityName: "Muay Thai", professorName: "Professor",
-      date: "2099-01-01", startTime: "20:00:00", endTime: "21:00:00", minLevel: "iniciante",
+      date: "2099-01-01", startTime: "20:00:00", endTime: "21:00:00", minLevel: levels.minLevel,
       publicGender: "Mixed", status: "Aberta", releaseAt: null, subscriptionStatus: null,
       confirmedCount: full ? 20 : 5, maxCapacity: 20,
     }] } });
@@ -44,6 +45,31 @@ async function setup(page: Page, plan: CurrentPlanType | null, full = false) {
 const screens = [{ name: "início", path: "/(user)" }, { name: "agenda", path: "/(user)/schedule" }];
 
 for (const screen of screens) {
+  for (const scenario of [
+    { studentLevel: "Avançado", minLevel: "avancado", allowed: true },
+    { studentLevel: "Avançado", minLevel: "Avançado", allowed: true },
+    { studentLevel: "Intermediário", minLevel: "intermediario", allowed: true },
+    { studentLevel: "Intermediário", minLevel: "Avançado", allowed: false },
+  ]) {
+    test(`${screen.name}: nível do login ${scenario.studentLevel} com aula ${scenario.minLevel}`, async ({ page }) => {
+      await setup(page, activePlan, false, scenario);
+      await page.goto(screen.path);
+      await expect(page.getByText("Muay Thai", { exact: true }).first()).toBeVisible();
+      if (screen.name === "início") {
+        await expect(page.getByText(scenario.studentLevel, { exact: true })).toBeVisible();
+      }
+      const booking = page.getByRole("button", { name: /^agendar/ });
+      if (scenario.allowed) {
+        await expect(booking).toBeVisible();
+        await booking.click();
+        await expect(page.getByText("confirmar agendamento", { exact: true })).toBeVisible();
+      } else {
+        await expect(page.getByText(screen.name === "agenda" ? "Requer nível Avançado" : "nível avançado", { exact: true })).toBeVisible();
+        await expect(booking).toHaveCount(0);
+      }
+    });
+  }
+
   for (const status of [null, "Cancelado", "Expirado", "Pendente"]) {
     test(`${screen.name}: bloqueia agendamento com plano ${status ?? "ausente"} e mostra toast`, async ({ page }) => {
       const state = await setup(page, status ? { ...activePlan, status } : null);

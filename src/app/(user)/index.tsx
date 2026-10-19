@@ -21,6 +21,7 @@ import { useCreateSchedule, useDeleteSchedule, useSchedule, useUserNextClass, us
 import { normalizeApiError } from "@/routes/apiError";
 import { Token } from "@/types/auth.types";
 import { ScheduleOccurrenceType } from "@/types/schedules.types";
+import { getStudentLevelWeight, normalizeStudentLevel } from "@/utils/studentLevel";
 import { ArrowRight, CalendarDays, Clock3, Dumbbell } from "lucide-react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -141,7 +142,7 @@ export function getTimeUntilClass(date: string, time: string) {
 }
 
 const getStudentLevelProps = (level?: string) => {
-    switch (level?.toLowerCase()) {
+    switch (normalizeStudentLevel(level)) {
         case 'avancado':
             return { label: 'Avançado', color: INK, backgroundColor: '#FFF4E5' };
         case 'intermediario':
@@ -390,15 +391,6 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', c
     const level = aula.minLevel || "iniciante";
     const gender = aula.publicGender || "Mixed";
 
-    const getLevelWeight = (lvl: string) => {
-        switch (lvl?.toLowerCase()) {
-            case 'iniciante': return 1;
-            case 'intermediario': return 2;
-            case 'avancado': return 3;
-            default: return 0;
-        }
-    };
-
     const getGenderLabel = (g: string) => {
         switch (g?.toUpperCase()) {
             case 'M': return '♂ Masculina';
@@ -410,7 +402,7 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', c
     const capitalizeText = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
     const isGenderAllowed = gender === 'Mixed' || gender === userGender;
-    const isLevelAllowed = getLevelWeight(userLevel) >= getLevelWeight(level);
+    const isLevelAllowed = getStudentLevelWeight(userLevel) >= getStudentLevelWeight(level);
     const isBlocked = aula.status?.toLowerCase() === "bloqueada";
     const isCancelled = aula.status?.toLowerCase() === "cancelada";
 

@@ -66,6 +66,7 @@ async function renderBookingScreen(file, failure) {
       }),
     },
     "@/routes/apiError": apiErrors,
+    "@/utils/studentLevel": load("src/utils/studentLevel.ts"),
   }).default();
   const modal = React.Children.toArray(screen.props.children).find((child) => child.type === ConfirmBookingModal);
   await modal.props.onConfirm();

@@ -14,6 +14,7 @@ import { useCreateSchedule, useSchedule } from '@/hooks/schedule.hooks';
 import { normalizeApiError } from '@/routes/apiError';
 import { Category } from '@/types/categories.types';
 import { ScheduleOccurrenceType } from '@/types/schedules.types';
+import { getStudentLevelWeight, normalizeStudentLevel } from '@/utils/studentLevel';
 import { AlertTriangle, ArrowRight, Clock } from 'lucide-react-native';
 import { getTimeUntilClass } from '.';
 
@@ -108,9 +109,9 @@ const DayCalendar = ({ days, selectedId, onSelect }: DayCalendarProps) => (
 );
 
 const getLevelStyle = (level: string) => {
-  switch (level?.toLowerCase()) {
-    case 'avançado': return { color: COLORS.foreground, backgroundColor: '#F3F4F6' };
-    case 'intermediário': return { color: COLORS.foreground, backgroundColor: '#FFF0E7' };
+  switch (normalizeStudentLevel(level)) {
+    case 'avancado': return { color: COLORS.foreground, backgroundColor: '#F3F4F6' };
+    case 'intermediario': return { color: COLORS.foreground, backgroundColor: '#FFF0E7' };
     default: return { color: COLORS.foreground, backgroundColor: '#F3F4F6' };
   }
 };
@@ -139,15 +140,6 @@ type ClassCardProps = {
   onBookPress: (item: ScheduleOccurrenceType) => void;
 };
 
-const getLevelWeight = (level: string) => {
-  switch (level?.toLowerCase()) {
-    case 'iniciante': return 1;
-    case 'intermediario': return 2;
-    case 'avancado': return 3;
-    default: return 0;
-  }
-};
-
 const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, onBookPress }: ClassCardProps) => {
   const progress = typeof item.maxCapacity === 'number' && item.maxCapacity > 0 && typeof item.confirmedCount === 'number'
     ? Math.min(100, Math.max(0, (item.confirmedCount / item.maxCapacity) * 100))
@@ -174,7 +166,7 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
   }, [item.date, startTime]);
 
   const isGenderAllowed = gender === 'Mixed' || gender === userGender;
-  const isLevelAllowed = getLevelWeight(userLevel) >= getLevelWeight(level);
+  const isLevelAllowed = getStudentLevelWeight(userLevel) >= getStudentLevelWeight(level);
 
   const isCardDisabled =
     isCancelled ||
