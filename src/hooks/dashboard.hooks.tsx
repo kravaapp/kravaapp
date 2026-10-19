@@ -97,11 +97,37 @@ export function useAdminDashboard(
   };
 }
 
+export function usePendingPartnerRequests() {
+  const routes = new DashboardRoutes();
+  const query = useQuery({
+    queryKey: ["admin-partner-requests"],
+    queryFn: () => routes.getPartnerRequests(),
+  });
+
+  const pending = (query.data ?? []).filter((request) => {
+    const status = request.status?.toLocaleLowerCase("pt-BR");
+    return status === "pending" || status === "pendente";
+  });
+
+  return {
+    partnerRequests: pending,
+    isLoading: query.isLoading,
+    error: query.error
+      ? (query.error as ApiError).data?.detail ||
+        query.error.message ||
+        "Erro ao buscar solicitações de convênio"
+      : null,
+    refetch: query.refetch,
+  };
+}
+
 export function usePartnerRequestActions() {
   const queryClient = useQueryClient();
   const routes = new DashboardRoutes();
-  const invalidate = () =>
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-partner-requests"] });
+    queryClient.invalidateQueries({ queryKey: ["alunos"] });
+  };
   const approve = useMutation({
     mutationFn: (id: string) => routes.approvePartnerRequest(id),
     onSuccess: invalidate,

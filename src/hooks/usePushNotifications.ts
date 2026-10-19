@@ -77,10 +77,14 @@ export function handleNotificationNavigation(
     ) {
       router.push("/(admin)/churn");
     } else if (
-      type === "aluno_delinquent_booked" ||
       type === "join_request_created" ||
       type === "partner_request_created"
     ) {
+      router.push({
+        pathname: "/(admin)/students",
+        params: { section: "requests" },
+      });
+    } else if (type === "aluno_delinquent_booked") {
       router.push("/(admin)/students");
     } else {
       router.push("/(admin)");
@@ -237,10 +241,12 @@ export function usePushNotifications() {
   useEffect(() => {
     if (Platform.OS === "web" || isAndroidExpoGo || !Notifications) return;
 
-    // 1. Foreground listener: invalidate queries so badge count refreshes in real-time
+    // 1. Foreground listener: invalidate queries so badge count and pending requests refresh in real-time
     notificationListener.current =
       Notifications.addNotificationReceivedListener(() => {
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-partner-requests"] });
+        queryClient.invalidateQueries({ queryKey: ["tenant-join-requests"] });
       });
 
     // 2. Response listener: user tapped on notification

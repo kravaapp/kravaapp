@@ -1,11 +1,18 @@
 import { useAuth } from "@/hooks/auth.hooks";
 import { GetNotificationsParams, NotificationsRoutes } from "@/routes/notifications.routes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 
 const routes = new NotificationsRoutes();
 
 export function useUnreadNotificationCount() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const prevCountRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    prevCountRef.current = undefined;
+  }, [user?.tenantId, user?.userId]);
 
   const query = useQuery({
     queryKey: ["notifications", "unread-count", user?.tenantId, user?.userId],
@@ -17,6 +24,18 @@ export function useUnreadNotificationCount() {
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
+
+  useEffect(() => {
+    if (query.data === undefined) return;
+    if (prevCountRef.current !== undefined && query.data !== prevCountRef.current) {
+      queryClient.invalidateQueries({ queryKey: ["notifications", "list"] });
+      if (query.data > prevCountRef.current) {
+        queryClient.invalidateQueries({ queryKey: ["admin-partner-requests"] });
+        queryClient.invalidateQueries({ queryKey: ["tenant-join-requests"] });
+      }
+    }
+    prevCountRef.current = query.data;
+  }, [query.data, queryClient]);
 
   return {
     unreadCount: query.data ?? 0,
@@ -34,6 +53,7 @@ export function useNotifications(params?: GetNotificationsParams) {
       return await routes.getNotifications(params);
     },
     enabled: !!user?.userId,
+    staleTime: 0,
   });
 
   return {

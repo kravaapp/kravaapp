@@ -23,6 +23,10 @@ import { usePlans } from "@/hooks/plans.hooks";
 import { useProfessors, useRemoveProfessor } from "@/hooks/schedule.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import {
+  usePartnerRequestActions,
+  usePendingPartnerRequests,
+} from "@/hooks/dashboard.hooks";
+import {
   useCancelCtInvitation,
   useCtInvitations,
   useJoinRequestActions,
@@ -40,6 +44,7 @@ import {
   toIsoDate,
   todayInput,
 } from "@/utils/masks";
+import { useLocalSearchParams } from "expo-router";
 import {
   AlertTriangle,
   Calendar,
@@ -112,11 +117,27 @@ const tone = (value?: string | null) =>
       : ("neutral" as const);
 
 export default function AdminStudents() {
-  const [section, setSection] = useState<"students" | "teachers" | "requests">("students");
+  const params = useLocalSearchParams<{ section?: string }>();
+  const [section, setSection] = useState<"students" | "teachers" | "requests">(
+    params.section === "requests" || params.section === "teachers"
+      ? params.section
+      : "students",
+  );
+  useEffect(() => {
+    if (
+      params.section === "requests" ||
+      params.section === "teachers" ||
+      params.section === "students"
+    ) {
+      setSection(params.section);
+    }
+  }, [params.section]);
+
   const refresh = useScreenRefresh([
     ["alunos"],
     ["professors", "active"],
     ["tenant-join-requests"],
+    ["admin-partner-requests"],
     ["tenant-invitations"],
   ]);
   const [search, setSearch] = useState("");
@@ -136,6 +157,9 @@ export default function AdminStudents() {
   const [cancellingInvitationId, setCancellingInvitationId] = useState<string | null>(null);
   const [selectedInvitation, setSelectedInvitation] = useState<CtInvitationSummaryType | null>(null);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(
+    null,
+  );
+  const [processingPartnerRequestId, setProcessingPartnerRequestId] = useState<string | null>(
     null,
   );
   const { toast } = useToast();
@@ -206,6 +230,19 @@ export default function AdminStudents() {
     rejectJoinRequest,
     isSaving: isSavingJoinRequest,
   } = useJoinRequestActions();
+  const {
+    partnerRequests,
+    isLoading: partnerRequestsLoading,
+    error: partnerRequestsError,
+  } = usePendingPartnerRequests();
+  const {
+    approvePartnerRequest,
+    rejectPartnerRequest,
+    isLoading: isUpdatingPartnerRequest,
+  } = usePartnerRequestActions();
+  const totalPendingRequests = joinRequests.length + partnerRequests.length;
+  const requestsLoading = joinRequestsLoading || partnerRequestsLoading;
+  const requestsError = joinRequestsError || partnerRequestsError;
   const { alunos, isLoading, error } = useAlunos({
     search: search || undefined,
     level: level || undefined,
@@ -320,6 +357,38 @@ export default function AdminStudents() {
     }
   };
 
+  const decidePartnerRequest = async (
+    id: string,
+    decision: "approve" | "reject",
+    studentName: string,
+    partnerName: string,
+  ) => {
+    if (isUpdatingPartnerRequest) return;
+    setProcessingPartnerRequestId(id);
+    try {
+      if (decision === "approve") {
+        await approvePartnerRequest(id);
+        toast({
+          title: "Solicitação aprovada!",
+          description: `${studentName} agora é ${partnerName}.`,
+        });
+      } else {
+        await rejectPartnerRequest({ id });
+        toast({ title: "Solicitação recusada." });
+      }
+    } catch {
+      toast({
+        title:
+          decision === "approve"
+            ? "Não foi possível aprovar a solicitação"
+            : "Não foi possível recusar a solicitação",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingPartnerRequestId(null);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <ClientHeader />
@@ -349,8 +418,8 @@ export default function AdminStudents() {
             onPress={() => setSection("requests")}
           >
             <Text style={[styles.internalTabText, section === "requests" && styles.internalTabTextActive]}>Solicitações</Text>
-            {joinRequests.length > 0 && (
-              <View style={styles.requestCount}><Text style={styles.requestCountText}>{joinRequests.length}</Text></View>
+            {totalPendingRequests > 0 && (
+              <View style={styles.requestCount}><Text style={styles.requestCountText}>{totalPendingRequests}</Text></View>
             )}
           </TouchableOpacity>
         </View>
@@ -361,90 +430,166 @@ export default function AdminStudents() {
           <View style={styles.joinRequestsSection}>
             <View style={styles.joinRequestsHeader}>
               <View>
-                <Text style={styles.requestTitle}>Solicitações de entrada</Text>
+                <Text style={styles.requestTitle}>Solicitações pendentes</Text>
                 <Text style={styles.secondary}>
-                  Alunos aguardando aprovação para entrar no CT.
+                  Entrada no CT e validação de convênios (Gympass/Totalpass).
                 </Text>
               </View>
             </View>
-            {joinRequestsLoading ? (
+            {requestsLoading ? (
               <AdminSkeleton height={106} radius={8} />
-            ) : joinRequestsError ? (
-              <Text style={styles.error}>{joinRequestsError}</Text>
-            ) : joinRequests.length === 0 ? (
+            ) : requestsError ? (
+              <Text style={styles.error}>{requestsError}</Text>
+            ) : totalPendingRequests === 0 ? (
               <Text style={styles.empty}>Nenhuma solicitação pendente.</Text>
             ) : (
-              joinRequests.map((request) => {
-                const processing = processingRequestId === request.id;
-                return (
-                  <AdminCard key={request.id} style={styles.joinRequestCard}>
-                    <View style={styles.joinRequestHeader}>
-                      <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>
-                          {initials(
-                            request.userName || request.userEmail || "Aluno",
-                          )}
-                        </Text>
-                      </View>
-                      <View style={styles.grow}>
-                        <Text style={styles.name} numberOfLines={1}>
-                          {request.userName || "Aluno sem nome"}
-                        </Text>
-                        <Text style={styles.secondary} numberOfLines={1}>
-                          {request.userEmail || "E-mail não informado"}
-                        </Text>
-                        <Text style={styles.secondary}>
-                          Solicitado em{" "}
-                          {new Date(request.createdAtUtc).toLocaleDateString(
-                            "pt-BR",
-                          )}
-                        </Text>
-                        {request.planId ? (
-                          <Text style={styles.planReference}>
-                            Plano selecionado na solicitação
+              <>
+                {joinRequests.map((request) => {
+                  const processing = processingRequestId === request.id;
+                  return (
+                    <AdminCard key={request.id} style={styles.joinRequestCard}>
+                      <View style={styles.joinRequestHeader}>
+                        <View style={styles.avatar}>
+                          <Text style={styles.avatarText}>
+                            {initials(
+                              request.userName || request.userEmail || "Aluno",
+                            )}
                           </Text>
-                        ) : null}
+                        </View>
+                        <View style={styles.grow}>
+                          <View style={styles.requestTitleRow}>
+                            <Text style={styles.name} numberOfLines={1}>
+                              {request.userName || "Aluno sem nome"}
+                            </Text>
+                            <Pill label="Novo Aluno" tone="warning" />
+                          </View>
+                          <Text style={styles.secondary} numberOfLines={1}>
+                            {request.userEmail || "E-mail não informado"}
+                          </Text>
+                          <Text style={styles.secondary}>
+                            Solicitado em{" "}
+                            {new Date(request.createdAtUtc).toLocaleDateString(
+                              "pt-BR",
+                            )}
+                          </Text>
+                          {request.planId ? (
+                            <Text style={styles.planReference}>
+                              Plano selecionado na solicitação
+                            </Text>
+                          ) : null}
+                        </View>
                       </View>
-                    </View>
 
-                    <View style={styles.joinRequestFooter}>
-                      <TouchableOpacity
-                        disabled={isSavingJoinRequest}
-                        onPress={() => decideJoinRequest(request.id, "reject")}
-                        style={[
-                          styles.joinRequestRejectBtn,
-                          isSavingJoinRequest && styles.disabled,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Recusar solicitação"
-                      >
-                        <X size={15} color={COLORS.destructive} />
-                        <Text style={styles.joinRequestRejectText}>Recusar</Text>
-                      </TouchableOpacity>
+                      <View style={styles.joinRequestFooter}>
+                        <TouchableOpacity
+                          disabled={isSavingJoinRequest}
+                          onPress={() => decideJoinRequest(request.id, "reject")}
+                          style={[
+                            styles.joinRequestRejectBtn,
+                            isSavingJoinRequest && styles.disabled,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel="Recusar solicitação"
+                        >
+                          <X size={15} color={COLORS.destructive} />
+                          <Text style={styles.joinRequestRejectText}>Recusar</Text>
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        disabled={isSavingJoinRequest}
-                        onPress={() => decideJoinRequest(request.id, "approve")}
-                        style={[
-                          styles.joinRequestApproveBtn,
-                          isSavingJoinRequest && styles.disabled,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityLabel="Aprovar solicitação"
-                      >
-                        {processing && isSavingJoinRequest ? (
-                          <ActivityIndicator size="small" color="#fff" />
-                        ) : (
-                          <>
-                            <Check size={15} color="#fff" />
-                            <Text style={styles.joinRequestApproveText}>Aprovar</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </AdminCard>
-                );
-              })
+                        <TouchableOpacity
+                          disabled={isSavingJoinRequest}
+                          onPress={() => decideJoinRequest(request.id, "approve")}
+                          style={[
+                            styles.joinRequestApproveBtn,
+                            isSavingJoinRequest && styles.disabled,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel="Aprovar solicitação"
+                        >
+                          {processing && isSavingJoinRequest ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <>
+                              <Check size={15} color="#fff" />
+                              <Text style={styles.joinRequestApproveText}>Aprovar</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </AdminCard>
+                  );
+                })}
+
+                {partnerRequests.map((request) => {
+                  const student = request.alunoName || "Aluno";
+                  const partner = request.partner || "Parceiro";
+                  const processing = processingPartnerRequestId === request.id;
+                  return (
+                    <AdminCard key={request.id} style={styles.joinRequestCard}>
+                      <View style={styles.joinRequestHeader}>
+                        <View style={[styles.avatar, { backgroundColor: "#EFF6FF" }]}>
+                          <Text style={[styles.avatarText, { color: "#2563EB" }]}>
+                            {initials(student)}
+                          </Text>
+                        </View>
+                        <View style={styles.grow}>
+                          <View style={styles.requestTitleRow}>
+                            <Text style={styles.name} numberOfLines={1}>
+                              {student}
+                            </Text>
+                            <Pill label={partner} tone="info" />
+                          </View>
+                          <Text style={styles.secondary}>
+                            Solicitado em{" "}
+                            {new Date(request.createdAtUtc).toLocaleDateString(
+                              "pt-BR",
+                            )}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.joinRequestFooter}>
+                        <TouchableOpacity
+                          disabled={isUpdatingPartnerRequest}
+                          onPress={() =>
+                            decidePartnerRequest(request.id, "reject", student, partner)
+                          }
+                          style={[
+                            styles.joinRequestRejectBtn,
+                            isUpdatingPartnerRequest && styles.disabled,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel="Recusar solicitação"
+                        >
+                          <X size={15} color={COLORS.destructive} />
+                          <Text style={styles.joinRequestRejectText}>Recusar</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          disabled={isUpdatingPartnerRequest}
+                          onPress={() =>
+                            decidePartnerRequest(request.id, "approve", student, partner)
+                          }
+                          style={[
+                            styles.joinRequestApproveBtn,
+                            isUpdatingPartnerRequest && styles.disabled,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel="Aprovar solicitação"
+                        >
+                          {processing && isUpdatingPartnerRequest ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <>
+                              <Check size={15} color="#fff" />
+                              <Text style={styles.joinRequestApproveText}>Aprovar</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </AdminCard>
+                  );
+                })}
+              </>
             )}
           </View>
           ) : section === "teachers" ? (
@@ -2091,6 +2236,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+  },
+  requestTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
   },
   joinRequestFooter: {
     flexDirection: "row",

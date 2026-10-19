@@ -13,7 +13,7 @@ import {
   CheckCheck,
   Users,
 } from "lucide-react-native";
-import React from "react";
+import React, { useEffect } from "react";
 import Modal from "@/components/AppModal";
 import {
   ActivityIndicator,
@@ -100,8 +100,15 @@ function getTypeConfig(type: string): TypeStyleConfig {
 export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps) => {
   const { user } = useAuth();
   const refresh = useScreenRefresh([["notifications", "list"], ["notifications", "unread-count"]], { enabled: visible });
-  const { notifications, isLoading } = useNotifications();
+  const { notifications, isLoading, isRefetching, refetch } = useNotifications();
   const { markAsRead, markAllAsRead, isMarkingAllRead } = useNotificationActions();
+  const showInitialLoader = isLoading || (isRefetching && notifications.length === 0);
+
+  useEffect(() => {
+    if (visible) {
+      refetch();
+    }
+  }, [visible, refetch]);
 
   const handleItemPress = async (item: NotificationDto) => {
     if (!item.isRead) {
@@ -150,12 +157,19 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
         ) {
           router.push("/(admin)/churn");
         } else if (
-          payloadData?.alunoId ||
-          payloadData?.type === "aluno_delinquent_booked" ||
+          payloadData?.requestId ||
           payloadData?.type === "join_request_created" ||
           payloadData?.type === "partner_request_created" ||
+          item.title?.toLowerCase().includes("solicita")
+        ) {
+          router.push({
+            pathname: "/(admin)/students",
+            params: { section: "requests" },
+          });
+        } else if (
+          payloadData?.alunoId ||
+          payloadData?.type === "aluno_delinquent_booked" ||
           item.title?.toLowerCase().includes("inadimpl") ||
-          item.title?.toLowerCase().includes("solicita") ||
           item.message?.toLowerCase().includes("inadimpl")
         ) {
           router.push("/(admin)/students");
@@ -282,11 +296,11 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
 
           {/* Content */}
             <RefreshableFlatList {...refresh}
-              data={isLoading ? [] : notifications}
+              data={showInitialLoader ? [] : notifications}
               keyExtractor={(item) => item.id}
               renderItem={renderItem}
               contentContainerStyle={[styles.listContent, notifications.length === 0 && { flexGrow: 1 }]}
-              ListEmptyComponent={isLoading ? (
+              ListEmptyComponent={showInitialLoader ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color="#E85C07" />
                 </View>
