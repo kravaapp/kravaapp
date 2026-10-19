@@ -23,9 +23,9 @@ export class ScheduleRoutes {
         }).json<PaginatedAulas>();
     }
 
-    async getModalidades() {
+    async getModalidades(params?: { isActive?: boolean; page?: number; pageSize?: number }) {
         return await api.get("/scheduling/modalidades", {
-            searchParams: { page: 1, pageSize: 100 },
+            searchParams: { page: 1, pageSize: 100, ...params },
         }).json<PaginatedModalidades>();
     }
 

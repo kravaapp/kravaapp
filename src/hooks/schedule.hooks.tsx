@@ -94,7 +94,7 @@ export function useClassFormOptions() {
     const routes = new ScheduleRoutes();
     const modalidades = useQuery({
         queryKey: ["modalidades", "active"],
-        queryFn: () => routes.getModalidades(),
+        queryFn: () => routes.getModalidades({ isActive: true }),
     });
     const professors = useQuery({
         queryKey: ["professors", "active"],
