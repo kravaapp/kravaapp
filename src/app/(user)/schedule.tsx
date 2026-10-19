@@ -64,6 +64,7 @@ const CategoryFilter = ({ categories, selected, onSelect, isLoading, error }: Ca
             key={cat.id}
             style={[styles.filterPill, selected === cat.id && styles.filterPillSelected]}
             onPress={() => onSelect(cat.id)}
+            hitSlop={{ top: 4, bottom: 4 }}
             accessibilityRole="button"
             accessibilityState={{ selected: selected === cat.id }}
           >
@@ -92,11 +93,13 @@ const DayCalendar = ({ days, selectedId, onSelect }: DayCalendarProps) => (
             style={[styles.dayCard, isSelected && styles.dayCardSelected]}
             onPress={() => onSelect(day.id)}
             accessibilityRole="button"
+            accessibilityLabel={`${day.label}, ${day.day}/${day.month}/${day.id.slice(0, 4)}`}
             accessibilityState={{ selected: isSelected }}
           >
             <Text style={[styles.dayLabel, isSelected && styles.dayTextSelected]}>{day.label}</Text>
-            <Text style={[styles.dayNumber, isSelected && styles.dayTextSelected]}>{day.day}</Text>
-            <Text style={[styles.dayMonth, isSelected && styles.dayTextSelected]}>{day.month}</Text>
+            <Text style={[styles.dayNumber, isSelected && styles.dayTextSelected]}>
+              {day.day}<Text style={[styles.dayMonth, isSelected && styles.dayTextSelected]}>/{day.month}</Text>
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -264,7 +267,7 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
 };
 
 export default function Schedule() {
-    const refresh = useScreenRefresh([["categories"], ["schedule"], ["plans", "current"]]);
+  const refresh = useScreenRefresh([["categories"], ["schedule"], ["plans", "current"]]);
   const { user } = useAuth();
   const { toast } = useToast();
   const { canBook, ensureCanBook } = useBookingEligibility();
@@ -318,7 +321,7 @@ export default function Schedule() {
 
       days.push({
         id: `${year}-${month}-${day}`,
-        label: labels[date.getDay()],
+        label: i === 0 ? "Hoje" : i === 1 ? "Amanhã" : labels[date.getDay()],
         day: day,
         month: month,
       });
@@ -348,7 +351,6 @@ export default function Schedule() {
       <View style={styles.fixedHeader}>
         <View style={styles.screenIntro}>
           <Text style={styles.screenTitle}>agendar aulas</Text>
-          <Text style={styles.screenSubtitle}>Escolha a modalidade e o dia.</Text>
         </View>
         <CategoryFilter
           categories={categories || []}
@@ -365,6 +367,7 @@ export default function Schedule() {
       </View>
 
         <RefreshableFlatList {...refresh}
+          style={styles.scheduleList}
           data={scheduleLoading || scheduleError ? [] : schedule?.items || []}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <ClassCard item={item} userGender={user?.gender} userLevel={user?.studentLevel} canBook={canBook} onBookPress={handleBookPress} key={item.id} />}
@@ -404,35 +407,31 @@ const styles = StyleSheet.create({
   },
   fixedHeader: {
     backgroundColor: '#fff',
-    paddingBottom: 18,
+    flexShrink: 0,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
   screenIntro: {
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 12,
   },
   screenTitle: {
     color: COLORS.foreground,
-    fontSize: 30,
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: -1.2,
-  },
-  screenSubtitle: {
-    color: COLORS.mutedForeground,
-    fontSize: 14,
-    marginTop: 4,
+    letterSpacing: -0.8,
   },
   filterContainer: {
-    marginTop: 20,
+    marginTop: 10,
   },
   filterContent: {
     paddingHorizontal: 20,
     gap: 8,
   },
   filterPill: {
-    paddingHorizontal: 16,
-    minHeight: 44,
+    paddingHorizontal: 12,
+    minHeight: 36,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#D8DDE3',
@@ -440,8 +439,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   filterSkeleton: {
-    width: 88,
-    height: 44,
+    width: 76,
+    height: 36,
     borderRadius: 10,
     backgroundColor: '#F1F3F5',
   },
@@ -455,41 +454,41 @@ const styles = StyleSheet.create({
   },
   filterText: {
     color: COLORS.foreground,
-    fontWeight: 'bold',
-    fontSize: 14,
+    fontWeight: '600',
+    fontSize: 12,
   },
   filterTextSelected: {
     color: '#fff',
   },
   calendarContainer: {
-    marginTop: 16,
+    marginTop: 10,
   },
   calendarContent: {
     paddingHorizontal: 20,
-    gap: 10,
+    gap: 8,
   },
   dayCard: {
-    width: 62,
-    height: 78,
-    borderRadius: 12,
+    minWidth: 64,
+    minHeight: 52,
+    borderRadius: 10,
     backgroundColor: '#F4F5F7',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
   },
   dayCardSelected: {
     backgroundColor: COLORS.mainOrange,
   },
   dayLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: COLORS.mutedForeground,
   },
   dayNumber: {
-    fontSize: 21,
+    fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.foreground,
-    marginVertical: 2,
   },
   dayMonth: {
     fontSize: 12,
@@ -498,8 +497,14 @@ const styles = StyleSheet.create({
   dayTextSelected: {
     color: '#fff',
   },
+  scheduleList: {
+    flex: 1,
+    minHeight: 0,
+  },
   listContent: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
     gap: 12,
   },
   classCard: {
