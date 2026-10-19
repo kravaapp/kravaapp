@@ -50,7 +50,7 @@ export function useLogin() {
           logoUrl: data.token.logoUrl ?? null,
         });
       }
-      setSelectTenant({
+      return setSelectTenant({
         preAuthToken: data.preAuthToken,
         currentToken: data.token,
         availableTenants,
@@ -191,7 +191,7 @@ export function useSelectTenant() {
       return await authRoutes.selectTenant(request);
     },
     onSuccess: (data) => {
-      signIn(data);
+      return signIn(data);
     },
   });
 

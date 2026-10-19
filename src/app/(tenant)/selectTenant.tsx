@@ -214,7 +214,7 @@ export default function SelectTenant() {
       !selectTenantState.preAuthToken &&
       selectTenantState.currentToken?.tenantId === tenantId
     ) {
-      signIn(selectTenantState.currentToken);
+      await signIn(selectTenantState.currentToken);
       return;
     }
 

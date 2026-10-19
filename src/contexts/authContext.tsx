@@ -2,6 +2,10 @@ import { AvailableTenant, Token, USER_ROLES } from "@/types/auth.types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Href, router } from "expo-router";
 import { createContext, PropsWithChildren, useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
+import { COLORS } from "@/constants/colors";
+import { AUTH_STORAGE_KEY, TENANT_SELECTION_STORAGE_KEY, isValidStoredToken } from "@/utils/authSession";
+export { AUTH_STORAGE_KEY } from "@/utils/authSession";
 
 type SelectTenantState = {
   preAuthToken: string | null;
@@ -13,16 +17,14 @@ type AuthState = {
   isAuthenticated: boolean;
   user: Token | null;
   selectTenantState: SelectTenantState | null;
-  setSelectTenant: (data: SelectTenantState) => void;
+  setSelectTenant: (data: SelectTenantState) => Promise<void>;
   addAvailableTenant: (tenant: AvailableTenant) => void;
   updateAvailableTenants: (tenants: AvailableTenant[]) => void;
   updateCurrentTenantLogo: (logoUrl: string | null) => void;
-  signIn: (data: Token) => void;
-  signOut: () => void;
+  signIn: (data: Token) => Promise<void>;
+  signOut: () => Promise<void>;
 };
 
-export const AUTH_STORAGE_KEY = "@krava:auth-state";
-const TENANT_SELECTION_STORAGE_KEY = "@krava:tenant-selection";
 const EMPTY_TENANT_ID = "00000000-0000-0000-0000-000000000000";
 
 const tokenHasTenant = (token: Token) =>
@@ -48,6 +50,7 @@ export function getHomeRoute(role: string): Href {
 export const AuthContext = createContext<AuthState>({} as AuthState);
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<Token | null>(null);
   const [selectTenantState, setSelectTenantState] =
@@ -65,10 +68,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   };
 
-  const signIn = (data: Token) => {
+  const signIn = async (data: Token) => {
+    await storageState(data);
     setUser(data);
     setIsAuthenticated(true);
-    storageState(data);
     setSelectTenantState((current) => {
       const currentTenant = tokenHasTenant(data) ? tenantFromToken(data) : null;
       let availableTenants = current?.availableTenants ?? [];
@@ -104,14 +107,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
     router.replace(getHomeRoute(data.role));
   };
 
-  const setSelectTenant = (data: SelectTenantState) => {
+  const setSelectTenant = async (data: SelectTenantState) => {
     if (data.preAuthToken) {
       setUser(null);
       setIsAuthenticated(false);
-      AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+      await storageState(null);
+    } else if (data.currentToken) {
+      await storageState(data.currentToken);
+      setUser(data.currentToken);
+      setIsAuthenticated(true);
     }
     setSelectTenantState(data);
-    AsyncStorage.setItem(TENANT_SELECTION_STORAGE_KEY, JSON.stringify(data));
+    await AsyncStorage.setItem(TENANT_SELECTION_STORAGE_KEY, JSON.stringify(data));
     router.replace("/selectTenant");
   };
 
@@ -178,66 +185,68 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
   };
 
-  const signOut = () => {
+  const signOut = async () => {
     setUser(null);
     setIsAuthenticated(false);
     setSelectTenantState(null);
-    storageState(null);
-    AsyncStorage.removeItem(TENANT_SELECTION_STORAGE_KEY);
+    await Promise.all([
+      storageState(null),
+      AsyncStorage.removeItem(TENANT_SELECTION_STORAGE_KEY),
+    ]);
     router.replace("/signIn");
   };
 
   useEffect(() => {
+    let active = true;
     const checkAuthState = async () => {
       try {
-        const storageState = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-        const storedSelection = await AsyncStorage.getItem(
-          TENANT_SELECTION_STORAGE_KEY,
-        );
-        const data = storageState ? JSON.parse(storageState) : null;
-        if (storedSelection) {
-          const selection: SelectTenantState = JSON.parse(storedSelection);
-          // Uma sessão persistente torna qualquer preAuthToken antigo obsoleto.
-          // Isso também migra instalações que salvaram ambos os tokens antes.
-          const restoredSelection = data
-            ? {
-                ...selection,
-                preAuthToken: null,
-                currentToken: data,
-              }
-            : selection;
-          setSelectTenantState(restoredSelection);
-          if (data) {
-            await AsyncStorage.setItem(
-              TENANT_SELECTION_STORAGE_KEY,
-              JSON.stringify(restoredSelection),
-            );
-          }
-        } else if (data) {
+        const [storedAuth, storedSelection] = await Promise.all([
+          AsyncStorage.getItem(AUTH_STORAGE_KEY),
+          AsyncStorage.getItem(TENANT_SELECTION_STORAGE_KEY),
+        ]);
+        if (!active) return;
+        let savedToken: unknown = null;
+        let selection: SelectTenantState | null = null;
+        try { savedToken = storedAuth ? JSON.parse(storedAuth) : null; } catch {}
+        try {
+          const parsed = storedSelection ? JSON.parse(storedSelection) : null;
+          if (parsed && Array.isArray(parsed.availableTenants)) selection = parsed;
+        } catch {}
+
+        // Compatibilidade com logins antigos que só persistiam o token na seleção de CT.
+        const data = isValidStoredToken(savedToken) ? savedToken
+          : !storedAuth && !selection?.preAuthToken && isValidStoredToken(selection?.currentToken)
+          ? selection.currentToken : null;
+        if (data) {
           const restoredSelection: SelectTenantState = {
             preAuthToken: null,
             currentToken: data,
-            availableTenants: tokenHasTenant(data)
-              ? [
-                  tenantFromToken(data),
-                ]
-              : [],
+            availableTenants: selection?.availableTenants
+              ?? (tokenHasTenant(data) ? [tenantFromToken(data)] : []),
           };
           setSelectTenantState(restoredSelection);
-          await AsyncStorage.setItem(
-            TENANT_SELECTION_STORAGE_KEY,
-            JSON.stringify(restoredSelection),
-          );
-        }
-        if (data) {
           setUser(data);
           setIsAuthenticated(true);
+          await Promise.all([
+            AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data)),
+            AsyncStorage.setItem(TENANT_SELECTION_STORAGE_KEY, JSON.stringify(restoredSelection)),
+          ]);
+        } else {
+          await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+          if (!storedAuth && selection?.preAuthToken && !selection.currentToken) {
+            setSelectTenantState(selection);
+          } else {
+            await AsyncStorage.removeItem(TENANT_SELECTION_STORAGE_KEY);
+          }
         }
       } catch (error) {
         console.error("Error checking auth state in storage:", error);
+      } finally {
+        if (active) setIsRestoringSession(false);
       }
     };
     checkAuthState();
+    return () => { active = false; };
   }, []);
 
   return (
@@ -254,7 +263,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
         updateCurrentTenantLogo,
       }}
     >
-      {children}
+      {isRestoringSession ? (
+        <View testID="auth-loading" style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.background }}>
+          <ActivityIndicator accessibilityLabel="Carregando sessão" color={COLORS.mainOrange} />
+        </View>
+      ) : children}
     </AuthContext.Provider>
   );
 }

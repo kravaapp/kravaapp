@@ -1,4 +1,4 @@
-import { AUTH_STORAGE_KEY } from "@/contexts/authContext";
+import { AUTH_STORAGE_KEY, TENANT_SELECTION_STORAGE_KEY } from "@/utils/authSession";
 import { Token } from "@/types/auth.types";
 import { apiBaseUrl } from "@/utils/apiUrl";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -58,7 +58,10 @@ const api = ky.create({
           // Credenciais inválidas no login ou seleção tratada não devem ejetar
           // a tela antes do catch do componente conseguir exibir o erro.
           if (authState && !isLoginRequest && !isSelectTenantRequest) {
-            await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+            await Promise.all([
+              AsyncStorage.removeItem(AUTH_STORAGE_KEY),
+              AsyncStorage.removeItem(TENANT_SELECTION_STORAGE_KEY),
+            ]);
             router.replace("/signIn");
           }
         }

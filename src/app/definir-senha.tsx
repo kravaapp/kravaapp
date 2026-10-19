@@ -83,7 +83,7 @@ export default function DefinirSenha() {
         title: "Senha definida!",
         description: "Sua senha foi cadastrada com sucesso. Bem-vindo!",
       });
-      signIn(tokenResponse);
+      await signIn(tokenResponse);
     } catch (err) {
       const normalized = normalizeApiError(
         err,
