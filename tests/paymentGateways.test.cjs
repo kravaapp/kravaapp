@@ -20,7 +20,7 @@ function load(relativePath, mocks = {}, extraExports = "") {
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const helpers = load("src/utils/paymentGateways.ts");
-const { gatewayConfigurationSchema } = load("src/schemas/payments.schemas.ts");
+const { gatewayConfigurationSchema, gatewayUpdateConfigurationSchema } = load("src/schemas/payments.schemas.ts");
 const initial = [
   { gateway: "mercadopago", isActive: true, createdAtUtc: "2026-09-25T01:00:00Z" },
   { gateway: "abacatepay", isActive: false, createdAtUtc: "2026-09-20T10:00:00Z" },
@@ -56,6 +56,10 @@ test("validates required credentials, trims input and allows an omitted webhook 
   assert.equal(gatewayConfigurationSchema.safeParse({ apiKey: "  ", isActive: true }).success, false);
   assert.equal(gatewayConfigurationSchema.safeParse({ apiKey: "key", isActive: "true" }).success, false);
   assert.deepEqual(gatewayConfigurationSchema.parse({ apiKey: " key ", isActive: false }), { apiKey: "key", isActive: false });
+
+  assert.equal(gatewayUpdateConfigurationSchema.safeParse({ isActive: false }).success, true);
+  assert.deepEqual(gatewayUpdateConfigurationSchema.parse({ apiKey: "  ", isActive: false }), { apiKey: undefined, isActive: false });
+  assert.deepEqual(gatewayUpdateConfigurationSchema.parse({ apiKey: " key ", isActive: true }), { apiKey: "key", isActive: true });
 });
 
 function routesWith(api) {
@@ -89,7 +93,7 @@ test("PUT sends the requested status and credentials once and accepts an empty r
     put: async (url, options) => {
       calls++;
       assert.equal(url, "/payments/gateways/abacatepay");
-      assert.deepEqual(options.json, payload);
+      assert.deepEqual(plain(options.json), plain(payload));
       assert.equal(options.retry, 0);
     },
   });
@@ -179,12 +183,13 @@ function formHarness(props) {
     "@/components/RefreshableScrollView": { __esModule: true, default: "RefreshableScrollView" },
     "@/hooks/screenRefresh.hooks": { useScreenRefresh: () => ({ refreshing: false, onRefresh: () => {} }) },
     "@/components/Toast": {},
+    "@/components/AppModal": { __esModule: true, default: native.Modal },
     "@/components/admin/AdminUi": { ActionButton: "ActionButton" },
     "@/hooks/payments.hooks": {},
     "@/routes/apiError": { normalizeApiError: (_, fallback) => ({ description: fallback }) },
-    "@/schemas/payments.schemas": { gatewayConfigurationSchema },
+    "@/schemas/payments.schemas": load("src/schemas/payments.schemas.ts"),
     "@/utils/paymentGateways": helpers,
-  }, "\nexports.GatewayModal = GatewayModal;");
+  }, "\nexports.GatewayModal = GatewayModal;\nexports.DeactivateConfirmModal = DeactivateConfirmModal;\nexports.SwitchGatewayModal = SwitchGatewayModal;");
   const render = () => { cursor = 0; return exported.GatewayModal(props); };
   function findAll(tree, predicate) {
     if (!tree || typeof tree !== "object") return [];
@@ -193,6 +198,8 @@ function formHarness(props) {
   }
   return {
     render,
+    renderDeactivate: (deactivateProps) => { cursor = 0; return exported.DeactivateConfirmModal(deactivateProps); },
+    renderSwitch: (switchProps) => { cursor = 0; return exported.SwitchGatewayModal(switchProps); },
     buttons: (tree) => findAll(tree, (node) => node.type === "ActionButton"),
     fields: (tree) => findAll(tree, (node) => typeof node.type === "function" && node.type.name === "SecretField"),
   };
@@ -225,9 +232,10 @@ test("switching gateways requires confirmation and repeated confirm taps send on
   assert.equal(saved, 1);
 });
 
-test("missing credentials and canceling a replacement never send a PUT", () => {
+test("missing credentials on new gateway and canceling a replacement never send a PUT", () => {
   let saves = 0;
-  const form = formHarness({ editor, activeOther: "Mercado Pago", refreshing: false, onClose: () => {}, onSaved: () => {}, onSave: async () => { saves++; } });
+  const newGatewayEditor = { gateway: "abacatepay", configured: false, isActive: true, previousActive: false, intent: "activate" };
+  const form = formHarness({ editor: newGatewayEditor, activeOther: "Mercado Pago", refreshing: false, onClose: () => {}, onSaved: () => {}, onSave: async () => { saves++; } });
   form.buttons(form.render())[0].props.onPress();
   assert.equal(saves, 0);
   assert.ok(form.fields(form.render()).length);
@@ -236,4 +244,47 @@ test("missing credentials and canceling a replacement never send a PUT", () => {
   form.buttons(form.render()).find((button) => button.props.label === "Voltar à configuração").props.onPress();
   assert.equal(saves, 0);
   assert.equal(form.fields(form.render())[0].props.value, "new-key");
+});
+
+test("saving a configured gateway without typing credentials keeps credentials omitted", async () => {
+  let savedPayload = null;
+  const configuredEditor = { gateway: "abacatepay", configured: true, isActive: false, previousActive: true, intent: "configure" };
+  const form = formHarness({
+    editor: configuredEditor, refreshing: false, onClose: () => {}, onSaved: () => {},
+    onSave: async (payload) => { savedPayload = payload; },
+  });
+  form.buttons(form.render())[0].props.onPress();
+  await tick();
+  assert.deepEqual(plain(savedPayload), { isActive: false });
+});
+
+test("deactivate confirmation modal renders impact warning and triggers deactivation on confirm", async () => {
+  let confirmed = false;
+  const harness = formHarness({});
+  const modal = harness.renderDeactivate({
+    gateway: "mercadopago",
+    onClose: () => {},
+    onConfirm: async () => { confirmed = true; },
+    busy: false,
+  });
+  const confirmButton = harness.buttons(modal).find((btn) => btn.props.label === "Confirmar desativação");
+  assert.ok(confirmButton);
+  await confirmButton.props.onPress();
+  assert.equal(confirmed, true);
+});
+
+test("switch gateway modal renders current active name and triggers switch on confirm", async () => {
+  let switched = false;
+  const harness = formHarness({});
+  const modal = harness.renderSwitch({
+    targetGateway: "abacatepay",
+    currentActiveName: "Mercado Pago",
+    onClose: () => {},
+    onConfirm: async () => { switched = true; },
+    busy: false,
+  });
+  const confirmButton = harness.buttons(modal).find((btn) => btn.props.label === "Confirmar troca");
+  assert.ok(confirmButton);
+  await confirmButton.props.onPress();
+  assert.equal(switched, true);
 });

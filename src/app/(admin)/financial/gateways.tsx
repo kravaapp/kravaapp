@@ -7,7 +7,11 @@ import { useToast } from "@/components/Toast";
 import { ActionButton, AdminCard, AdminPageHeader, AdminScreen, AdminSkeleton, Pill } from "@/components/admin/AdminUi";
 import { usePaymentGateways } from "@/hooks/payments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
-import { gatewayConfigurationSchema, mercadoPagoConfigurationSchema } from "@/schemas/payments.schemas";
+import {
+  gatewayConfigurationSchema,
+  gatewayUpdateConfigurationSchema,
+  mercadoPagoConfigurationSchema,
+} from "@/schemas/payments.schemas";
 import { PaymentGateway, UpdatePaymentGateway } from "@/types/payments.types";
 import { PAYMENT_GATEWAYS, gatewayConfigurationDate } from "@/utils/paymentGateways";
 import { Check, Eye, EyeOff, ShieldCheck, X } from "lucide-react-native";
@@ -29,6 +33,10 @@ export default function AdminPaymentGateways() {
   const { toast } = useToast();
   const { configurations, hasData, isLoading, isRefreshing, error, refetch, saveGateway, isSaving } = usePaymentGateways();
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [deactivatingGateway, setDeactivatingGateway] = useState<PaymentGateway | null>(null);
+  const [switchingGateway, setSwitchingGateway] = useState<PaymentGateway | null>(null);
+  const [actionInProgress, setActionInProgress] = useState<PaymentGateway | null>(null);
+
   const active = configurations.find((item) => item.isActive);
   const activeName = PAYMENT_GATEWAYS.find((item) => item.gateway === active?.gateway)?.name;
   const busy = isSaving || isRefreshing;
@@ -48,6 +56,38 @@ export default function AdminPaymentGateways() {
         ? `${name} ${isActive ? "ativado" : "desativado"}!`
         : `${name} configurado com sucesso!`,
     });
+  };
+
+  const handleDeactivate = async () => {
+    if (!deactivatingGateway) return;
+    const target = deactivatingGateway;
+    setActionInProgress(target);
+    try {
+      await saveGateway(target, { isActive: false });
+      const name = PAYMENT_GATEWAYS.find((item) => item.gateway === target)?.name;
+      setDeactivatingGateway(null);
+      toast({ title: `${name} desativado!` });
+    } catch (requestError) {
+      const message = normalizeApiError(requestError, "Não foi possível desativar o gateway.").description;
+      toast({ title: "Erro ao desativar", description: message });
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleActivate = async (gateway: PaymentGateway) => {
+    setActionInProgress(gateway);
+    try {
+      await saveGateway(gateway, { isActive: true });
+      const name = PAYMENT_GATEWAYS.find((item) => item.gateway === gateway)?.name;
+      setSwitchingGateway(null);
+      toast({ title: `${name} ativado!` });
+    } catch (requestError) {
+      const message = normalizeApiError(requestError, "Não foi possível ativar o gateway.").description;
+      toast({ title: "Erro ao ativar", description: message });
+    } finally {
+      setActionInProgress(null);
+    }
   };
 
   return (
@@ -92,6 +132,7 @@ export default function AdminPaymentGateways() {
                   isActive: intent === "activate" || (intent === "configure" && isActive),
                   intent,
                 });
+                const isCardBusy = busy || actionInProgress === gateway;
                 return (
                   <AdminCard key={gateway} style={isActive ? styles.activeCard : undefined}>
                     <View style={styles.cardHeader}>
@@ -103,8 +144,22 @@ export default function AdminPaymentGateways() {
                       {configured ? "Credenciais cadastradas. Os valores salvos não são exibidos." : "Cadastre as credenciais para utilizar este gateway."}
                     </Text>
                     <View style={styles.actions}>
-                      <ActionButton label={configured ? "Editar configuração" : "Configurar"} onPress={() => edit("configure")} disabled={busy} outline />
-                      <ActionButton label={isActive ? "Desativar" : "Ativar"} onPress={() => edit(isActive ? "deactivate" : "activate")} disabled={busy} />
+                      <ActionButton label={configured ? "Editar configuração" : "Configurar"} onPress={() => edit("configure")} disabled={isCardBusy} outline />
+                      <ActionButton
+                        label={isActive ? "Desativar" : "Ativar"}
+                        onPress={() => {
+                          if (isActive) {
+                            setDeactivatingGateway(gateway);
+                          } else if (!configured) {
+                            edit("activate");
+                          } else if (active && active.gateway !== gateway) {
+                            setSwitchingGateway(gateway);
+                          } else {
+                            void handleActivate(gateway);
+                          }
+                        }}
+                        disabled={isCardBusy}
+                      />
                     </View>
                   </AdminCard>
                 );
@@ -113,6 +168,23 @@ export default function AdminPaymentGateways() {
           ) : null}
         </AdminScreen>
       </RefreshableScrollView>
+      {deactivatingGateway && (
+        <DeactivateConfirmModal
+          gateway={deactivatingGateway}
+          onClose={() => setDeactivatingGateway(null)}
+          onConfirm={handleDeactivate}
+          busy={actionInProgress === deactivatingGateway}
+        />
+      )}
+      {switchingGateway && (
+        <SwitchGatewayModal
+          targetGateway={switchingGateway}
+          currentActiveName={activeName ?? "Outro gateway"}
+          onClose={() => setSwitchingGateway(null)}
+          onConfirm={() => handleActivate(switchingGateway)}
+          busy={actionInProgress === switchingGateway}
+        />
+      )}
       {editor && (
         <GatewayModal
           editor={editor}
@@ -158,7 +230,11 @@ function GatewayModal({ editor, activeOther, onClose, onSave, onSaved, refreshin
   const submit = async (confirmed = false) => {
     if (submitting.current || refreshing) return;
     setError("");
-    const schema = editor.gateway === "mercadopago" ? mercadoPagoConfigurationSchema : gatewayConfigurationSchema;
+    const schema = editor.configured
+      ? gatewayUpdateConfigurationSchema
+      : editor.gateway === "mercadopago"
+        ? mercadoPagoConfigurationSchema
+        : gatewayConfigurationSchema;
     const parsed = schema.safeParse({ apiKey, publicKey, webhookSecret, isActive });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Verifique os dados informados.");
@@ -172,8 +248,8 @@ function GatewayModal({ editor, activeOther, onClose, onSave, onSaved, refreshin
     setSaving(true);
     try {
       await onSave({
-        apiKey: parsed.data.apiKey,
-        ...(editor.gateway === "mercadopago" ? { publicKey: parsed.data.publicKey } : {}),
+        ...(parsed.data.apiKey ? { apiKey: parsed.data.apiKey } : {}),
+        ...(editor.gateway === "mercadopago" && parsed.data.publicKey ? { publicKey: parsed.data.publicKey } : {}),
         ...(parsed.data.webhookSecret ? { webhookSecret: parsed.data.webhookSecret } : {}),
         isActive: parsed.data.isActive,
       });
@@ -221,19 +297,25 @@ function GatewayModal({ editor, activeOther, onClose, onSave, onSaved, refreshin
                 <>
                   {editor.configured && (
                     <Text style={styles.notice}>
-                      A credencial salva não pode ser consultada. Informe uma chave para substituí-la ao salvar. Este formulário também envia a credencial ao ativar ou desativar o gateway.
+                      As credenciais salvas estão protegidas e não são exibidas. Deixe os campos em branco para manter as credenciais atuais, ou informe novos valores para substituí-las.
                     </Text>
                   )}
-                  <SecretField label={`${definition.credentialLabel} *`} value={apiKey} onChange={setApiKey} disabled={busy} />
+                  <SecretField
+                    label={editor.configured ? definition.credentialLabel : `${definition.credentialLabel} *`}
+                    placeholder={editor.configured ? "Deixe em branco para manter a atual" : "Digite a credencial"}
+                    value={apiKey}
+                    onChange={setApiKey}
+                    disabled={busy}
+                  />
                   {editor.gateway === "mercadopago" && (
                     <View style={styles.heading}>
-                      <Text style={styles.fieldLabel}>Public Key *</Text>
+                      <Text style={styles.fieldLabel}>{editor.configured ? "Public Key" : "Public Key *"}</Text>
                       <TextInput
-                        accessibilityLabel="Public Key *"
+                        accessibilityLabel={editor.configured ? "Public Key" : "Public Key *"}
                         style={styles.input}
                         value={publicKey}
                         onChangeText={setPublicKey}
-                        placeholder="APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                        placeholder={editor.configured ? "Deixe em branco para manter a atual" : "APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}
                         autoCapitalize="none"
                         autoCorrect={false}
                         spellCheck={false}
@@ -271,8 +353,104 @@ function GatewayModal({ editor, activeOther, onClose, onSave, onSaved, refreshin
   );
 }
 
-function SecretField({ label, value, onChange, disabled }: {
+function DeactivateConfirmModal({
+  gateway,
+  onClose,
+  onConfirm,
+  busy,
+}: {
+  gateway: PaymentGateway;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+  busy: boolean;
+}) {
+  const definition = PAYMENT_GATEWAYS.find((item) => item.gateway === gateway);
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <View style={styles.sheet}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.title, styles.grow]}>Desativar gateway</Text>
+            <TouchableOpacity onPress={onClose} disabled={busy} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Fechar">
+              <X size={22} color={COLORS.foreground} />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.form, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.warningBox}>
+              <Text style={styles.warningTitle}>Atenção aos pagamentos</Text>
+              <Text style={styles.warningBody}>
+                Ao desativar o <Text style={styles.bold}>{definition?.name}</Text>, o CT não receberá pagamentos online. Os alunos não conseguirão pagar faturas nem cobranças por Pix ou Cartão de Crédito pelo aplicativo até que um gateway seja ativado novamente.
+              </Text>
+            </View>
+            <Text style={styles.body}>Deseja realmente desativar este gateway?</Text>
+            <View style={styles.actions}>
+              <ActionButton label="Cancelar" onPress={onClose} disabled={busy} outline />
+              <ActionButton
+                label={busy ? "Desativando..." : "Confirmar desativação"}
+                icon={busy ? <ActivityIndicator size="small" color="#fff" /> : undefined}
+                onPress={() => void onConfirm()}
+                disabled={busy}
+              />
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function SwitchGatewayModal({
+  targetGateway,
+  currentActiveName,
+  onClose,
+  onConfirm,
+  busy,
+}: {
+  targetGateway: PaymentGateway;
+  currentActiveName: string;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+  busy: boolean;
+}) {
+  const targetDefinition = PAYMENT_GATEWAYS.find((item) => item.gateway === targetGateway);
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <View style={styles.sheet}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.title, styles.grow]}>Confirmar troca de gateway</Text>
+            <TouchableOpacity onPress={onClose} disabled={busy} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Fechar">
+              <X size={22} color={COLORS.foreground} />
+            </TouchableOpacity>
+          </View>
+          <View style={[styles.form, { paddingBottom: insets.bottom + 16 }]}>
+            <Text style={styles.body}>
+              O <Text style={styles.bold}>{currentActiveName}</Text> está atualmente ativo. Ao ativar o <Text style={styles.bold}>{targetDefinition?.name}</Text>, o {currentActiveName} será desativado automaticamente.
+            </Text>
+            <Text style={styles.body}>Deseja continuar?</Text>
+            <View style={styles.actions}>
+              <ActionButton label="Voltar" onPress={onClose} disabled={busy} outline />
+              <ActionButton
+                label={busy ? "Ativando..." : "Confirmar troca"}
+                icon={busy ? <ActivityIndicator size="small" color="#fff" /> : undefined}
+                onPress={() => void onConfirm()}
+                disabled={busy}
+              />
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function SecretField({ label, placeholder, value, onChange, disabled }: {
   label: string;
+  placeholder?: string;
   value: string;
   onChange: (value: string) => void;
   disabled: boolean;
@@ -294,7 +472,7 @@ function SecretField({ label, value, onChange, disabled }: {
           autoComplete="off"
           textContentType="none"
           editable={!disabled}
-          placeholder="Digite a credencial"
+          placeholder={placeholder ?? "Digite a credencial"}
         />
         <TouchableOpacity style={styles.eyeButton} onPress={() => setVisible((current) => !current)} disabled={disabled} accessibilityRole="button" accessibilityLabel={`${visible ? "Ocultar" : "Mostrar"} ${label}`}>
           {visible ? <EyeOff size={20} color={COLORS.mutedForeground} /> : <Eye size={20} color={COLORS.mutedForeground} />}
@@ -328,4 +506,8 @@ const styles = StyleSheet.create({
   input: { minHeight: 46, borderWidth: 1, borderColor: COLORS.border, borderRadius: 10, paddingLeft: 12, paddingRight: 48, color: COLORS.foreground, fontSize: 14 },
   eyeButton: { position: "absolute", right: 2, width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   switchRow: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#F7F8FA", padding: 12, borderRadius: 10 },
+  warningBox: { backgroundColor: "#FFFBEB", borderColor: "#FDE68A", borderWidth: 1, borderRadius: 10, padding: 12, gap: 6 },
+  warningTitle: { color: "#B45309", fontWeight: "700", fontSize: 13 },
+  warningBody: { color: "#92400E", fontSize: 13, lineHeight: 19 },
+  bold: { fontWeight: "700" },
 });

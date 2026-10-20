@@ -59,7 +59,7 @@ export type PaymentGatewayConfiguration = {
 };
 
 export type UpdatePaymentGateway = {
-  apiKey: string;
+  apiKey?: string;
   publicKey?: string;
   webhookSecret?: string;
   isActive: boolean;

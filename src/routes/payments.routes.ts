@@ -66,7 +66,13 @@ export class PaymentsRoutes {
   }
 
   async updateGateway(gateway: PaymentGateway, configuration: UpdatePaymentGateway) {
+    const payload: Record<string, unknown> = {
+      ...(configuration.apiKey?.trim() ? { apiKey: configuration.apiKey.trim() } : {}),
+      ...(configuration.publicKey?.trim() ? { publicKey: configuration.publicKey.trim() } : {}),
+      ...(configuration.webhookSecret?.trim() ? { webhookSecret: configuration.webhookSecret.trim() } : {}),
+      isActive: configuration.isActive,
+    };
     // Desabilita retries de PUT para não repetir uma troca de gateway automaticamente.
-    await api.put(`/payments/gateways/${gateway}`, { json: configuration, retry: 0 });
+    await api.put(`/payments/gateways/${gateway}`, { json: payload, retry: 0 });
   }
 }

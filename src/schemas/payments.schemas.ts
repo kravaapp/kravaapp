@@ -29,3 +29,12 @@ export const gatewayConfigurationSchema = z.object({
 export const mercadoPagoConfigurationSchema = gatewayConfigurationSchema.extend({
   publicKey: z.string().trim().min(1, "Informe a Public Key do Mercado Pago."),
 });
+
+const optionalSecret = z.string().trim().transform((v) => (v ? v : undefined)).optional();
+
+export const gatewayUpdateConfigurationSchema = z.object({
+  apiKey: optionalSecret,
+  publicKey: optionalSecret,
+  webhookSecret: optionalSecret,
+  isActive: z.boolean(),
+});
