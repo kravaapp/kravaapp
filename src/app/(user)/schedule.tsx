@@ -141,9 +141,6 @@ type ClassCardProps = {
 };
 
 const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, onBookPress }: ClassCardProps) => {
-  const progress = typeof item.maxCapacity === 'number' && item.maxCapacity > 0 && typeof item.confirmedCount === 'number'
-    ? Math.min(100, Math.max(0, (item.confirmedCount / item.maxCapacity) * 100))
-    : 50;
   const level = item.minLevel || "iniciante";
   const gender = item.publicGender || "Mixed";
 
@@ -174,85 +171,151 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
     !isLevelAllowed ||
     (isClassPast && !item.subscriptionStatus);
 
+  // Vagas e status
+  const confirmed = item.confirmedCount ?? 0;
+  const capacity = item.maxCapacity ?? 0;
+  const remainingSpots = typeof item.maxCapacity === 'number' && typeof item.confirmedCount === 'number'
+    ? Math.max(0, item.maxCapacity - item.confirmedCount)
+    : null;
+  const isFull = remainingSpots !== null && remainingSpots === 0;
+
+  // Cor da barra vertical por status/disponibilidade
+  const stripeColor = useMemo(() => {
+    if (isCancelled || isClassPast) return '#9CA3AF';
+    if (isFull) return '#EF4444';
+    if (remainingSpots !== null && remainingSpots <= 3) return '#F59E0B';
+    return '#10B981';
+  }, [isCancelled, isClassPast, isFull, remainingSpots]);
+
+  // Título e subtítulo limpo (sem professor, sem nível redundante)
+  const title = item.aulaName || item.modalityName || "Aula";
+  const subtitle = useMemo(() => {
+    const parts: string[] = [];
+    if (item.modalityName && item.modalityName.toLowerCase() !== title.toLowerCase()) {
+      parts.push(item.modalityName);
+    }
+    const normLevel = capitalizeText(level);
+    if (level && !title.toLowerCase().includes(level.toLowerCase())) {
+      parts.push(normLevel);
+    }
+    if (gender) {
+      parts.push(getGenderLabel(gender));
+    }
+    return parts.join(' · ');
+  }, [item.modalityName, title, level, gender]);
+
   return (
     <View style={[styles.classCard, isCardDisabled && styles.classCardDisabled]}>
-      <View style={styles.classHeaderRow}>
-        <View style={styles.timeContainer}>
-          <Text style={styles.classTime}>{startTime}</Text>
-          {endTime ? <Text style={styles.classEndTime}>{endTime}</Text> : null}
-        </View>
-        <View style={styles.classDetails}>
-          <Text style={styles.classTitle}>{item.aulaName || item.modalityName}</Text>
-          <View style={styles.tagsRow}>
-            <View style={[styles.tag, { backgroundColor: getLevelStyle(level).backgroundColor }]}>
-              <Text style={[styles.tagText, { color: getLevelStyle(level).color }]}>{capitalizeText(level)}</Text>
+      {/* Barra vertical de status */}
+      <View style={[styles.statusStripe, { backgroundColor: stripeColor }]} />
+
+      {/* Horário (Início grande + Fim discreto) */}
+      <View style={styles.timeSection}>
+        <Text style={styles.classTime}>{startTime}</Text>
+        {endTime ? <Text style={styles.classEndTime}>{endTime}</Text> : null}
+      </View>
+
+      {/* Informações centrais */}
+      <View style={styles.classDetails}>
+        <Text style={styles.classTitle} numberOfLines={1}>{title}</Text>
+        {subtitle ? <Text style={styles.classSubtitle} numberOfLines={1}>{subtitle}</Text> : null}
+
+        {/* Vagas + Tag de status */}
+        <View style={styles.spotsRow}>
+          <Text style={styles.spotsCountText}>
+            {capacity > 0 ? `${confirmed}/${capacity}` : `${confirmed}`}
+          </Text>
+          {isCancelled ? (
+            <View style={[styles.spotTag, styles.spotTagCancelled]}>
+              <Text style={[styles.spotTagText, styles.spotTagTextCancelled]}>CANCELADA</Text>
             </View>
-            <View style={[styles.tag, { backgroundColor: getGenderStyle(gender).backgroundColor }]}>
-              <Text style={[styles.tagText, { color: getGenderStyle(gender).color }]}>
-                {getGenderLabel(gender)}
+          ) : isFull ? (
+            <View style={[styles.spotTag, styles.spotTagFull]}>
+              <Text style={[styles.spotTagText, styles.spotTagTextFull]}>LOTADA · ESPERA</Text>
+            </View>
+          ) : remainingSpots !== null && remainingSpots <= 3 ? (
+            <View style={[styles.spotTag, styles.spotTagUrgent]}>
+              <Text style={[styles.spotTagText, styles.spotTagTextUrgent]}>
+                {remainingSpots} {remainingSpots === 1 ? 'VAGA' : 'VAGAS'}
               </Text>
             </View>
-            <Text style={styles.professorText}>Prof. {item.professorName}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBarBackground}>
-          <View style={[
-            styles.progressBarFill,
-            { width: `${progress}%` },
-            isCancelled && styles.progressBarFillCancelled,
-          ]} />
-        </View>
-        <Text style={styles.progressText}>
-          {item.confirmedCount !== undefined && item.maxCapacity !== undefined
-            ? `${item.confirmedCount}/${item.maxCapacity}`
-            : "- / -"}
-        </Text>
-      </View>
-
-      <View style={styles.statusRow}>
-        <View>
-          {isCancelled ? (
-            <View style={styles.cancelledBadge}>
-              <AlertTriangle size={16} color="#DC2626" />
-              <Text style={styles.cancelledBadgeText}>Aula cancelada</Text>
+          ) : remainingSpots !== null ? (
+            <View style={[styles.spotTag, styles.spotTagAvailable]}>
+              <Text style={[styles.spotTagText, styles.spotTagTextAvailable]}>
+                {remainingSpots} VAGAS
+              </Text>
             </View>
-          ) : item.subscriptionStatus ? (
-            <Text style={styles.subscriptionStatusText}>
-              {item.subscriptionStatus === 'Confirmado' ? 'Agendamento Confirmado ✓' :
-               item.subscriptionStatus === 'ListaEspera' ? 'Na Fila de Espera' :
-               item.subscriptionStatus === 'WaitlistPending' ? 'Aguardando Confirmação' :
-               item.subscriptionStatus === 'CheckedIn' ? 'Check-in Realizado' :
+          ) : null}
+        </View>
+      </View>
+
+      {/* Ação à direita */}
+      <View style={styles.actionSection}>
+        {isCancelled ? (
+          <View style={styles.slimBadgeCancelled}>
+            <Text style={styles.slimBadgeCancelledText}>Cancelada</Text>
+          </View>
+        ) : item.subscriptionStatus ? (
+          <View style={[
+            styles.slimStatusBadge,
+            item.subscriptionStatus === 'Confirmado' || item.subscriptionStatus === 'CheckedIn'
+              ? styles.slimStatusBadgeConfirmed
+              : item.subscriptionStatus === 'Faltou'
+              ? styles.slimStatusBadgeMissed
+              : styles.slimStatusBadgeWaitlist
+          ]}>
+            <Text style={[
+              styles.slimStatusBadgeText,
+              item.subscriptionStatus === 'Confirmado' || item.subscriptionStatus === 'CheckedIn'
+                ? styles.slimStatusBadgeTextConfirmed
+                : item.subscriptionStatus === 'Faltou'
+                ? styles.slimStatusBadgeTextMissed
+                : styles.slimStatusBadgeTextWaitlist
+            ]}>
+              {item.subscriptionStatus === 'Confirmado' ? 'Agendado ✓' :
+               item.subscriptionStatus === 'CheckedIn' ? 'Check-in ✓' :
+               item.subscriptionStatus === 'ListaEspera' ? 'Na Fila' :
+               item.subscriptionStatus === 'WaitlistPending' ? 'Fila Pend.' :
                item.subscriptionStatus === 'Faltou' ? 'Faltou' : ''}
             </Text>
-          ) : isClassPast ? (
-            <View style={styles.closedBadge}>
-              <Clock size={16} color="#9CA3AF" />
-              <Text style={styles.closedBadgeText}>Horário encerrado</Text>
-            </View>
-          ) : !isGenderAllowed ? (
-            <Text style={styles.disabledReasonText}>Apenas para o gênero {getGenderLabel(gender)}</Text>
-          ) : !isLevelAllowed ? (
-            <Text style={styles.disabledReasonText}>Requer nível {capitalizeText(level)}</Text>
-          ) : isReleased ? (
-            <TouchableOpacity
-              style={[styles.bookButton, !canBook && styles.bookButtonDisabled]}
-              onPress={() => onBookPress(item)}
-              accessibilityRole="button"
-              accessibilityHint={!canBook ? "É necessário um plano ativo para agendar." : undefined}
-            >
-              <Text style={styles.bookButtonText}>agendar</Text>
-              <ArrowRight size={17} color="#FFFFFF" />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.releaseBadge}>
-              <Clock size={16} color={COLORS.mutedForeground} />
-              <Text style={styles.releaseBadgeText}>Libera em {timeUntilRelease}</Text>
-            </View>
-          )}
-        </View>
+          </View>
+        ) : isClassPast ? (
+          <View style={styles.slimBadgePast}>
+            <Text style={styles.slimBadgePastText}>Encerrada</Text>
+          </View>
+        ) : !isGenderAllowed ? (
+          <View style={styles.slimBadgeRestricted}>
+            <Text style={styles.slimBadgeRestrictedText}>{getGenderLabel(gender)}</Text>
+          </View>
+        ) : !isLevelAllowed ? (
+          <View style={styles.slimBadgeRestricted}>
+            <Text style={styles.slimBadgeRestrictedText}>{capitalizeText(level)}</Text>
+          </View>
+        ) : !isReleased ? (
+          <View style={styles.slimBadgeRelease}>
+            <Clock size={12} color="#6B7280" />
+            <Text style={styles.slimBadgeReleaseText}>{timeUntilRelease}</Text>
+          </View>
+        ) : isFull ? (
+          <TouchableOpacity
+            style={[styles.slimWaitlistButton, !canBook && styles.bookButtonDisabled]}
+            onPress={() => onBookPress(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`Entrar na lista de espera para ${title}`}
+          >
+            <Text style={styles.slimWaitlistButtonText}>Espera</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.slimBookButton, !canBook && styles.bookButtonDisabled]}
+            onPress={() => onBookPress(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`Reservar aula ${title}`}
+            accessibilityHint={!canBook ? "É necessário um plano ativo para agendar." : undefined}
+          >
+            <Text style={styles.slimBookButtonText}>Reservar</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -503,177 +566,238 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   listContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 24,
-    gap: 12,
+    gap: 8,
   },
   classCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   classCardDisabled: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F9FAFB',
+    opacity: 0.75,
   },
-  disabledReasonText: {
-    color: '#B42318',
-    fontSize: 13,
-    fontWeight: 'bold',
+  statusStripe: {
+    width: 4,
+    height: 44,
+    borderRadius: 2,
   },
-  subscriptionStatusText: {
-    color: COLORS.foreground,
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  classHeaderRow: {
-    flexDirection: 'row',
-    marginBottom: 18,
-  },
-  timeContainer: {
-    width: 74,
+  timeSection: {
+    width: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF0E7',
-    borderRadius: 10,
-    marginRight: 14,
-    paddingVertical: 8,
   },
   classTime: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
     color: COLORS.foreground,
+    letterSpacing: -0.2,
   },
   classEndTime: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
     color: COLORS.mutedForeground,
+    marginTop: 1,
   },
   classDetails: {
     flex: 1,
     minWidth: 0,
+    justifyContent: 'center',
   },
   classTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
     color: COLORS.foreground,
     letterSpacing: -0.3,
-    marginBottom: 6,
   },
-  tagsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  tag: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  tagText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  professorText: {
-    fontSize: 13,
-    color: COLORS.mutedForeground,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  progressBarBackground: {
-    flex: 1,
-    height: 6,
-    backgroundColor: '#FFE4D3',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 3,
-    backgroundColor: COLORS.mainOrange,
-  },
-  progressText: {
+  classSubtitle: {
     fontSize: 12,
-    color: COLORS.mutedForeground,
-    fontWeight: '500',
+    color: '#6B7280',
+    marginTop: 2,
   },
-  statusRow: {
+  spotsRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
-    marginTop: 8,
+    gap: 6,
+    marginTop: 4,
   },
-  bookButton: {
+  spotsCountText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  spotTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  spotTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  spotTagAvailable: {
+    backgroundColor: '#ECFDF5',
+  },
+  spotTagTextAvailable: {
+    color: '#059669',
+  },
+  spotTagUrgent: {
+    backgroundColor: '#FEF3C7',
+  },
+  spotTagTextUrgent: {
+    color: '#D97706',
+  },
+  spotTagFull: {
+    backgroundColor: '#FEF3C7',
+  },
+  spotTagTextFull: {
+    color: '#B45309',
+  },
+  spotTagCancelled: {
+    backgroundColor: '#FEE2E2',
+  },
+  spotTagTextCancelled: {
+    color: '#DC2626',
+  },
+  actionSection: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  slimBookButton: {
     backgroundColor: COLORS.mainOrange,
     paddingHorizontal: 16,
-    minHeight: 48,
-    borderRadius: 10,
-    flexDirection: 'row',
+    paddingVertical: 8,
+    borderRadius: 8,
+    minHeight: 34,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
   },
-  bookButtonDisabled: {
-    opacity: 0.6,
-  },
-  bookButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  releaseBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 12,
-    minHeight: 44,
-    borderRadius: 10,
-    gap: 6,
-  },
-  releaseBadgeText: {
-    color: '#6b7280',
+  slimBookButtonText: {
+    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '700',
   },
-  closedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 12,
-    minHeight: 44,
-    borderRadius: 10,
-    gap: 6,
+  slimWaitlistButton: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#D1D5DB',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  closedBadgeText: {
-    color: '#9CA3AF',
+  slimWaitlistButtonText: {
+    color: COLORS.foreground,
     fontSize: 13,
     fontWeight: '600',
   },
-  cancelledBadge: {
-    flexDirection: 'row',
+  bookButtonDisabled: {
+    opacity: 0.5,
+  },
+  slimStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slimStatusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  slimStatusBadgeConfirmed: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  slimStatusBadgeTextConfirmed: {
+    color: '#059669',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  slimStatusBadgeWaitlist: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  slimStatusBadgeTextWaitlist: {
+    color: '#D97706',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  slimStatusBadgeMissed: {
     backgroundColor: '#FEE2E2',
-    paddingHorizontal: 12,
-    minHeight: 44,
-    borderRadius: 10,
-    gap: 6,
     borderWidth: 1,
     borderColor: '#FECACA',
   },
-  cancelledBadgeText: {
+  slimStatusBadgeTextMissed: {
     color: '#DC2626',
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  slimBadgeCancelled: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  slimBadgeCancelledText: {
+    color: '#DC2626',
+    fontSize: 11,
     fontWeight: '600',
   },
-  progressBarFillCancelled: {
-    backgroundColor: '#D1D5DB',
+  slimBadgePast: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  slimBadgePastText: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  slimBadgeRestricted: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  slimBadgeRestrictedText: {
+    color: '#B42318',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  slimBadgeRelease: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  slimBadgeReleaseText: {
+    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '500',
   },
   loadingState: {
     flex: 1,
