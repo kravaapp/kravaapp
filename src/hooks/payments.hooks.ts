@@ -47,3 +47,30 @@ export function usePaymentGateways() {
     isSaving: mutation.isPending,
   };
 }
+
+export function useActivePaymentGateway() {
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: ["active-payment-gateway", user?.tenantId],
+    queryFn: async () => {
+      try {
+        return await new PaymentsRoutes().getActiveGateway();
+      } catch (error: any) {
+        // Se retornar 404 / GatewayConfigNotFound, CT não tem gateway ativo
+        if (error?.response?.status === 404) {
+          return null;
+        }
+        return null;
+      }
+    },
+    enabled: !!user?.tenantId,
+    retry: false,
+  });
+
+  return {
+    gateway: query.data ?? null,
+    hasActiveGateway: !!query.data?.gateway,
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
+}

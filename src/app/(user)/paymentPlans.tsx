@@ -16,7 +16,8 @@ import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/auth.hooks";
 import { useCancelRecorrenciaAluno, useSubscribeContract } from "@/hooks/contracts.hooks";
 import { useCreatePartnerRequest, useMyPartnerRequest, useTenantPartners } from "@/hooks/partners.hooks";
-import { useCurrentPlan, usePlans } from "@/hooks/plans.hooks";
+import { useCurrentPlan, usePlans, useMyPlanRequest, useCreatePlanRequest, useCancelMyPlanRequest } from "@/hooks/plans.hooks";
+import { useActivePaymentGateway } from "@/hooks/payments.hooks";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { usePayments } from "@/hooks/studentPayments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
@@ -288,6 +289,10 @@ export default function PaymentPlans() {
   const [subscribingPlanId, setSubscribingPlanId] = useState<string | null>(null);
   const { payments, error: paymentsError, refetch: refetchPayments } = usePayments();
   const { plans, isLoading, error } = usePlans();
+  const { hasActiveGateway } = useActivePaymentGateway();
+  const { planRequest, refetch: refetchPlanRequest } = useMyPlanRequest();
+  const { createPlanRequest, isLoading: isCreatingPlanRequest } = useCreatePlanRequest();
+  const { cancelMyPlanRequest, isLoading: isCancelingPlanRequest } = useCancelMyPlanRequest();
   const {
     partnerRequest,
     isLoading: isLoadingPartnerRequest,
@@ -296,8 +301,8 @@ export default function PaymentPlans() {
   const { partners: activePartners } = useTenantPartners(true);
   const { createPartnerRequest, isLoading: isSendingPartnerRequest } = useCreatePartnerRequest();
   const refresh = useScreenRefresh(
-    [["plans", "list"], ["plans", "current"], ["my-partner-request"]],
-    { refetch: [refetchPayments, refetchPartnerRequest] },
+    [["plans", "list"], ["plans", "current"], ["my-partner-request"], ["my-plan-request"]],
+    { refetch: [refetchPayments, refetchPartnerRequest, refetchPlanRequest] },
   );
   const {
     currentPlan,
@@ -339,6 +344,26 @@ export default function PaymentPlans() {
     } finally {
       subscriptionInFlight.current = false;
       setSubscribingPlanId(null);
+    }
+  };
+
+  const handleCancelPlanRequest = async () => {
+    if (!planRequest?.id || isCancelingPlanRequest) return;
+    try {
+      await cancelMyPlanRequest(planRequest.id);
+      toast({
+        title: "Solicitação cancelada",
+        description: "Sua solicitação de plano foi cancelada com sucesso.",
+      });
+      refetchPlanRequest();
+    } catch (err) {
+      toast({
+        title: normalizeApiError(
+          err,
+          "Não foi possível cancelar a solicitação.",
+        ).description,
+        variant: "destructive",
+      });
     }
   };
 
@@ -549,6 +574,40 @@ export default function PaymentPlans() {
             </View>
           )}
         </View>
+
+        {planRequest && (
+          <View style={[styles.cardLightBlue, styles.cardPending, { marginBottom: 16 }]}>
+            <View style={styles.partnerHeaderRow}>
+              <View style={[styles.rowAlign, { marginBottom: 0, flex: 1 }]}>
+                <Clock size={18} color="#D97706" />
+                <Text style={[styles.lightBlueTitle, { color: "#92400E", flexShrink: 1 }]}>
+                  Solicitação de plano: {planRequest.planoName}
+                </Text>
+              </View>
+              <View style={styles.badgePending}>
+                <Text style={styles.badgePendingText}>Em análise</Text>
+              </View>
+            </View>
+            <Text style={[styles.lightBlueDesc, { color: "#78350F" }]}>
+              Você solicitou a contratação do plano {planRequest.planoName} (R$ {planRequest.planoPrice.toFixed(2)}) em {formatDate(planRequest.createdAtUtc)}.
+              Aguardando confirmação e acerto presencial pela administração do {ctName}.
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              disabled={isCancelingPlanRequest}
+              style={[styles.btnOutlineLight, { borderColor: "#D97706", marginTop: 8 }]}
+              onPress={handleCancelPlanRequest}
+            >
+              {isCancelingPlanRequest ? (
+                <ActivityIndicator size="small" color="#D97706" />
+              ) : (
+                <Text style={[styles.btnOutlineLightText, { color: "#92400E" }]}>
+                  Cancelar solicitação
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         {partnerRequest?.status === "Pending" ? (
           <View style={[styles.cardLightBlue, styles.cardPending]}>

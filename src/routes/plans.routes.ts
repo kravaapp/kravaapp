@@ -1,4 +1,4 @@
-import { CreateAdminPlanType, CurrentPlanType, PaginatedAdminPlans, PaginatedPlanType, UpdateAdminPlanType } from "@/types/plans.types";
+import { CreateAdminPlanType, CurrentPlanType, MyPlanRequestType, PaginatedAdminPlans, PaginatedPlanType, PlanRequestItemType, UpdateAdminPlanType } from "@/types/plans.types";
 import api from "./client";
 
 export class PlansRoutes {
@@ -9,8 +9,44 @@ export class PlansRoutes {
         return result.items.map((plan) => ({ ...plan, price: plan.price ?? 0 }));
     }
 
-    async getCurrentPlan() {
-        return await api.get("/plans/current").json<CurrentPlanType | null>();
+    async getCurrentPlan(): Promise<CurrentPlanType | null> {
+        const response = await api.get("/plans/current");
+        if (response.status === 204) return null;
+        const text = await response.text();
+        if (!text || text.trim() === "" || text.trim() === "null") return null;
+        return JSON.parse(text) as CurrentPlanType;
+    }
+
+    async getMyPlanRequest(): Promise<MyPlanRequestType | null> {
+        const response = await api.get("/membership/plan-requests/my");
+        if (response.status === 204) return null;
+        const text = await response.text();
+        if (!text || text.trim() === "" || text.trim() === "null") return null;
+        return JSON.parse(text) as MyPlanRequestType;
+    }
+
+    async createPlanRequest(planoId: string): Promise<string> {
+        return await api.post("/membership/plan-requests", { json: { planoId } }).json<string>();
+    }
+
+    async cancelMyPlanRequest(id: string): Promise<void> {
+        await api.delete(`/membership/plan-requests/my/${id}`);
+    }
+
+    async getPlanRequests(status?: string): Promise<PlanRequestItemType[]> {
+        return await api.get("/membership/plan-requests", {
+            searchParams: status ? { status } : undefined,
+        }).json<PlanRequestItemType[]>();
+    }
+
+    async approvePlanRequest(id: string): Promise<void> {
+        await api.patch(`/membership/plan-requests/${id}/approve`);
+    }
+
+    async rejectPlanRequest(id: string, rejectionReason?: string): Promise<void> {
+        await api.patch(`/membership/plan-requests/${id}/reject`, {
+            json: { rejectionReason },
+        });
     }
 
     async getAdminPlans(page = 1, pageSize = 20, activeOnly = false) {

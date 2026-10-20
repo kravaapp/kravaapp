@@ -58,3 +58,24 @@ export type CurrentPlanType = {
     modalitiesPermitted: string[];
     autoRenew: boolean;
 }
+
+export type PlanRequestItemType = {
+    id: string;
+    alunoId: string;
+    alunoName: string;
+    planoId: string;
+    planoName: string;
+    planoPrice: number;
+    status: string;
+    rejectionReason: string | null;
+    createdAtUtc: string;
+};
+
+export type MyPlanRequestType = {
+    id: string;
+    planoId: string;
+    planoName: string;
+    planoPrice: number;
+    status: string;
+    createdAtUtc: string;
+};

@@ -18,6 +18,7 @@ import {
   usePartnerRequestActions,
 } from "@/hooks/dashboard.hooks";
 import { useTodayOccurrences } from "@/hooks/schedule.hooks";
+import { usePendingPlanRequests, usePlanRequestActions } from "@/hooks/plans.hooks";
 import {
   useJoinRequestActions,
   usePendingJoinRequests,
@@ -96,7 +97,7 @@ const StudentSkeleton = () => (
 );
 
 export default function AdminDashboard() {
-  const refresh = useScreenRefresh([["admin-active-students"], ["admin-financial-dashboard"], ["admin-operational-dashboard"], ["admin-daily-attendance"], ["admin-students-at-risk"], ["admin-partner-requests"], ["tenant-join-requests"], ["today-occurrences"]]);
+  const refresh = useScreenRefresh([["admin-active-students"], ["admin-financial-dashboard"], ["admin-operational-dashboard"], ["admin-daily-attendance"], ["admin-students-at-risk"], ["admin-partner-requests"], ["tenant-join-requests"], ["admin-plan-requests"], ["today-occurrences"]]);
   const { toast } = useToast();
   const monthRange = useMemo(() => {
     const today = new Date();
@@ -127,6 +128,8 @@ export default function AdminDashboard() {
     attendanceRange.startDate,
     attendanceRange.endDate,
   );
+  const { planRequests, isLoading: planRequestsLoading } = usePendingPlanRequests();
+  const { approvePlanRequest, rejectPlanRequest, isLoading: isUpdatingPlanRequest } = usePlanRequestActions();
   const { todayOccurrences, isLoading: isLoadingOccurrences } =
     useTodayOccurrences();
   const {
@@ -208,6 +211,33 @@ export default function AdminDashboard() {
     } catch {
       toast({
         title: "Não foi possível aprovar a solicitação",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleApprovePlan = async (id: string, student: string, planName: string) => {
+    try {
+      await approvePlanRequest(id);
+      toast({
+        title: "Plano ativado!",
+        description: `O plano ${planName} do aluno ${student} foi ativado com sucesso.`,
+      });
+    } catch {
+      toast({
+        title: "Não foi possível aprovar a solicitação de plano",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectPlan = async (id: string) => {
+    try {
+      await rejectPlanRequest({ id });
+      toast({ title: "Solicitação de plano recusada" });
+    } catch {
+      toast({
+        title: "Não foi possível recusar a solicitação",
         variant: "destructive",
       });
     }
@@ -413,6 +443,67 @@ export default function AdminDashboard() {
               );
             })}
 
+            {/* Solicitações de Adesão de Plano (CT sem gateway) */}
+            {planRequests.map((request: any) => {
+              const student = request.alunoName || "Aluno";
+              const plan = request.planoName || "Plano";
+              const price = request.planoPrice ? `R$ ${request.planoPrice.toFixed(2)}` : "";
+              return (
+                <View key={request.id} style={styles.requestItemCard}>
+                  <View style={styles.requestItemHeader}>
+                    <View style={[styles.avatar, { backgroundColor: "#FEF3C7" }]}>
+                      <Text style={[styles.avatarText, { color: "#D97706" }]}>
+                        {initials(student)}
+                      </Text>
+                    </View>
+                    <View style={styles.grow}>
+                      <View style={styles.requestTitleRow}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>{student}</Text>
+                        <Pill label={`Plano: ${plan}`} tone="warning" />
+                      </View>
+                      <Text style={styles.muted} numberOfLines={1}>
+                        Valor: {price} • Pagamento presencial
+                      </Text>
+                      <Text style={styles.muted}>
+                        Solicitado em{" "}
+                        {format(new Date(request.createdAtUtc), "dd/MM/yyyy")}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.requestItemFooter}>
+                    <TouchableOpacity
+                      disabled={isUpdatingPlanRequest}
+                      onPress={() => handleRejectPlan(request.id)}
+                      style={[
+                        styles.requestRejectBtn,
+                        isUpdatingPlanRequest && styles.disabled,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Recusar solicitação"
+                    >
+                      <X size={14} color={COLORS.destructive} />
+                      <Text style={styles.requestRejectText}>Recusar</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      disabled={isUpdatingPlanRequest}
+                      onPress={() => handleApprovePlan(request.id, student, plan)}
+                      style={[
+                        styles.requestApproveBtn,
+                        isUpdatingPlanRequest && styles.disabled,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Aprovar solicitação"
+                    >
+                      <Check size={14} color="#fff" />
+                      <Text style={styles.requestApproveText}>Aprovar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+
             {/* Solicitações de Parceiros (Gympass / Totalpass) */}
             {partnerRequests.map((request) => {
               const student = request.alunoName || "Aluno";
@@ -469,7 +560,7 @@ export default function AdminDashboard() {
                 </View>
               );
             })}
-            {(isUpdatingRequest || isSavingJoinRequest) && (
+            {(isUpdatingRequest || isSavingJoinRequest || isUpdatingPlanRequest) && (
               <AdminSkeleton width="42%" height={12} />
             )}
           </AdminCard>
