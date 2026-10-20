@@ -444,7 +444,7 @@ export default function AdminDashboard() {
             })}
 
             {/* Solicitações de Adesão de Plano (CT sem gateway) */}
-            {planRequests.map((request: any) => {
+            {planRequests.map((request: import("@/types/plans.types").PlanRequestItemType) => {
               const student = request.alunoName || "Aluno";
               const plan = request.planoName || "Plano";
               const price = request.planoPrice ? `R$ ${request.planoPrice.toFixed(2)}` : "";
