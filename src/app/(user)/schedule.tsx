@@ -14,8 +14,8 @@ import { useCreateSchedule, useSchedule } from '@/hooks/schedule.hooks';
 import { normalizeApiError } from '@/routes/apiError';
 import { Category } from '@/types/categories.types';
 import { ScheduleOccurrenceType } from '@/types/schedules.types';
-import { getStudentLevelWeight, normalizeStudentLevel } from '@/utils/studentLevel';
-import { AlertTriangle, ArrowRight, Clock } from 'lucide-react-native';
+import { getStudentLevelWeight } from '@/utils/studentLevel';
+import { Clock } from 'lucide-react-native';
 import { getTimeUntilClass } from '.';
 
 // Types
@@ -108,18 +108,6 @@ const DayCalendar = ({ days, selectedId, onSelect }: DayCalendarProps) => (
   </View>
 );
 
-const getLevelStyle = (level: string) => {
-  switch (normalizeStudentLevel(level)) {
-    case 'avancado': return { color: COLORS.foreground, backgroundColor: '#F3F4F6' };
-    case 'intermediario': return { color: COLORS.foreground, backgroundColor: '#FFF0E7' };
-    default: return { color: COLORS.foreground, backgroundColor: '#F3F4F6' };
-  }
-};
-
-const getGenderStyle = (_gender: string) => {
-  return { color: COLORS.foreground, backgroundColor: '#F3F4F6' };
-};
-
 const capitalizeText = (text: string) => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
@@ -179,13 +167,16 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
     : null;
   const isFull = remainingSpots !== null && remainingSpots === 0;
 
+  const isUserEnrolled = item.subscriptionStatus === 'Confirmado' || item.subscriptionStatus === 'CheckedIn';
+
   // Cor da barra vertical por status/disponibilidade
   const stripeColor = useMemo(() => {
     if (isCancelled || isClassPast) return '#9CA3AF';
+    if (isUserEnrolled) return '#10B981';
     if (isFull) return '#EF4444';
     if (remainingSpots !== null && remainingSpots <= 3) return '#F59E0B';
     return '#10B981';
-  }, [isCancelled, isClassPast, isFull, remainingSpots]);
+  }, [isCancelled, isClassPast, isUserEnrolled, isFull, remainingSpots]);
 
   // Título e subtítulo limpo (sem professor, sem nível redundante)
   const title = item.aulaName || item.modalityName || "Aula";
