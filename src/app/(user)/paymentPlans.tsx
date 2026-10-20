@@ -183,18 +183,26 @@ const CurrentPlanCard = ({
 
 const PlanCard = ({
   plan,
+  isCurrent = false,
+  hasActiveGateway = false,
+  hasPendingPlanRequest = false,
+  isRequestedPlan = false,
   onSubscribe,
+  onRequestPlan,
   disabled,
   isSubscribing,
 }: {
   plan: PlanType;
+  isCurrent?: boolean;
+  hasActiveGateway?: boolean;
+  hasPendingPlanRequest?: boolean;
+  isRequestedPlan?: boolean;
   onSubscribe: (plan: PlanType) => void;
+  onRequestPlan: (plan: PlanType) => void;
   disabled: boolean;
   isSubscribing: boolean;
 }) => {
   const isPopular = plan.name.toLowerCase().includes("trimestral");
-
-  const isCurrent = false;
 
   return (
     <View style={[styles.card, isCurrent && styles.cardActive]}>
@@ -259,6 +267,26 @@ const PlanCard = ({
           <TouchableOpacity style={styles.btnOutlineDisabled} disabled>
             <Text style={styles.btnOutlineDisabledText}>Plano atual</Text>
           </TouchableOpacity>
+        ) : !hasActiveGateway ? (
+          isRequestedPlan ? (
+            <TouchableOpacity style={styles.btnOutlineDisabled} disabled>
+              <Text style={styles.btnOutlineDisabledText}>Solicitação pendente</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ disabled: disabled || hasPendingPlanRequest, busy: isSubscribing }}
+              style={[styles.btnSolid, (disabled || hasPendingPlanRequest) && { opacity: 0.6 }]}
+              disabled={disabled || hasPendingPlanRequest}
+              onPress={() => onRequestPlan(plan)}
+            >
+              {isSubscribing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.btnSolidText}>Solicitar ao CT</Text>
+              )}
+            </TouchableOpacity>
+          )
         ) : (
           <TouchableOpacity
             accessibilityRole="button"
@@ -314,6 +342,31 @@ export default function PaymentPlans() {
   const [partnerModal, setPartnerModal] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<string | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [planToRequest, setPlanToRequest] = useState<PlanType | null>(null);
+  const hasPendingPlanRequest = planRequest?.status === "Pending";
+
+  const handleRequestPlan = (plan: PlanType) => {
+    setPlanToRequest(plan);
+  };
+
+  const handleConfirmPlanRequest = async () => {
+    if (!planToRequest || isCreatingPlanRequest) return;
+    try {
+      await createPlanRequest(planToRequest.id);
+      toast({
+        title: "Solicitação enviada!",
+        description: `Seu pedido para o plano "${planToRequest.name}" foi enviado ao CT.`,
+      });
+      setPlanToRequest(null);
+      refetchPlanRequest();
+    } catch (err) {
+      toast({
+        title: normalizeApiError(err, "Não foi possível enviar a solicitação.").description,
+        variant: "destructive",
+      });
+    }
+  };
+
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
   const handleSubscribe = async (plan: PlanType) => {
@@ -502,8 +555,13 @@ export default function PaymentPlans() {
                   <PlanCard
                     key={p.id}
                     plan={p}
+                    isCurrent={false}
+                    hasActiveGateway={hasActiveGateway}
+                    hasPendingPlanRequest={hasPendingPlanRequest}
+                    isRequestedPlan={hasPendingPlanRequest && planRequest?.planoId === p.id}
                     onSubscribe={handleSubscribe}
-                    disabled={isSubscribing || subscribingPlanId !== null}
+                    onRequestPlan={handleRequestPlan}
+                    disabled={isSubscribing || subscribingPlanId !== null || isCreatingPlanRequest}
                     isSubscribing={subscribingPlanId === p.id}
                   />
                 ))
@@ -744,16 +802,78 @@ export default function PaymentPlans() {
                   <PlanCard
                     key={p.id}
                     plan={p}
+                    isCurrent={currentPlan?.planoName === p.name}
+                    hasActiveGateway={hasActiveGateway}
+                    hasPendingPlanRequest={hasPendingPlanRequest}
+                    isRequestedPlan={hasPendingPlanRequest && planRequest?.planoId === p.id}
                     onSubscribe={(chosenPlan) => {
                       setPlansModalVisible(false);
                       handleSubscribe(chosenPlan);
                     }}
-                    disabled={isSubscribing || subscribingPlanId !== null}
+                    onRequestPlan={(chosenPlan) => {
+                      setPlansModalVisible(false);
+                      handleRequestPlan(chosenPlan);
+                    }}
+                    disabled={isSubscribing || subscribingPlanId !== null || isCreatingPlanRequest}
                     isSubscribing={subscribingPlanId === p.id}
                   />
                 ))
               )}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+            <Modal
+        visible={planToRequest !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isCreatingPlanRequest && setPlanToRequest(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Solicitar plano ao CT
+            </Text>
+
+            <View style={styles.modalBody}>
+              <Text style={{ color: "#374151", fontSize: 14, marginBottom: 12, lineHeight: 20 }}>
+                Deseja solicitar a contratação do plano{" "}
+                <Text style={{ fontWeight: "700", color: "#111827" }}>
+                  {planToRequest?.name}
+                </Text>
+                {planToRequest ? ` (${planToRequest.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})` : ""}?
+              </Text>
+
+              <View style={styles.warningBox}>
+                <Text style={styles.warningText}>
+                  Como este Centro de Treinamento não possui pagamento online pelo app, o pagamento será acertado presencialmente no balcão e a administração ativará seu plano.
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isCreatingPlanRequest, busy: isCreatingPlanRequest }}
+              style={[styles.btnSolid, isCreatingPlanRequest && { opacity: 0.6 }]}
+              disabled={isCreatingPlanRequest}
+              onPress={handleConfirmPlanRequest}
+            >
+              {isCreatingPlanRequest ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.btnSolidText}>Confirmar solicitação</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.modalCancel}
+              disabled={isCreatingPlanRequest}
+              onPress={() => setPlanToRequest(null)}
+            >
+              <Text style={styles.modalCancelText}>Cancelar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
