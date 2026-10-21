@@ -52,6 +52,7 @@ import {
   getPaymentType,
   isPaymentOverdue,
   isPaymentPaid,
+  isPaymentRefunded,
 } from "@/utils/payments";
 import {
   CancelInvoiceModal,
@@ -148,8 +149,7 @@ const invoiceStatus = (status: string) => {
   if (isPaymentPaid(value)) return { label: "Paga", tone: "success" as const };
   if (isPaymentOverdue(value)) return { label: "Vencida", tone: "danger" as const };
   if (canPayInvoice(value)) return { label: "Pendente", tone: "warning" as const };
-  if (["estornado", "estornada", "refunded"].includes(value))
-    return { label: "Estornada", tone: "info" as const };
+  if (isPaymentRefunded(value)) return { label: "Estornada", tone: "info" as const };
   if (["cancelado", "cancelada", "canceled", "cancelled"].includes(value))
     return { label: "Cancelada", tone: "neutral" as const };
   return { label: status || "—", tone: "neutral" as const };
@@ -1217,15 +1217,47 @@ function StudentModal({
     let totalOpen = 0;
     let openCount = 0;
     let overdueCount = 0;
+    let refundedTotal = 0;
+    let refundedCount = 0;
+    const paidContratos = new Set<string>();
 
     for (const invoice of invoices) {
+      if (isPaymentPaid(invoice.status) && invoice.contratoId) {
+        paidContratos.add(invoice.contratoId);
+      }
+      if (isPaymentRefunded(invoice.status)) {
+        refundedTotal += invoice.amount;
+        refundedCount++;
+      }
       if (!canPayInvoice(invoice.status)) continue;
       totalOpen += invoice.amount;
       openCount++;
       if (isPaymentOverdue(invoice.status)) overdueCount++;
     }
 
-    return { totalOpen, openCount, overdueCount };
+    // Plano que segue ativo depois do estorno da cobrança que o pagou, sem outra cobrança paga cobrindo o contrato.
+    const unpaidPlanNames = [
+      ...new Set(
+        invoices
+          .filter(
+            (invoice) =>
+              isPaymentRefunded(invoice.status) &&
+              invoice.hasActiveContrato &&
+              !!invoice.contratoId &&
+              !paidContratos.has(invoice.contratoId),
+          )
+          .map((invoice) => invoice.contratoPlanoName ?? "vinculado"),
+      ),
+    ];
+
+    return {
+      totalOpen,
+      openCount,
+      overdueCount,
+      refundedTotal,
+      refundedCount,
+      unpaidPlanNames,
+    };
   }, [invoices]);
 
   /* Executa a ação e mantém o modal aberto em caso de erro para nova tentativa. */
@@ -2173,26 +2205,53 @@ function ChargesSummaryCard({
   totalOpen,
   openCount,
   overdueCount,
+  refundedTotal,
+  refundedCount,
+  unpaidPlanNames,
 }: {
   totalOpen: number;
   openCount: number;
   overdueCount: number;
+  refundedTotal: number;
+  refundedCount: number;
+  unpaidPlanNames: string[];
 }) {
   const hasOpen = openCount > 0;
   const hasOverdue = overdueCount > 0;
-  const accent = hasOverdue
-    ? COLORS.destructive
-    : hasOpen
-      ? "#B45309"
-      : "#15803D";
+  const hasUnpaidPlan = unpaidPlanNames.length > 0;
+  const unpaidPlanText = `Plano ${unpaidPlanNames.join(", ")} ativo sem pagamento`;
+  const state = hasOverdue
+    ? "danger"
+    : hasOpen || hasUnpaidPlan
+      ? "warning"
+      : "ok";
+  const accent =
+    state === "danger"
+      ? COLORS.destructive
+      : state === "warning"
+        ? "#B45309"
+        : "#15803D";
+
+  const details = [
+    hasOpen &&
+      [
+        plural(openCount, "cobrança em aberto", "cobranças em aberto"),
+        hasOverdue && plural(overdueCount, "vencida", "vencidas"),
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    hasOpen && hasUnpaidPlan && unpaidPlanText,
+    refundedCount > 0 &&
+      `${refundedCount === 1 ? "Pagamento estornado" : `${refundedCount} pagamentos estornados`} · ${formatCurrency(refundedTotal)}`,
+  ].filter(Boolean) as string[];
 
   return (
     <View
       style={[
         styles.chargesSummaryCard,
-        hasOverdue
+        state === "danger"
           ? styles.chargesSummaryDanger
-          : hasOpen
+          : state === "warning"
             ? styles.chargesSummaryWarning
             : styles.chargesSummaryOk,
       ]}
@@ -2205,23 +2264,36 @@ function ChargesSummaryCard({
           </Text>
         </View>
         <Pill
-          label={hasOverdue ? "Inadimplente" : hasOpen ? "Em aberto" : "Em dia"}
-          tone={hasOverdue ? "danger" : hasOpen ? "warning" : "success"}
+          label={
+            hasOverdue
+              ? "Inadimplente"
+              : hasOpen
+                ? "Em aberto"
+                : hasUnpaidPlan
+                  ? "Atenção"
+                  : "Em dia"
+          }
+          tone={state === "danger" ? "danger" : state === "warning" ? "warning" : "success"}
         />
       </View>
       <Text style={styles.activePlanName}>
-        {hasOpen ? formatCurrency(totalOpen) : "Nenhum valor em aberto"}
-      </Text>
-      <Text style={styles.activePlanDatesText}>
         {hasOpen
-          ? [
-              plural(openCount, "cobrança em aberto", "cobranças em aberto"),
-              hasOverdue && plural(overdueCount, "vencida", "vencidas"),
-            ]
-              .filter(Boolean)
-              .join(" · ")
-          : "Todas as cobranças estão quitadas ou encerradas."}
+          ? formatCurrency(totalOpen)
+          : hasUnpaidPlan
+            ? unpaidPlanText
+            : "Nenhum valor em aberto"}
       </Text>
+      {details.length > 0 ? (
+        details.map((detail) => (
+          <Text key={detail} style={styles.activePlanDatesText}>
+            {detail}
+          </Text>
+        ))
+      ) : (
+        <Text style={styles.activePlanDatesText}>
+          Todas as cobranças estão quitadas ou encerradas.
+        </Text>
+      )}
     </View>
   );
 }
@@ -3087,8 +3159,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#F0FDF4",
     borderColor: "#BBF7D0",
   },
+  /* Mais claro que o warningSurface do Pill, para o selo "Em aberto"/"Atenção" se destacar. */
   chargesSummaryWarning: {
-    backgroundColor: "#FFFBEB",
+    backgroundColor: "#FFFDF5",
     borderColor: "#FDE68A",
   },
   chargesSummaryDanger: {
