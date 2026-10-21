@@ -20,7 +20,7 @@ const invoices = () => [
 
 const refundResult = {
   refundedAtGateway: false, planOutcome: "Cancelled", cancelledPlanoName: "Mensal",
-  restoredPlanoName: null, restoredUntil: null, recurringCancelFailed: false,
+  restoredPlanoName: null, restoredUntil: null, recurringCancelFailed: false, planReversalFailed: false,
 };
 
 async function setup(page: Page, items: Record<string, unknown>[] = invoices()) {

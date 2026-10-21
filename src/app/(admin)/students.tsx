@@ -1316,6 +1316,14 @@ function StudentModal({
       const result = await refundInvoice(refundingInvoice.id, request);
       openRefund(null);
       toast({ title: "Pagamento estornado.", description: refundOutcomeMessage(result) });
+      if (result.planReversalFailed) {
+        toast({
+          title: "Plano não foi cancelado",
+          description:
+            "O estorno foi registrado, mas o plano continua ativo. Cancele-o pela aba Plano & Acesso.",
+          variant: "destructive",
+        });
+      }
       if (result.recurringCancelFailed) {
         toast({
           title: "Recorrência não cancelada no gateway",

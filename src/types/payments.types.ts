@@ -74,6 +74,7 @@ export type RefundInvoiceResult = {
   restoredPlanoName: string | null;
   restoredUntil: string | null;
   recurringCancelFailed: boolean;
+  planReversalFailed: boolean;
 };
 
 export type PaginatedPayments = {
