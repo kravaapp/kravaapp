@@ -1,8 +1,9 @@
 import { COLORS } from "@/components/ClientHeader";
 import { Payment } from "@/types/payments.types";
+import { useActivePaymentGateway } from "@/hooks/payments.hooks";
 import { formatPaymentDate, getPaymentStatusConfig, getPaymentType } from "@/utils/payments";
 import { router } from "expo-router";
-import { AlertCircle, ArrowRight, Check, Clock, X } from "lucide-react-native";
+import { AlertCircle, ArrowRight, Check, Clock, RotateCcw, X } from "lucide-react-native";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface PaymentInvoiceCardProps {
@@ -13,6 +14,9 @@ interface PaymentInvoiceCardProps {
 export default function PaymentInvoiceCard({ payment, onPay }: PaymentInvoiceCardProps) {
   const type = getPaymentType(payment.type);
   const statusConfig = getPaymentStatusConfig(payment.status);
+  // Sem gateway ativo no CT, o pagamento é feito presencialmente: o botão levaria a uma tela sem checkout.
+  const { hasActiveGateway, isLoading: isLoadingGateway } = useActivePaymentGateway();
+  const canPayOnline = hasActiveGateway || isLoadingGateway;
 
   const handlePay = () => {
     if (onPay) {
@@ -27,8 +31,14 @@ export default function PaymentInvoiceCard({ payment, onPay }: PaymentInvoiceCar
 
   const title = payment.description || type.label;
   const subtitle = statusConfig.isPaid
-    ? `Pago em ${formatPaymentDate(payment.dueDate)}`
-    : `Vencimento: ${formatPaymentDate(payment.dueDate)}`;
+    ? `Pago em ${
+        payment.paidAtUtc
+          ? new Date(payment.paidAtUtc).toLocaleDateString("pt-BR")
+          : formatPaymentDate(payment.dueDate)
+      }`
+    : statusConfig.label === "Estornado"
+      ? "Pagamento estornado pelo CT"
+      : `Vencimento: ${formatPaymentDate(payment.dueDate)}`;
 
   return (
     <View style={styles.card}>
@@ -40,6 +50,8 @@ export default function PaymentInvoiceCard({ payment, onPay }: PaymentInvoiceCar
             <AlertCircle size={20} color={statusConfig.iconColor} strokeWidth={2.2} />
           ) : statusConfig.label === "Cancelado" ? (
             <X size={20} color={statusConfig.iconColor} strokeWidth={2.2} />
+          ) : statusConfig.label === "Estornado" ? (
+            <RotateCcw size={19} color={statusConfig.iconColor} strokeWidth={2.2} />
           ) : (
             <Clock size={20} color={statusConfig.iconColor} strokeWidth={2.2} />
           )}
@@ -63,6 +75,10 @@ export default function PaymentInvoiceCard({ payment, onPay }: PaymentInvoiceCar
         {statusConfig.isPaid ? (
           <View style={[styles.badge, { backgroundColor: statusConfig.badgeBg }]}>
             <Text style={[styles.badgeText, { color: statusConfig.badgeText }]}>PAGO</Text>
+          </View>
+        ) : statusConfig.canPay && !canPayOnline ? (
+          <View style={[styles.badge, styles.badgePayAtCt]}>
+            <Text style={[styles.badgeText, styles.badgePayAtCtText]}>PAGAR NO CT</Text>
           </View>
         ) : statusConfig.canPay ? (
           <TouchableOpacity
@@ -148,6 +164,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.5,
+  },
+  badgePayAtCt: {
+    backgroundColor: "#FEF3C7",
+  },
+  badgePayAtCtText: {
+    color: "#B45309",
   },
   payButton: {
     backgroundColor: COLORS.mainOrange,

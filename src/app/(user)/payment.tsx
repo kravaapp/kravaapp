@@ -19,6 +19,7 @@ import {
   formatPaymentDate,
   getCheckoutUrl,
   getPaymentResultMessage,
+  getPaymentStatusConfig,
   isPaymentPaid,
 } from "@/utils/payments";
 import * as Clipboard from "expo-clipboard";
@@ -61,6 +62,10 @@ export default function PaymentScreen() {
   );
 }
 
+const isNoGatewayError = (error: unknown) =>
+  !!error &&
+  normalizeApiError(error, "").code === "Payments.GatewayConfigNotFound";
+
 function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
   // A navegação passa apenas o identificador e a página; os dados financeiros vêm da API.
   const { invoice: invoiceQuery, gateway, pay, refreshMembership, isPaying } = useInvoicePayment(id, page);
@@ -85,6 +90,11 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
     isPaymentPaid(result?.status ?? "") || isPaymentPaid(invoice?.status ?? "");
   const cardAvailable =
     gateway.data?.gateway === "mercadopago" && !!gateway.data.publicKey?.trim();
+  // CT sem gateway ativo não tem checkout pelo app. A mesma chave de cache é usada por
+  // useActivePaymentGateway, que guarda null em vez de erro quando não há gateway.
+  const noGateway =
+    !invoiceQuery.error &&
+    (isNoGatewayError(gateway.error) || (gateway.isSuccess && !gateway.data?.gateway));
   const checkoutUrl = getCheckoutUrl(result?.paymentUrl);
   const isPixResult = method === "Pix" && !!result;
   const terminalFailure = ["failed", "rejected", "recusado", "cancelled", "canceled"].includes(result?.status.trim().toLowerCase() ?? "");
@@ -282,11 +292,11 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                   <Text style={styles.amount}>{invoice.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</Text>
                 </View>
               </View>
-              <View style={styles.stepsTrack} accessible accessibilityLabel={`Etapa ${result ? 3 : checkoutStep + 1} de ${PAYMENT_STEPS.length}: ${PAYMENT_STEPS[result ? 2 : checkoutStep]}`}>
+              {!noGateway && <View style={styles.stepsTrack} accessible accessibilityLabel={`Etapa ${result ? 3 : checkoutStep + 1} de ${PAYMENT_STEPS.length}: ${PAYMENT_STEPS[result ? 2 : checkoutStep]}`}>
                 {PAYMENT_STEPS.map((step, index) => (
                   <View key={step} style={[styles.stepLine, index <= (result ? 2 : checkoutStep) && styles.stepLineActive]} />
                 ))}
-              </View>
+              </View>}
             </>
           )}
           {!id ? (
@@ -380,6 +390,17 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
                 router.navigate("/(user)/pendingPayments"),
               )}
             </View>
+          ) : noGateway ? (
+            // CT sem gateway ativo: não há checkout pelo app, o aluno paga no próprio CT.
+            <View style={styles.messageContent}>
+              <Text style={styles.muted}>
+                Este CT não recebe pagamentos pelo app. Pague esta cobrança
+                diretamente na recepção do CT.
+              </Text>
+              {button("Voltar aos planos", () =>
+                router.navigate("/(user)/paymentPlans"),
+              )}
+            </View>
           ) : invoiceQuery.error || gateway.error ? (
             <View style={styles.messageContent}>
               <Text style={styles.error}>
@@ -406,8 +427,8 @@ function InvoicePaymentScreen({ id, page }: { id: string; page?: number }) {
             </Text>
           ) : !canPayInvoice(invoice.status) ? (
             <Text style={styles.muted}>
-              Esta cobrança está {invoice.status} e não está disponível para
-              pagamento.
+              Esta cobrança não está disponível para pagamento (situação:{" "}
+              {getPaymentStatusConfig(invoice.status).label}).
             </Text>
           ) : (
             <View style={styles.stepContent}>

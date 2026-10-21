@@ -57,6 +57,10 @@ export function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
+export function isPaymentRefunded(status: string) {
+  return ["estornado", "estornada", "refunded"].includes(status.trim().toLowerCase());
+}
+
 export function isPaymentOverdue(status: string) {
   return ["overdue", "vencido", "vencida", "atrasado", "atrasada"].includes(status.trim().toLowerCase());
 }
@@ -126,6 +130,31 @@ export function getPaymentStatusConfig(status: string): PaymentStatusConfig {
   if (["cancelado", "cancelada", "canceled", "cancelled"].includes(value)) {
     return {
       label: "Cancelado",
+      badgeBg: "#F3F4F6",
+      badgeText: "#6B7280",
+      iconBg: "#F3F4F6",
+      iconColor: "#6B7280",
+      isPaid: false,
+      canPay: false,
+    };
+  }
+
+  if (isPaymentRefunded(value)) {
+    return {
+      label: "Estornado",
+      badgeBg: "#DBEAFE",
+      badgeText: "#1D4ED8",
+      iconBg: "#DBEAFE",
+      iconColor: "#1D4ED8",
+      isPaid: false,
+      canPay: false,
+    };
+  }
+
+  // Status desconhecido nunca é oferecido para pagamento.
+  if (!canPayInvoice(value)) {
+    return {
+      label: status || "Indisponível",
       badgeBg: "#F3F4F6",
       badgeText: "#6B7280",
       iconBg: "#F3F4F6",
