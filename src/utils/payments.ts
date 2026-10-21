@@ -53,6 +53,34 @@ export function getPaymentType(type: string) {
   return PAYMENT_TYPES[key] ?? { label: type || "Cobrança", description: "" };
 }
 
+export function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}
+
+export function isPaymentOverdue(status: string) {
+  return ["overdue", "vencido", "vencida", "atrasado", "atrasada"].includes(status.trim().toLowerCase());
+}
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  pix: "Pix",
+  dinheiro: "Dinheiro",
+  cartao: "Cartão",
+  creditcard: "Cartão de crédito",
+  cartaocredito: "Cartão de crédito",
+  boleto: "Boleto",
+  transferencia: "Transferência",
+  gympass: "Gympass",
+  totalpass: "TotalPass",
+  balcao: "Balcão",
+  recepcao: "Recepção",
+};
+
+export function formatPaymentMethod(method?: string | null) {
+  if (!method) return "";
+  const key = method.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+  return PAYMENT_METHOD_LABELS[key] ?? method;
+}
+
 export function formatPaymentDate(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("pt-BR", { timeZone: "UTC" });

@@ -33,6 +33,27 @@ import {
   usePendingJoinRequests,
   useResendCtInvitation,
 } from "@/hooks/tenant.hooks";
+import {
+  useConfirmManualPayment,
+  useCancelInvoice,
+  useRefundInvoice,
+  useStudentInvoicesAdmin,
+} from "@/hooks/payments.hooks";
+import { Payment } from "@/types/payments.types";
+import {
+  canPayInvoice,
+  formatCurrency,
+  formatPaymentDate,
+  formatPaymentMethod,
+  getPaymentType,
+  isPaymentOverdue,
+  isPaymentPaid,
+} from "@/utils/payments";
+import {
+  CancelInvoiceModal,
+  ReceivePaymentModal,
+  RefundInvoiceModal,
+} from "@/components/admin/StudentInvoiceModals";
 import { createInvitationSchema } from "@/schemas/auth.schemas";
 import { AlunoType } from "@/types/alunos.types";
 import { CtInvitationSummaryType } from "@/types/tenant.types";
@@ -55,6 +76,7 @@ import {
   CreditCard,
   Mail,
   Plus,
+  Receipt,
   RotateCcw,
   Search,
   SlidersHorizontal,
@@ -115,6 +137,19 @@ const tone = (value?: string | null) =>
     : ["inativo", "suspenso"].includes(value?.toLowerCase() ?? "")
       ? ("danger" as const)
       : ("neutral" as const);
+
+/* Status da cobrança na visão do CT; "Atrasado" é exibido como "Vencida". */
+const invoiceStatus = (status: string) => {
+  const value = status.trim().toLowerCase();
+  if (isPaymentPaid(value)) return { label: "Paga", tone: "success" as const };
+  if (isPaymentOverdue(value)) return { label: "Vencida", tone: "danger" as const };
+  if (canPayInvoice(value)) return { label: "Pendente", tone: "warning" as const };
+  if (["estornado", "estornada", "refunded"].includes(value))
+    return { label: "Estornada", tone: "info" as const };
+  if (["cancelado", "cancelada", "canceled", "cancelled"].includes(value))
+    return { label: "Cancelada", tone: "neutral" as const };
+  return { label: status || "—", tone: "neutral" as const };
+};
 
 export default function AdminStudents() {
   const params = useLocalSearchParams<{ section?: string }>();
@@ -1120,7 +1155,7 @@ function PageButton({
   );
 }
 
-type StudentTab = "plan" | "details" | "history";
+type StudentTab = "plan" | "charges" | "details" | "history";
 
 function StudentModal({
   id,
@@ -1132,7 +1167,7 @@ function StudentModal({
   onClose: () => void;
 }) {
   const modalRefresh = useScreenRefresh(
-    [["aluno", id], ["aluno-history", id], ["plans", "list"]],
+    [["aluno", id], ["aluno-history", id], ["student-invoices", id], ["plans", "list"]],
     { enabled: !!id },
   );
   const { toast } = useToast();
@@ -1152,6 +1187,94 @@ function StudentModal({
 
   const [activeTab, setActiveTab] = useState<StudentTab>("plan");
 
+  const {
+    invoices,
+    totalCount: invoicesTotal,
+    isLoading: invoicesLoading,
+    error: invoicesError,
+    refetch: refetchInvoices,
+  } = useStudentInvoicesAdmin(id ?? undefined, activeTab === "charges");
+  const { confirmPayment, isConfirming } = useConfirmManualPayment();
+  const { cancelInvoice, isCancelling } = useCancelInvoice();
+  const { refundInvoice, isRefunding } = useRefundInvoice();
+
+  const [payingInvoice, setPayingInvoice] = useState<Payment | null>(null);
+  const [cancellingInvoice, setCancellingInvoice] = useState<Payment | null>(
+    null,
+  );
+  const [refundingInvoice, setRefundingInvoice] = useState<Payment | null>(
+    null,
+  );
+
+  const chargesSummary = useMemo(() => {
+    let totalOpen = 0;
+    let openCount = 0;
+    let overdueCount = 0;
+
+    for (const invoice of invoices) {
+      if (!canPayInvoice(invoice.status)) continue;
+      totalOpen += invoice.amount;
+      openCount++;
+      if (isPaymentOverdue(invoice.status)) overdueCount++;
+    }
+
+    return { totalOpen, openCount, overdueCount };
+  }, [invoices]);
+
+  /* Executa a ação e mantém o modal aberto em caso de erro para nova tentativa. */
+  const runInvoiceAction = async (
+    action: () => Promise<void>,
+    close: () => void,
+    successTitle: string,
+    errorTitle: string,
+  ) => {
+    try {
+      await action();
+      close();
+      toast({ title: successTitle });
+    } catch (requestError) {
+      toast({
+        title: errorTitle,
+        description: normalizeApiError(requestError, `${errorTitle}.`)
+          .description,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleConfirmManualPayment = async (
+    paidAmount: number,
+    paymentMethod: string,
+  ) => {
+    if (!payingInvoice) return;
+    await runInvoiceAction(
+      () => confirmPayment(payingInvoice.id, paidAmount, paymentMethod),
+      () => setPayingInvoice(null),
+      "Pagamento registrado!",
+      "Não foi possível registrar o pagamento",
+    );
+  };
+
+  const handleCancelInvoice = async (notes?: string) => {
+    if (!cancellingInvoice) return;
+    await runInvoiceAction(
+      () => cancelInvoice(cancellingInvoice.id, notes),
+      () => setCancellingInvoice(null),
+      "Cobrança cancelada.",
+      "Não foi possível cancelar a cobrança",
+    );
+  };
+
+  const handleRefundInvoice = async (notes?: string) => {
+    if (!refundingInvoice) return;
+    await runInvoiceAction(
+      () => refundInvoice(refundingInvoice.id, notes),
+      () => setRefundingInvoice(null),
+      "Pagamento estornado.",
+      "Não foi possível estornar o pagamento",
+    );
+  };
+
   const [form, setFormState] = useState<AlunoType | null>(null);
   const formDirty = useRef(false);
   const setForm = (value: Parameters<typeof setFormState>[0]) => {
@@ -1170,6 +1293,9 @@ function StudentModal({
     formDirty.current = false;
     setShowChangePlan(false);
     setActiveTab("plan");
+    setPayingInvoice(null);
+    setCancellingInvoice(null);
+    setRefundingInvoice(null);
   }, [id]);
 
   useEffect(() => {
@@ -1383,6 +1509,32 @@ function StudentModal({
                 ]}
               >
                 Plano & Acesso
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.modalTab,
+                activeTab === "charges" && styles.modalTabActive,
+              ]}
+              onPress={() => setActiveTab("charges")}
+              activeOpacity={0.7}
+            >
+              <Receipt
+                size={14}
+                color={
+                  activeTab === "charges"
+                    ? COLORS.mainOrange
+                    : COLORS.mutedForeground
+                }
+              />
+              <Text
+                style={[
+                  styles.modalTabText,
+                  activeTab === "charges" && styles.modalTabTextActive,
+                ]}
+              >
+                Cobranças
               </Text>
             </TouchableOpacity>
 
@@ -1830,6 +1982,72 @@ function StudentModal({
                   </>
                 )}
 
+                {/* ABA 2: COBRANÇAS */}
+                {activeTab === "charges" && (
+                  <View style={styles.historyContainer}>
+                    {invoicesLoading ? (
+                      <>
+                        <AdminSkeleton height={96} radius={14} />
+                        <AdminSkeleton height={180} radius={8} />
+                      </>
+                    ) : invoicesError ? (
+                      <View style={styles.emptyHistoryBox}>
+                        <Text style={styles.error}>
+                          Não foi possível carregar as cobranças.
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => void refetchInvoices()}
+                          style={styles.changePlanToggleBtn}
+                          accessibilityRole="button"
+                        >
+                          <RotateCcw size={13} color={COLORS.mainOrange} />
+                          <Text style={styles.changePlanToggleText}>
+                            Tentar novamente
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <>
+                        <ChargesSummaryCard {...chargesSummary} />
+
+                        <Text style={styles.sectionTitle}>
+                          Cobranças do aluno
+                        </Text>
+                        <Text style={styles.secondary}>
+                          Registre recebimentos feitos no balcão ou cancele
+                          cobranças indevidas.
+                        </Text>
+
+                        {invoices.length === 0 ? (
+                          <View style={styles.emptyHistoryBox}>
+                            <Receipt size={36} color="#D1D5DB" />
+                            <Text style={styles.empty}>
+                              Nenhuma cobrança gerada para este aluno.
+                            </Text>
+                          </View>
+                        ) : (
+                          invoices.map((invoice) => (
+                            <InvoiceRow
+                              key={invoice.id}
+                              invoice={invoice}
+                              onPay={() => setPayingInvoice(invoice)}
+                              onCancel={() => setCancellingInvoice(invoice)}
+                              onRefund={() => setRefundingInvoice(invoice)}
+                            />
+                          ))
+                        )}
+
+                        {invoicesTotal > invoices.length && (
+                          <Text style={styles.secondary}>
+                            Exibindo as {invoices.length} cobranças mais
+                            recentes de {invoicesTotal}.
+                          </Text>
+                        )}
+                      </>
+                    )}
+                  </View>
+                )}
+
                 {/* ABA 3: HISTÓRICO */}
                 {activeTab === "history" && (
                   <View style={styles.historyContainer}>
@@ -1876,7 +2094,177 @@ function StudentModal({
           </RefreshableScrollView>
         </View>
       </KeyboardAvoider>
+
+      <ReceivePaymentModal
+        invoice={payingInvoice}
+        onClose={() => setPayingInvoice(null)}
+        onConfirm={handleConfirmManualPayment}
+        isConfirming={isConfirming}
+      />
+      <CancelInvoiceModal
+        invoice={cancellingInvoice}
+        onClose={() => setCancellingInvoice(null)}
+        onConfirm={handleCancelInvoice}
+        isCancelling={isCancelling}
+      />
+      <RefundInvoiceModal
+        invoice={refundingInvoice}
+        onClose={() => setRefundingInvoice(null)}
+        onConfirm={handleRefundInvoice}
+        isRefunding={isRefunding}
+      />
     </Modal>
+  );
+}
+
+const plural = (count: number, singular: string, pluralForm: string) =>
+  `${count} ${count === 1 ? singular : pluralForm}`;
+
+function ChargesSummaryCard({
+  totalOpen,
+  openCount,
+  overdueCount,
+}: {
+  totalOpen: number;
+  openCount: number;
+  overdueCount: number;
+}) {
+  const hasOpen = openCount > 0;
+  const hasOverdue = overdueCount > 0;
+  const accent = hasOverdue
+    ? COLORS.destructive
+    : hasOpen
+      ? "#B45309"
+      : "#15803D";
+
+  return (
+    <View
+      style={[
+        styles.chargesSummaryCard,
+        hasOverdue
+          ? styles.chargesSummaryDanger
+          : hasOpen
+            ? styles.chargesSummaryWarning
+            : styles.chargesSummaryOk,
+      ]}
+    >
+      <View style={styles.activePlanHeader}>
+        <View style={styles.activePlanTitleGroup}>
+          <Receipt size={15} color={accent} />
+          <Text style={[styles.activePlanLabel, { color: accent }]}>
+            SITUAÇÃO FINANCEIRA
+          </Text>
+        </View>
+        <Pill
+          label={hasOverdue ? "Inadimplente" : hasOpen ? "Em aberto" : "Em dia"}
+          tone={hasOverdue ? "danger" : hasOpen ? "warning" : "success"}
+        />
+      </View>
+      <Text style={styles.activePlanName}>
+        {hasOpen ? formatCurrency(totalOpen) : "Nenhum valor em aberto"}
+      </Text>
+      <Text style={styles.activePlanDatesText}>
+        {hasOpen
+          ? [
+              plural(openCount, "cobrança em aberto", "cobranças em aberto"),
+              hasOverdue && plural(overdueCount, "vencida", "vencidas"),
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : "Todas as cobranças estão quitadas ou encerradas."}
+      </Text>
+    </View>
+  );
+}
+
+function InvoiceRow({
+  invoice,
+  onPay,
+  onCancel,
+  onRefund,
+}: {
+  invoice: Payment;
+  onPay: () => void;
+  onCancel: () => void;
+  onRefund: () => void;
+}) {
+  const status = invoiceStatus(invoice.status);
+  const isOpen = canPayInvoice(invoice.status);
+  const isPaid = isPaymentPaid(invoice.status);
+  const type = getPaymentType(invoice.type).label;
+  const method = formatPaymentMethod(invoice.paymentMethod);
+
+  return (
+    <View style={styles.invoiceRow}>
+      <View style={styles.invoiceTop}>
+        <View style={styles.grow}>
+          <Text style={styles.invoiceTitle} numberOfLines={2}>
+            {invoice.description || type}
+          </Text>
+          <Text style={styles.secondary}>
+            {type} · Vencimento {formatPaymentDate(invoice.dueDate)}
+          </Text>
+        </View>
+        <View style={styles.invoiceAmountGroup}>
+          <Text style={styles.invoiceAmount}>
+            {formatCurrency(invoice.amount)}
+          </Text>
+          {/* Pill se alinha à esquerda por padrão; o wrapper o leva para a direita. */}
+          <View>
+            <Pill label={status.label} tone={status.tone} />
+          </View>
+        </View>
+      </View>
+
+      {isPaid && invoice.paidAtUtc ? (
+        <View style={styles.invoicePaidInfo}>
+          <Check size={13} color="#15803D" />
+          <Text style={styles.invoicePaidText}>
+            Pago em {new Date(invoice.paidAtUtc).toLocaleDateString("pt-BR")}
+            {method ? ` via ${method}` : ""}
+          </Text>
+        </View>
+      ) : null}
+
+      {isOpen && (
+        <View style={styles.invoiceActions}>
+          <TouchableOpacity
+            onPress={onPay}
+            style={[styles.invoiceAction, styles.invoiceActionPrimary]}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+          >
+            <Check size={14} color="#fff" />
+            <Text style={styles.invoiceActionPrimaryText}>
+              Marcar como paga
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onCancel}
+            style={styles.invoiceAction}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+          >
+            <X size={14} color={COLORS.destructive} />
+            <Text style={styles.invoiceActionDangerText}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {isPaid && (
+        <View style={styles.invoiceActions}>
+          <TouchableOpacity
+            onPress={onRefund}
+            style={styles.invoiceAction}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+          >
+            <RotateCcw size={14} color={COLORS.mutedForeground} />
+            <Text style={styles.invoiceActionMutedText}>Estornar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -2573,13 +2961,14 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
     backgroundColor: "#FAFBFB",
   },
+  /* Ícone sobre o rótulo para as quatro abas caberem em telas estreitas. */
   modalTab: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 12,
+    gap: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
@@ -2588,9 +2977,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   modalTabText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: COLORS.mutedForeground,
+    textAlign: "center",
   },
   modalTabTextActive: {
     color: COLORS.mainOrange,
@@ -2636,6 +3026,99 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 36,
     gap: 10,
+  },
+  chargesSummaryCard: {
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    gap: 6,
+    marginBottom: 4,
+  },
+  chargesSummaryOk: {
+    backgroundColor: "#F0FDF4",
+    borderColor: "#BBF7D0",
+  },
+  chargesSummaryWarning: {
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FDE68A",
+  },
+  chargesSummaryDanger: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+  },
+  invoiceRow: {
+    gap: 10,
+    padding: 12,
+    backgroundColor: "#F7F8FA",
+    borderRadius: 10,
+  },
+  invoiceTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  invoiceTitle: {
+    color: COLORS.foreground,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  invoiceAmountGroup: {
+    alignItems: "flex-end",
+    gap: 6,
+  },
+  invoiceAmount: {
+    color: COLORS.foreground,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  invoicePaidInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  invoicePaidText: {
+    color: "#15803D",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  invoiceActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  invoiceAction: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: "#fff",
+  },
+  invoiceActionPrimary: {
+    backgroundColor: COLORS.mainOrange,
+    borderColor: COLORS.mainOrange,
+  },
+  invoiceActionPrimaryText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  invoiceActionDangerText: {
+    color: COLORS.destructive,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  invoiceActionMutedText: {
+    color: COLORS.mutedForeground,
+    fontSize: 12,
+    fontWeight: "700",
   },
 });
 

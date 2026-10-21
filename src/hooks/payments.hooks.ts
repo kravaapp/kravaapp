@@ -74,3 +74,69 @@ export function useActivePaymentGateway() {
     refetch: query.refetch,
   };
 }
+
+/* Cobranças de um aluno na visão do CT; `enabled` adia a busca até a aba "Cobranças" ser aberta. */
+export function useStudentInvoicesAdmin(alunoId?: string, enabled = true) {
+  const query = useQuery({
+    queryKey: ["student-invoices", alunoId],
+    queryFn: () => new PaymentsRoutes().getStudentInvoices(alunoId!),
+    enabled: !!alunoId && enabled,
+  });
+
+  return {
+    invoices: query.data?.items ?? [],
+    totalCount: query.data?.totalCount ?? 0,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+/* Baixa, cancelamento e estorno mudam status do aluno, contratos e indicadores financeiros. */
+function useInvoiceMutation<TVariables>(mutationFn: (variables: TVariables) => Promise<void>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn,
+    retry: false,
+    onSuccess: () => {
+      for (const key of ["student-invoices", "aluno", "alunos", "contracts", "financial-summary", "admin-financial-dashboard"]) {
+        void client.invalidateQueries({ queryKey: [key] });
+      }
+    },
+  });
+}
+
+export function useConfirmManualPayment() {
+  const mutation = useInvoiceMutation(
+    ({ id, paidAmount, paymentMethod }: { id: string; paidAmount: number; paymentMethod: string }) =>
+      new PaymentsRoutes().confirmManualPayment(id, { paidAmount, paymentMethod }),
+  );
+
+  return {
+    confirmPayment: (id: string, paidAmount: number, paymentMethod: string) =>
+      mutation.mutateAsync({ id, paidAmount, paymentMethod }),
+    isConfirming: mutation.isPending,
+  };
+}
+
+export function useCancelInvoice() {
+  const mutation = useInvoiceMutation(({ id, notes }: { id: string; notes?: string }) =>
+    new PaymentsRoutes().cancelInvoice(id, notes),
+  );
+
+  return {
+    cancelInvoice: (id: string, notes?: string) => mutation.mutateAsync({ id, notes }),
+    isCancelling: mutation.isPending,
+  };
+}
+
+export function useRefundInvoice() {
+  const mutation = useInvoiceMutation(({ id, notes }: { id: string; notes?: string }) =>
+    new PaymentsRoutes().refundInvoice(id, notes),
+  );
+
+  return {
+    refundInvoice: (id: string, notes?: string) => mutation.mutateAsync({ id, notes }),
+    isRefunding: mutation.isPending,
+  };
+}

@@ -33,12 +33,14 @@ export type PayInvoiceResponse = {
 
 export type Payment = {
   id: string;
-  alunoName: string;
+  alunoName?: string;
   description: string;
   amount: number;
   dueDate: string;
   status: string;
   type: string;
+  paidAtUtc?: string | null;
+  paymentMethod?: string | null;
 };
 
 export type PaginatedPayments = {

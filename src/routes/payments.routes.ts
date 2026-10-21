@@ -53,6 +53,27 @@ export class PaymentsRoutes {
     }
   }
 
+  async getStudentInvoices(alunoId: string, page = 1, pageSize = 50): Promise<PaginatedPayments> {
+    const studentId = z.uuid().parse(alunoId);
+    return api.get(`/payments/aluno/${studentId}`, { searchParams: { page, pageSize } })
+      .json<PaginatedPayments>();
+  }
+
+  async confirmManualPayment(id: string, request: { paidAmount: number; paymentMethod: string }): Promise<void> {
+    const invoiceId = z.uuid().parse(id);
+    await api.post(`/payments/${invoiceId}/confirm`, { json: request, retry: 0 });
+  }
+
+  async cancelInvoice(id: string, notes?: string): Promise<void> {
+    const invoiceId = z.uuid().parse(id);
+    await api.post(`/payments/${invoiceId}/cancel`, { json: { notes: notes?.trim() || null }, retry: 0 });
+  }
+
+  async refundInvoice(id: string, notes?: string): Promise<void> {
+    const invoiceId = z.uuid().parse(id);
+    await api.post(`/payments/${invoiceId}/refund`, { json: { notes: notes?.trim() || null }, retry: 0 });
+  }
+
   async getGateways(): Promise<PaymentGatewayConfiguration[]> {
     const result = await api.get("/payments/gateways").json<PaymentGatewayConfiguration[]>();
     // Seleciona apenas os metadados, mesmo se a API passar a enviar outros campos.
