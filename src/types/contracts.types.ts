@@ -1,6 +1,8 @@
 export type SubscribeContractType = {
   planoId: string;
   cancelExistingActive?: boolean;
+  /** false agenda o novo período para depois do término do plano atual (renovação). */
+  immediate?: boolean;
 };
 
 /** Cobrança pendente retornada pelo subscribe; ainda não existe um novo contrato. */

@@ -4,7 +4,7 @@ import api from "./client";
 export class ContractsRoutes {
   async subscribe(contract: SubscribeContractType): Promise<SubscriptionInvoice> {
     return api.post("/membership/contratos/subscribe", {
-      json: { cancelExistingActive: true, ...contract, immediate: true },
+      json: { cancelExistingActive: true, ...contract, immediate: contract.immediate ?? true },
       retry: 0,
     }).json<SubscriptionInvoice>();
   }

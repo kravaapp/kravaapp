@@ -23,7 +23,7 @@ import { usePayments } from "@/hooks/studentPayments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
 import { CurrentPlanType, PlanType } from "@/types/plans.types";
 import { router } from "expo-router";
-import { ArrowRight, Check, ChevronDown, Clock, CreditCard, ShieldAlert, Star, X } from "lucide-react-native";
+import { ArrowRight, Check, ChevronDown, Clock, CreditCard, RefreshCw, ShieldAlert, Star, X } from "lucide-react-native";
 import { useRef, useState } from "react";
 
 const ProgressBar = ({ progress }: { progress: number }) => (
@@ -66,10 +66,15 @@ const CurrentPlanCard = ({
   plan,
   onChangePlan,
   onCancelRecorrencia,
+  onRenew,
+  isRenewing = false,
 }: {
   plan: CurrentPlanType;
   onChangePlan?: () => void;
   onCancelRecorrencia?: () => void;
+  /** Só é passado quando o plano não renova sozinho e o CT aceita pagamento pelo app. */
+  onRenew?: () => void;
+  isRenewing?: boolean;
 }) => {
   const hasLimit =
     plan.maxClassesPerMonth !== null && plan.maxClassesPerMonth > 0;
@@ -177,6 +182,25 @@ const CurrentPlanCard = ({
           </Text>
         </View>
       )}
+
+      {!plan.autoRenew && onRenew && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isRenewing, busy: isRenewing }}
+          style={[styles.renewButton, isRenewing && { opacity: 0.6 }]}
+          onPress={onRenew}
+          disabled={isRenewing}
+        >
+          {isRenewing ? (
+            <ActivityIndicator size="small" color={COLORS.mainOrange} />
+          ) : (
+            <>
+              <RefreshCw size={16} color={COLORS.mainOrange} />
+              <Text style={styles.renewButtonText}>Renovar pelo app</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -184,6 +208,7 @@ const CurrentPlanCard = ({
 const PlanCard = ({
   plan,
   isCurrent = false,
+  canRenew = false,
   hasActiveGateway = false,
   hasPendingPlanRequest = false,
   isRequestedPlan = false,
@@ -194,6 +219,8 @@ const PlanCard = ({
 }: {
   plan: PlanType;
   isCurrent?: boolean;
+  /** Plano atual sem renovação automática: pode ser renovado pelo app. */
+  canRenew?: boolean;
   hasActiveGateway?: boolean;
   hasPendingPlanRequest?: boolean;
   isRequestedPlan?: boolean;
@@ -263,7 +290,7 @@ const PlanCard = ({
       </View>
 
       <View style={styles.buttonContainer}>
-        {isCurrent ? (
+        {isCurrent && !(canRenew && hasActiveGateway) ? (
           <TouchableOpacity style={styles.btnOutlineDisabled} disabled>
             <Text style={styles.btnOutlineDisabledText}>Plano atual</Text>
           </TouchableOpacity>
@@ -298,7 +325,9 @@ const PlanCard = ({
             {isSubscribing ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.btnSolidText}>Assinar Plano</Text>
+              <Text style={styles.btnSolidText}>
+                {isCurrent ? "Renovar pelo app" : "Assinar Plano"}
+              </Text>
             )}
           </TouchableOpacity>
         )}
@@ -344,6 +373,9 @@ export default function PaymentPlans() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [planToRequest, setPlanToRequest] = useState<PlanType | null>(null);
   const hasPendingPlanRequest = planRequest?.status === "Pending";
+  const renewablePlan = currentPlan && !currentPlan.autoRenew
+    ? plans?.find((p) => p.isActive && p.name === currentPlan.planoName) ?? null
+    : null;
 
   const handleRequestPlan = (plan: PlanType) => {
     setPlanToRequest(plan);
@@ -373,14 +405,19 @@ export default function PaymentPlans() {
     if (subscriptionInFlight.current) return;
     subscriptionInFlight.current = true;
     setSubscribingPlanId(plan.id);
+    // Renovar o plano atual agenda o novo período para depois do término, sem cortar o que já foi pago.
+    const isRenewal = currentPlan?.planoName === plan.name;
     try {
       const invoice = await subscribe({
         planoId: plan.id,
         cancelExistingActive: true,
+        immediate: !isRenewal,
       });
       toast({
         title: "Cobrança pendente",
-        description: "Conclua o pagamento para efetivar a assinatura.",
+        description: isRenewal && currentPlan
+          ? `Conclua o pagamento. O novo período começa após ${formatDate(currentPlan.endDate)}.`
+          : "Conclua o pagamento para efetivar a assinatura.",
       });
       router.push({
         pathname: "/(user)/payment",
@@ -521,6 +558,12 @@ export default function PaymentPlans() {
             plan={currentPlan}
             onChangePlan={() => setPlansModalVisible(true)}
             onCancelRecorrencia={() => setCancelModalVisible(true)}
+            onRenew={
+              hasActiveGateway && renewablePlan
+                ? () => handleSubscribe(renewablePlan)
+                : undefined
+            }
+            isRenewing={!!renewablePlan && subscribingPlanId === renewablePlan.id}
           />
         ) : (
           <View style={styles.cardNavy}>
@@ -803,6 +846,7 @@ export default function PaymentPlans() {
                     key={p.id}
                     plan={p}
                     isCurrent={currentPlan?.planoName === p.name}
+                    canRenew={renewablePlan?.id === p.id}
                     hasActiveGateway={hasActiveGateway}
                     hasPendingPlanRequest={hasPendingPlanRequest}
                     isRequestedPlan={hasPendingPlanRequest && planRequest?.planoId === p.id}
@@ -1488,6 +1532,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+  },
+  /* Card do plano atual é laranja: a ação principal fica em branco para contrastar. */
+  renewButton: {
+    marginTop: 12,
+    minHeight: 46,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  renewButtonText: {
+    color: COLORS.mainOrange,
+    fontSize: 14,
+    fontWeight: "700",
   },
   changePlanButtonText: {
     color: COLORS.white,
