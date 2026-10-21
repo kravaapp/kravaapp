@@ -23,7 +23,7 @@ const refundResult = {
   restoredPlanoName: null, restoredUntil: null, recurringCancelFailed: false,
 };
 
-async function setup(page: Page, items = invoices()) {
+async function setup(page: Page, items: Record<string, unknown>[] = invoices()) {
   await page.addInitScript(() => localStorage.setItem("@krava:auth-state", JSON.stringify({
     accessToken: "test-token", refreshToken: "test-refresh", expiresAtUtc: "2099-01-01T00:00:00Z",
     userId: "admin", userName: "Admin Teste", email: "admin@example.com", tenantId: "ct", tenantName: "CT Teste", role: "Admin",
@@ -140,6 +140,15 @@ test("falha no gateway permite registrar estorno feito pelo painel, mantendo o p
   await expect.poll(() => state.posts.length).toBe(2);
   expect(state.posts[0].body).toEqual({ notes: null, cancelPlan: false, alreadyRefundedAtGateway: false });
   expect(state.posts[1].body).toEqual({ notes: null, cancelPlan: false, alreadyRefundedAtGateway: true });
+});
+
+test("estorno que manteve o plano ativo deixa a situação em atenção", async ({ page }) => {
+  await setup(page, [{ ...invoices()[2], status: "Estornado", paidAtUtc: null }]);
+  await expect(page.getByText("Atenção", { exact: true })).toBeVisible();
+  await expect(page.getByText("Plano Mensal ativo sem pagamento", { exact: true })).toBeVisible();
+  await expect(page.getByText("Pagamento estornado · R$ 50,00", { exact: true })).toBeVisible();
+  await expect(page.getByText("Estornada", { exact: true })).toBeVisible();
+  await page.screenshot({ path: "e2e-screenshots/student-charges-refunded-plan.png" });
 });
 
 test("aluno sem cobranças em aberto aparece em dia", async ({ page }) => {
