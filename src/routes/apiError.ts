@@ -60,6 +60,9 @@ function errorEntries(data: Record<string, unknown>) {
   return Array.isArray(data.errors) ? data.errors.filter(isRecord) : [];
 }
 
+/** Erros cuja mensagem já vem pronta da API e não deve ser trocada pelo tradutor do Mercado Pago. */
+const API_MESSAGE_CODES = new Set(["Payments.GatewayRefundFailed"]);
+
 function isKnownErrorCode(code: string) {
   return Object.hasOwn(FRIENDLY_BY_CODE, code) || code === "Payments.GatewayError";
 }
@@ -90,11 +93,12 @@ export function normalizeApiError(
       const friendlyDescription = code && Object.hasOwn(FRIENDLY_BY_CODE, code)
         ? FRIENDLY_BY_CODE[code]
         : undefined;
+      const providerDescription = code && API_MESSAGE_CODES.has(code) ? null : gatewayDescription;
 
       return {
         code,
         description:
-          friendlyDescription ?? gatewayDescription ?? firstString(
+          friendlyDescription ?? providerDescription ?? firstString(
             data.message,
             data.description,
             data.detail,

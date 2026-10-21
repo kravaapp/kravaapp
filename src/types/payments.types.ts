@@ -43,6 +43,39 @@ export type Payment = {
   paymentMethod?: string | null;
 };
 
+/** Cobrança na aba "Cobranças" do aluno (visão do CT), com o contrato pago por ela. */
+export type StudentInvoice = Payment & {
+  gateway: string | null;
+  paidViaGateway: boolean;
+  contratoId: string | null;
+  contratoPlanoName: string | null;
+  contratoEndDate: string | null;
+  hasActiveContrato: boolean;
+};
+
+export type PaginatedStudentInvoices = {
+  items: StudentInvoice[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+};
+
+export type RefundInvoiceRequest = {
+  notes?: string;
+  cancelPlan: boolean;
+  alreadyRefundedAtGateway: boolean;
+};
+
+export type RefundInvoiceResult = {
+  refundedAtGateway: boolean;
+  planOutcome: "None" | "Cancelled" | "PreviousRestored";
+  cancelledPlanoName: string | null;
+  restoredPlanoName: string | null;
+  restoredUntil: string | null;
+  recurringCancelFailed: boolean;
+};
+
 export type PaginatedPayments = {
   items: Payment[];
   page: number;

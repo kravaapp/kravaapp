@@ -1,6 +1,11 @@
 import { useAuth } from "@/hooks/auth.hooks";
 import { PaymentsRoutes } from "@/routes/payments.routes";
-import { PaymentGateway, PaymentGatewayConfiguration, UpdatePaymentGateway } from "@/types/payments.types";
+import {
+  PaymentGateway,
+  PaymentGatewayConfiguration,
+  RefundInvoiceRequest,
+  UpdatePaymentGateway,
+} from "@/types/payments.types";
 import { updateGatewayStatuses } from "@/utils/paymentGateways";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -93,13 +98,13 @@ export function useStudentInvoicesAdmin(alunoId?: string, enabled = true) {
 }
 
 /* Baixa, cancelamento e estorno mudam status do aluno, contratos e indicadores financeiros. */
-function useInvoiceMutation<TVariables>(mutationFn: (variables: TVariables) => Promise<void>) {
+function useInvoiceMutation<TVariables, TResult = void>(mutationFn: (variables: TVariables) => Promise<TResult>) {
   const client = useQueryClient();
   return useMutation({
     mutationFn,
     retry: false,
     onSuccess: () => {
-      for (const key of ["student-invoices", "aluno", "alunos", "contracts", "financial-summary", "admin-financial-dashboard"]) {
+      for (const key of ["student-invoices", "aluno", "aluno-history", "alunos", "contracts", "financial-summary", "admin-financial-dashboard"]) {
         void client.invalidateQueries({ queryKey: [key] });
       }
     },
@@ -131,12 +136,12 @@ export function useCancelInvoice() {
 }
 
 export function useRefundInvoice() {
-  const mutation = useInvoiceMutation(({ id, notes }: { id: string; notes?: string }) =>
-    new PaymentsRoutes().refundInvoice(id, notes),
+  const mutation = useInvoiceMutation(({ id, request }: { id: string; request: RefundInvoiceRequest }) =>
+    new PaymentsRoutes().refundInvoice(id, request),
   );
 
   return {
-    refundInvoice: (id: string, notes?: string) => mutation.mutateAsync({ id, notes }),
+    refundInvoice: (id: string, request: RefundInvoiceRequest) => mutation.mutateAsync({ id, request }),
     isRefunding: mutation.isPending,
   };
 }

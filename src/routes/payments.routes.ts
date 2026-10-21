@@ -3,9 +3,12 @@ import {
   PayInvoiceRequest,
   PayInvoiceResponse,
   PaginatedPayments,
+  PaginatedStudentInvoices,
   Payment,
   PaymentGateway,
   PaymentGatewayConfiguration,
+  RefundInvoiceRequest,
+  RefundInvoiceResult,
   UpdatePaymentGateway,
 } from "@/types/payments.types";
 import { PAYMENT_GATEWAYS } from "@/utils/paymentGateways";
@@ -53,10 +56,10 @@ export class PaymentsRoutes {
     }
   }
 
-  async getStudentInvoices(alunoId: string, page = 1, pageSize = 50): Promise<PaginatedPayments> {
+  async getStudentInvoices(alunoId: string, page = 1, pageSize = 50): Promise<PaginatedStudentInvoices> {
     const studentId = z.uuid().parse(alunoId);
     return api.get(`/payments/aluno/${studentId}`, { searchParams: { page, pageSize } })
-      .json<PaginatedPayments>();
+      .json<PaginatedStudentInvoices>();
   }
 
   async confirmManualPayment(id: string, request: { paidAmount: number; paymentMethod: string }): Promise<void> {
@@ -69,9 +72,12 @@ export class PaymentsRoutes {
     await api.post(`/payments/${invoiceId}/cancel`, { json: { notes: notes?.trim() || null }, retry: 0 });
   }
 
-  async refundInvoice(id: string, notes?: string): Promise<void> {
+  async refundInvoice(id: string, request: RefundInvoiceRequest): Promise<RefundInvoiceResult> {
     const invoiceId = z.uuid().parse(id);
-    await api.post(`/payments/${invoiceId}/refund`, { json: { notes: notes?.trim() || null }, retry: 0 });
+    return api.post(`/payments/${invoiceId}/refund`, {
+      json: { ...request, notes: request.notes?.trim() || null },
+      retry: 0,
+    }).json<RefundInvoiceResult>();
   }
 
   async getGateways(): Promise<PaymentGatewayConfiguration[]> {

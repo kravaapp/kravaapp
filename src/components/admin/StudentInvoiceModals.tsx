@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -11,10 +12,13 @@ import Modal from "@/components/AppModal";
 import KeyboardAvoider from "@/components/KeyboardAvoider";
 import { COLORS } from "@/components/ClientHeader";
 import { ActionButton } from "@/components/admin/AdminUi";
-import { Payment } from "@/types/payments.types";
+import { Payment, RefundInvoiceRequest, StudentInvoice } from "@/types/payments.types";
 import { maskCurrency, parseCurrency, toCurrencyInput } from "@/utils/masks";
 import { formatCurrency, formatPaymentDate } from "@/utils/payments";
-import { AlertTriangle, X } from "lucide-react-native";
+import { AlertTriangle, CreditCard, X } from "lucide-react-native";
+
+/* No react-native-web a bolinha do switch ligado usa `activeThumbColor` (fora da tipagem do RN). */
+const WEB_ACTIVE_THUMB: Record<string, string> = { activeThumbColor: "#fff" };
 
 function ModalHeader({
   title,
@@ -266,25 +270,50 @@ export function CancelInvoiceModal({
 
 export function RefundInvoiceModal({
   invoice,
+  gatewayError,
   onClose,
   onConfirm,
   isRefunding,
 }: {
-  invoice: Payment | null;
+  invoice: StudentInvoice | null;
+  /** Mensagem da última tentativa que falhou no gateway; libera o registro manual do estorno. */
+  gatewayError: string | null;
   onClose: () => void;
-  onConfirm: (notes?: string) => Promise<void>;
+  onConfirm: (request: RefundInvoiceRequest) => Promise<void>;
   isRefunding: boolean;
 }) {
   const [notes, setNotes] = useState("");
+  const [cancelPlan, setCancelPlan] = useState(true);
+  const [alreadyRefunded, setAlreadyRefunded] = useState(false);
 
   useEffect(() => {
     setNotes("");
+    setCancelPlan(true);
+    setAlreadyRefunded(false);
   }, [invoice]);
+
+  const canCancelPlan = !!invoice?.hasActiveContrato;
+  const planLabel = invoice?.contratoPlanoName ?? "vinculado";
+  const planUntil = invoice?.contratoEndDate
+    ? ` (vigente até ${formatPaymentDate(invoice.contratoEndDate)})`
+    : "";
 
   const handleSubmit = async () => {
     if (isRefunding || !invoice) return;
-    await onConfirm(notes);
+    await onConfirm({
+      notes,
+      cancelPlan: canCancelPlan && cancelPlan,
+      alreadyRefundedAtGateway: !!gatewayError && alreadyRefunded,
+    });
   };
+
+  const submitLabel = isRefunding
+    ? "Estornando..."
+    : gatewayError && alreadyRefunded
+      ? "Registrar estorno"
+      : gatewayError
+        ? "Tentar estornar novamente"
+        : "Confirmar estorno";
 
   return (
     <Modal
@@ -310,9 +339,73 @@ export function RefundInvoiceModal({
                 <Text style={styles.boldText}>
                   {invoice ? formatCurrency(invoice.amount) : "R$ 0,00"}
                 </Text>
-                ? O status será alterado para estornado e o lançamento deixará de constar como quitado.
+                ? O status será alterado para estornado e o aluno será avisado no app.
               </Text>
             </View>
+
+            {invoice?.paidViaGateway && !gatewayError ? (
+              <View style={styles.infoBox}>
+                <View style={styles.infoHeader}>
+                  <CreditCard size={15} color={COLORS.info} />
+                  <Text style={styles.infoTitle}>Pago pelo app</Text>
+                </View>
+                <Text style={styles.infoSubtitle}>
+                  O valor será devolvido ao aluno pelo próprio gateway, no mesmo
+                  meio usado no pagamento.
+                </Text>
+              </View>
+            ) : null}
+
+            {gatewayError ? (
+              <View style={styles.errorCard}>
+                <View style={styles.emergencyHeader}>
+                  <AlertTriangle size={16} color={COLORS.destructive} />
+                  <Text style={styles.errorTitle}>Estorno não realizado no gateway</Text>
+                </View>
+                <Text style={styles.emergencySubtitle}>{gatewayError}</Text>
+                <View style={styles.switchRow}>
+                  <View style={styles.grow}>
+                    <Text style={styles.fieldLabel}>
+                      Já estornei pelo painel do gateway
+                    </Text>
+                    <Text style={styles.secondary}>
+                      Registra o estorno só no Krava, sem nova tentativa no gateway.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={alreadyRefunded}
+                    onValueChange={setAlreadyRefunded}
+                    trackColor={{ true: COLORS.mainOrange }}
+                    thumbColor="#fff"
+                    {...WEB_ACTIVE_THUMB}
+                    accessibilityLabel="Já estornei pelo painel do gateway"
+                  />
+                </View>
+              </View>
+            ) : null}
+
+            {canCancelPlan ? (
+              <View style={styles.switchRow}>
+                <View style={styles.grow}>
+                  <Text style={styles.fieldLabel}>
+                    Cancelar também o plano {planLabel}
+                    {planUntil}
+                  </Text>
+                  <Text style={styles.secondary}>
+                    Se ele substituiu outro plano ainda vigente, o anterior volta
+                    a valer até o fim do período já pago, sem renovação automática.
+                  </Text>
+                </View>
+                <Switch
+                  value={cancelPlan}
+                  onValueChange={setCancelPlan}
+                  trackColor={{ true: COLORS.mainOrange }}
+                  thumbColor="#fff"
+                  {...WEB_ACTIVE_THUMB}
+                  accessibilityLabel={`Cancelar também o plano ${planLabel}`}
+                />
+              </View>
+            ) : null}
 
             <Field
               label="Motivo do estorno (opcional)"
@@ -323,7 +416,7 @@ export function RefundInvoiceModal({
             />
 
             <ActionButton
-              label={isRefunding ? "Estornando..." : "Confirmar estorno"}
+              label={submitLabel}
               onPress={handleSubmit}
               disabled={isRefunding}
             />
@@ -481,5 +574,36 @@ const styles = StyleSheet.create({
   boldText: {
     fontWeight: "700",
     color: COLORS.foreground,
+  },
+  infoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  errorCard: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+  },
+  errorTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: COLORS.destructive,
+    letterSpacing: -0.2,
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    backgroundColor: "#F7F8FA",
+    borderRadius: 8,
+  },
+  grow: {
+    flex: 1,
+    minWidth: 0,
   },
 });

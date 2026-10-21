@@ -39,7 +39,11 @@ import {
   useRefundInvoice,
   useStudentInvoicesAdmin,
 } from "@/hooks/payments.hooks";
-import { Payment } from "@/types/payments.types";
+import {
+  RefundInvoiceRequest,
+  RefundInvoiceResult,
+  StudentInvoice,
+} from "@/types/payments.types";
 import {
   canPayInvoice,
   formatCurrency,
@@ -1198,11 +1202,14 @@ function StudentModal({
   const { cancelInvoice, isCancelling } = useCancelInvoice();
   const { refundInvoice, isRefunding } = useRefundInvoice();
 
-  const [payingInvoice, setPayingInvoice] = useState<Payment | null>(null);
-  const [cancellingInvoice, setCancellingInvoice] = useState<Payment | null>(
+  const [payingInvoice, setPayingInvoice] = useState<StudentInvoice | null>(
     null,
   );
-  const [refundingInvoice, setRefundingInvoice] = useState<Payment | null>(
+  const [cancellingInvoice, setCancellingInvoice] =
+    useState<StudentInvoice | null>(null);
+  const [refundingInvoice, setRefundingInvoice] =
+    useState<StudentInvoice | null>(null);
+  const [refundGatewayError, setRefundGatewayError] = useState<string | null>(
     null,
   );
 
@@ -1265,14 +1272,41 @@ function StudentModal({
     );
   };
 
-  const handleRefundInvoice = async (notes?: string) => {
+  const openRefund = (invoice: StudentInvoice | null) => {
+    setRefundGatewayError(null);
+    setRefundingInvoice(invoice);
+  };
+
+  /* Falha no gateway mantém o modal aberto para registrar um estorno feito pelo painel do gateway. */
+  const handleRefundInvoice = async (request: RefundInvoiceRequest) => {
     if (!refundingInvoice) return;
-    await runInvoiceAction(
-      () => refundInvoice(refundingInvoice.id, notes),
-      () => setRefundingInvoice(null),
-      "Pagamento estornado.",
-      "Não foi possível estornar o pagamento",
-    );
+    try {
+      const result = await refundInvoice(refundingInvoice.id, request);
+      openRefund(null);
+      toast({ title: "Pagamento estornado.", description: refundOutcomeMessage(result) });
+      if (result.recurringCancelFailed) {
+        toast({
+          title: "Recorrência não cancelada no gateway",
+          description:
+            "Cancele a assinatura do aluno pelo painel do gateway para evitar novas cobranças no cartão.",
+          variant: "destructive",
+        });
+      }
+    } catch (requestError) {
+      const error = normalizeApiError(
+        requestError,
+        "Não foi possível estornar o pagamento.",
+      );
+      if (error.code === "Payments.GatewayRefundFailed") {
+        setRefundGatewayError(error.description);
+        return;
+      }
+      toast({
+        title: "Não foi possível estornar o pagamento",
+        description: error.description,
+        variant: "destructive",
+      });
+    }
   };
 
   const [form, setFormState] = useState<AlunoType | null>(null);
@@ -1296,6 +1330,7 @@ function StudentModal({
     setPayingInvoice(null);
     setCancellingInvoice(null);
     setRefundingInvoice(null);
+    setRefundGatewayError(null);
   }, [id]);
 
   useEffect(() => {
@@ -2032,7 +2067,7 @@ function StudentModal({
                               invoice={invoice}
                               onPay={() => setPayingInvoice(invoice)}
                               onCancel={() => setCancellingInvoice(invoice)}
-                              onRefund={() => setRefundingInvoice(invoice)}
+                              onRefund={() => openRefund(invoice)}
                             />
                           ))
                         )}
@@ -2109,13 +2144,27 @@ function StudentModal({
       />
       <RefundInvoiceModal
         invoice={refundingInvoice}
-        onClose={() => setRefundingInvoice(null)}
+        gatewayError={refundGatewayError}
+        onClose={() => openRefund(null)}
         onConfirm={handleRefundInvoice}
         isRefunding={isRefunding}
       />
     </Modal>
   );
 }
+
+const refundOutcomeMessage = (result: RefundInvoiceResult) => {
+  const money = result.refundedAtGateway
+    ? "O valor foi devolvido pelo gateway."
+    : "Estorno registrado no Krava.";
+  if (result.planOutcome === "PreviousRestored")
+    return `${money} O plano ${result.restoredPlanoName ?? "anterior"} voltou a valer${
+      result.restoredUntil ? ` até ${formatPaymentDate(result.restoredUntil)}` : ""
+    }.`;
+  if (result.planOutcome === "Cancelled")
+    return `${money} O plano ${result.cancelledPlanoName ?? "vinculado"} foi cancelado.`;
+  return money;
+};
 
 const plural = (count: number, singular: string, pluralForm: string) =>
   `${count} ${count === 1 ? singular : pluralForm}`;
@@ -2183,7 +2232,7 @@ function InvoiceRow({
   onCancel,
   onRefund,
 }: {
-  invoice: Payment;
+  invoice: StudentInvoice;
   onPay: () => void;
   onCancel: () => void;
   onRefund: () => void;
