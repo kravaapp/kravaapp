@@ -3,7 +3,7 @@ import { expect, Page, test } from "@playwright/test";
 const planoId = "019318b8-4720-7216-953a-0e6205791c10";
 const cobrancaId = "019318bc-8910-74e2-89b1-5916ba58bc32";
 
-async function setup(page: Page, gateway = "abacatepay") {
+async function setup(page: Page, gateway = "abacatepay", { paid = false } = {}) {
   await page.addInitScript(() => {
     localStorage.setItem("@krava:auth-state", JSON.stringify({
       accessToken: "test-token", refreshToken: "test-refresh", expiresAtUtc: "2099-01-01T00:00:00Z",
@@ -11,7 +11,7 @@ async function setup(page: Page, gateway = "abacatepay") {
       tenantName: "CT Teste", role: "Aluno", gender: "M", studentLevel: "Iniciante",
     }));
   });
-  const state = { subscribed: false, paid: false, planReads: 0, paymentRequests: [] as Record<string, unknown>[],
+  const state = { subscribed: false, paid, planReads: 0, paymentRequests: [] as Record<string, unknown>[],
     subscriptions: [] as Record<string, unknown>[], lock: false };
   await page.route("https://sdk.mercadopago.com/**", (route) => route.fulfill({ body: "", contentType: "text/javascript" }));
   await page.route("**/api/**", async (route) => {
@@ -48,6 +48,8 @@ async function setup(page: Page, gateway = "abacatepay") {
       }] : [], page: currentPage, pageSize: 1, totalCount: 2, totalPages: 2,
         hasNextPage: currentPage === 1, hasPreviousPage: currentPage > 1 });
     }
+    // Sem solicitação presencial nem de parceiro em andamento.
+    if (/\/membership\/(plan|partner)-requests\/my$/.test(url.pathname)) return fulfill(null);
     if (url.pathname.endsWith("/payments/gateways/active")) return fulfill({ gateway, publicKey: gateway === "mercadopago" ? "TEST-public-key" : null });
     if (url.pathname.endsWith(`/payments/${cobrancaId}/pay`)) {
       const payload = request.postDataJSON();
@@ -61,7 +63,7 @@ async function setup(page: Page, gateway = "abacatepay") {
     return fulfill({ items: [] });
   });
   await page.goto("/paymentPlans");
-  await expect(page.getByRole("button", { name: "Assinar Plano" })).toBeVisible();
+  if (!paid) await expect(page.getByRole("button", { name: "Assinar Plano" })).toBeVisible();
   return state;
 }
 
@@ -151,4 +153,16 @@ test("recusa do pagamento exibe Pagamento Recusado e mantém a cobrança pendent
   await expect(page.getByText(/UNAUTHORIZED|At least one policy/)).toHaveCount(0);
   await expect(page).toHaveURL(new RegExp(`/payment\\?id=${cobrancaId}`));
   expect(state.paid).toBe(false);
+});
+
+test("plano atual sem renovação automática pode ser renovado pelo app sem cortar o período vigente", async ({ page }) => {
+  const state = await setup(page, "abacatepay", { paid: true });
+
+  const renew = page.getByRole("button", { name: "Renovar pelo app" });
+  await expect(renew).toBeVisible();
+  await page.screenshot({ path: "e2e-screenshots/student-plan-renew.png" });
+  await renew.click();
+
+  // O mock já devolve a cobrança como paga, então a tela de pagamento volta aos planos logo em seguida.
+  await expect.poll(() => state.subscriptions).toEqual([{ planoId, cancelExistingActive: true, immediate: false }]);
 });
