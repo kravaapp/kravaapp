@@ -220,7 +220,11 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
       payloadData?.type === "partner_request_approved" ||
       payloadData?.type === "partner_request_rejected"
     ) {
-      router.push("/profile");
+      // O parceiro aprovado (ou a recusa) aparece na tela de planos, junto do acesso do aluno.
+      router.push("/(user)/paymentPlans");
+    } else if (typeof payloadData?.url === "string" && payloadData.url.startsWith("/(user)")) {
+      // Estorno e vínculo encerrado já trazem o destino, como no push.
+      router.push(payloadData.url as any);
     } else if (
       item.title?.toLowerCase().includes("solicitação aprovada") ||
       payloadData?.type === "join_request_approved"

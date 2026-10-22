@@ -140,7 +140,7 @@ export function handleNotificationNavigation(
     type === "partner_request_approved" ||
     type === "partner_request_rejected"
   ) {
-    router.push("/profile");
+    router.push("/(user)/paymentPlans");
   } else {
     router.push("/(user)");
   }
