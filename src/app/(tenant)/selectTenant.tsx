@@ -38,9 +38,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { roleLabel } from "@/utils/roles";
 
-const roleLabel = (role: string) =>
-  role === "Admin" ? "Administrador" : role === "Aluno" ? "Aluno" : "Professor";
 const RoleIcon = ({ role }: { role: string }) =>
   role === "Admin" ? (
     <LayoutGrid color={COLORS.mainOrange} size={21} />

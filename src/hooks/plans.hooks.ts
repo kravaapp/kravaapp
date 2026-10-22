@@ -25,7 +25,7 @@ export function usePlans() {
     };
 }
 
-export function useCurrentPlan() {
+export function useCurrentPlan(enabled = true) {
     const { user } = useAuth();
     const query = useQuery({
         queryKey: ["plans", "current", user?.tenantId, user?.userId],
@@ -33,6 +33,7 @@ export function useCurrentPlan() {
             const plansRoutes = new PlansRoutes();
             return await plansRoutes.getCurrentPlan();
         },
+        enabled,
     });
 
     return {

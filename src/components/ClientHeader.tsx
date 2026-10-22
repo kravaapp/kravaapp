@@ -2,6 +2,9 @@ import { AuthContext } from "@/contexts/authContext";
 import { COLORS } from "@/constants/colors";
 export { COLORS } from "@/constants/colors";
 import { useUnreadNotificationCount } from "@/hooks/notifications.hooks";
+import { useMyPartnerAccesses } from "@/hooks/partners.hooks";
+import { useCurrentPlan } from "@/hooks/plans.hooks";
+import { roleLabel } from "@/utils/roles";
 import { Token } from "@/types/auth.types";
 import { router } from "expo-router";
 import { Bell, Building2, Lock, LogOut, Settings, UserRound } from "lucide-react-native";
@@ -33,6 +36,8 @@ type DropdownProps = {
   onExplore?: () => void;
   onChangePassword: () => void;
   user: Token | null;
+  /** Plano/acesso do aluno ou o papel de Admin/Professor; omitido quando não há o que mostrar. */
+  subtitle: string | null;
 };
 
 const ProfileDropdown = ({
@@ -44,6 +49,7 @@ const ProfileDropdown = ({
   onExplore,
   onChangePassword,
   user,
+  subtitle,
 }: DropdownProps) => (
   <Modal
     transparent
@@ -65,7 +71,7 @@ const ProfileDropdown = ({
           <Text style={styles.dropdownMuted}>
             {user?.tenantName || "Arena"}
           </Text>
-          <Text style={styles.dropdownMuted}>{"Plano Intermediário"}</Text>
+          {subtitle ? <Text style={styles.dropdownMuted}>{subtitle}</Text> : null}
         </View>
 
         <View style={styles.dropdownSeparator} />
@@ -141,6 +147,9 @@ const ProfileDropdown = ({
 );
 
 
+/** "Plano Mensal" (sem repetir "Plano" quando o nome já começa assim). */
+const planLabel = (name: string) => (/^plano\b/i.test(name.trim()) ? name.trim() : `Plano ${name.trim()}`);
+
 export const getInitials = (name: string) => {
   return name
     .split(" ")
@@ -157,6 +166,19 @@ const AlunoHeader = () => {
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const { signOut, user, selectTenantState } = useContext(AuthContext);
   const { unreadCount } = useUnreadNotificationCount();
+  const isAluno = user?.role === "Aluno";
+  const { currentPlan } = useCurrentPlan(isAluno);
+  const { partnerAccesses } = useMyPartnerAccesses(isAluno);
+  const hasActivePlan = currentPlan?.status?.trim().toLowerCase() === "ativo" && !!currentPlan.planoName;
+  const dropdownSubtitle = !user?.role
+    ? null
+    : !isAluno
+      ? roleLabel(user.role)
+      : hasActivePlan
+        ? planLabel(currentPlan!.planoName)
+        : partnerAccesses.length > 0
+          ? `Acesso via ${partnerAccesses.map((access) => access.partner).join(" · ")}`
+          : null;
 
   const handleLogout = () => {
     signOut();
@@ -226,6 +248,7 @@ const AlunoHeader = () => {
         }
         onChangePassword={() => setChangePasswordVisible(true)}
         user={user}
+        subtitle={dropdownSubtitle}
       />
 
       <NotificationsModal
