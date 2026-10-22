@@ -5,7 +5,7 @@ import { useUnreadNotificationCount } from "@/hooks/notifications.hooks";
 import { Token } from "@/types/auth.types";
 import { router } from "expo-router";
 import { Bell, Building2, Lock, LogOut, Settings, UserRound } from "lucide-react-native";
-import { useContext, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import Modal from "@/components/AppModal";
 import ChangePasswordModal from "./ChangePasswordModal";
 import {
@@ -13,13 +13,20 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import KravaLogo from "./KravaLogo";
 import { NotificationsModal } from "./NotificationsModal";
 
+/** Posição do menu na janela, medida a partir do avatar. */
+type DropdownAnchor = { top: number; right: number };
+
+const DROPDOWN_GAP = 8;
+
 type DropdownProps = {
   visible: boolean;
+  anchor: DropdownAnchor | null;
   onClose: () => void;
   onLogout: () => void;
   onProfile?: () => void;
@@ -30,6 +37,7 @@ type DropdownProps = {
 
 const ProfileDropdown = ({
   visible,
+  anchor,
   onClose,
   onLogout,
   onProfile,
@@ -44,7 +52,10 @@ const ProfileDropdown = ({
     onRequestClose={onClose}
     statusBarTranslucent
   >
-    <Pressable style={styles.dropdownBackdrop} onPress={onClose}>
+    <Pressable
+      style={[styles.dropdownBackdrop, anchor && { paddingTop: anchor.top, paddingRight: anchor.right }]}
+      onPress={onClose}
+    >
       <Pressable
         style={styles.dropdownMenu}
         onPress={(e) => e.stopPropagation()}
@@ -139,6 +150,9 @@ export const getInitials = (name: string) => {
 
 const AlunoHeader = () => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [dropdownAnchor, setDropdownAnchor] = useState<DropdownAnchor | null>(null);
+  const avatarRef = useRef<View>(null);
+  const { width: windowWidth } = useWindowDimensions();
   const [notificationsVisible, setNotificationsVisible] = useState(false);
   const [changePasswordVisible, setChangePasswordVisible] = useState(false);
   const { signOut, user, selectTenantState } = useContext(AuthContext);
@@ -146,6 +160,21 @@ const AlunoHeader = () => {
 
   const handleLogout = () => {
     signOut();
+  };
+
+  const openDropdown = () => {
+    const avatar = avatarRef.current;
+    if (!avatar) {
+      setDropdownVisible(true);
+      return;
+    }
+    avatar.measureInWindow((x, y, width, height) => {
+      setDropdownAnchor({
+        top: y + height + DROPDOWN_GAP,
+        right: Math.max(windowWidth - (x + width), 8),
+      });
+      setDropdownVisible(true);
+    });
   };
 
   return (
@@ -171,9 +200,10 @@ const AlunoHeader = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
+            ref={avatarRef}
             style={styles.avatarButton}
             activeOpacity={0.8}
-            onPress={() => setDropdownVisible(true)}
+            onPress={openDropdown}
             accessibilityLabel="Abrir menu do perfil"
           >
             <Text style={styles.avatarText}>
@@ -185,6 +215,7 @@ const AlunoHeader = () => {
 
       <ProfileDropdown
         visible={dropdownVisible}
+        anchor={dropdownAnchor}
         onClose={() => setDropdownVisible(false)}
         onLogout={handleLogout}
         onProfile={
