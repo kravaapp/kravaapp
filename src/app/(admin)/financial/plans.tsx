@@ -20,9 +20,11 @@ import { AvulsoConfigType } from "@/types/settings.types";
 import {
   maskCurrency,
   maskInteger,
+  maskTime,
   parseCurrency,
   toCurrencyInput,
 } from "@/utils/masks";
+import { PLAN_TIME_PRESETS, validatePlanTimeWindow } from "@/utils/planTimeWindow";
 import {
   ArrowLeft,
   Check,
@@ -167,6 +169,9 @@ export default function AdminPlans() {
                         ? "Todas as modalidades"
                         : `${plan.modalidadeIds?.length ?? 0} modalidade(s)`}
                     </Text>
+                    {plan.startTime && plan.endTime ? (
+                      <Pill label={`${plan.startTime}–${plan.endTime}`} tone="info" />
+                    ) : null}
                   </View>
                 </TouchableOpacity>
               </AdminCard>
@@ -287,6 +292,8 @@ function PlanModal({
   const [durationDays, setDurationDays] = useState("");
   const [maxClassesPerWeek, setMaxClassesPerWeek] = useState("0");
   const [maxClassesPerDay, setMaxClassesPerDay] = useState("0");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [allowsAll, setAllowsAll] = useState(true);
   const [isRecurring, setIsRecurring] = useState(true);
   const [active, setActive] = useState(true);
@@ -302,6 +309,8 @@ function PlanModal({
     setDurationDays(String(plan?.durationDays ?? ""));
     setMaxClassesPerWeek(String(plan?.maxClassesPerWeek ?? 0));
     setMaxClassesPerDay(String(plan?.maxClassesPerDay ?? 0));
+    setStartTime(plan?.startTime ?? "");
+    setEndTime(plan?.endTime ?? "");
     setAllowsAll(plan?.allowsAllModalidades ?? true);
     setIsRecurring(plan?.isRecurring ?? true);
     setActive(plan?.isActive ?? true);
@@ -318,6 +327,8 @@ function PlanModal({
     durationDays,
     maxClassesPerWeek,
     maxClassesPerDay,
+    startTime,
+    endTime,
     allowsAll,
     isRecurring,
     modalidadeIds,
@@ -341,6 +352,11 @@ function PlanModal({
       setValidationMessage(`Preencha: ${missingFields.join(", ")}.`);
       return;
     }
+    const timeWindowError = validatePlanTimeWindow(startTime, endTime);
+    if (timeWindowError) {
+      setValidationMessage(timeWindowError);
+      return;
+    }
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
@@ -350,6 +366,8 @@ function PlanModal({
       maxClassesPerDay: dailyLimit,
       allowsAllModalidades: allowsAll,
       isRecurring: isRecurring,
+      startTime: startTime || null,
+      endTime: endTime || null,
     };
     try {
       if (plan) {
@@ -471,6 +489,67 @@ function PlanModal({
               <Text style={styles.muted}>
                 Use 0 para não limitar o número de aulas.
               </Text>
+              <View style={styles.field}>
+                <Text style={styles.label}>Horário do plano</Text>
+                <Text style={styles.muted}>
+                  O aluno só reserva aulas que começam nessa faixa. Em branco, vale qualquer horário.
+                </Text>
+              </View>
+              <View style={styles.fieldsRow}>
+                <View style={styles.grow}>
+                  <Field
+                    label="Início"
+                    value={startTime}
+                    onChange={setStartTime}
+                    placeholder="06:00"
+                    numeric
+                    mask={maskTime}
+                  />
+                </View>
+                <View style={styles.grow}>
+                  <Field
+                    label="Fim"
+                    value={endTime}
+                    onChange={setEndTime}
+                    placeholder="12:00"
+                    numeric
+                    mask={maskTime}
+                  />
+                </View>
+              </View>
+              <View style={styles.timeChips}>
+                {PLAN_TIME_PRESETS.map((preset) => {
+                  const selected = startTime === preset.start && endTime === preset.end;
+                  return (
+                    <TouchableOpacity
+                      key={preset.label}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        setStartTime(preset.start);
+                        setEndTime(preset.end);
+                      }}
+                      style={[styles.timeChip, selected && styles.timeChipSelected]}
+                    >
+                      <Text style={[styles.timeChipText, selected && styles.timeChipTextSelected]}>
+                        {preset.label} {preset.start.slice(0, 2)}–{preset.end.slice(0, 2)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {(startTime || endTime) ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setStartTime("");
+                      setEndTime("");
+                    }}
+                    style={styles.timeChip}
+                  >
+                    <Text style={styles.timeChipText}>Qualquer horário</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
               <View style={styles.switchRow}>
                 <View style={styles.grow}>
                   <Text style={styles.label}>Todas as modalidades</Text>
@@ -836,6 +915,18 @@ const styles = StyleSheet.create({
   },
   textarea: { minHeight: 82, paddingTop: 10, textAlignVertical: "top" },
   fieldsRow: { flexDirection: "row", gap: 10 },
+  timeChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  timeChip: {
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: "#fff",
+  },
+  timeChipSelected: { borderColor: COLORS.mainOrange, backgroundColor: "#FFF4EC" },
+  timeChipText: { fontSize: 12, fontWeight: "600", color: COLORS.foreground },
+  timeChipTextSelected: { color: COLORS.mainOrange },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",

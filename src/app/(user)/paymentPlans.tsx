@@ -27,6 +27,7 @@ import { useActivePaymentGateway } from "@/hooks/payments.hooks";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { usePayments } from "@/hooks/studentPayments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
+import { planTimeWindowLabel } from "@/utils/planTimeWindow";
 import { PartnerAccessType } from "@/types/partners.types";
 import { CurrentPlanType, PlanType } from "@/types/plans.types";
 import { router } from "expo-router";
@@ -141,6 +142,12 @@ const CurrentPlanCard = ({
           <Text style={styles.currentInfoLabel}>Término</Text>
           <Text style={styles.currentInfoValue}>{formatDate(plan.endDate)}</Text>
         </View>
+        {planTimeWindowLabel(plan.startTime, plan.endTime) && (
+          <View style={styles.currentInfoItem}>
+            <Text style={styles.currentInfoLabel}>Horário</Text>
+            <Text style={styles.currentInfoValue}>{planTimeWindowLabel(plan.startTime, plan.endTime)}</Text>
+          </View>
+        )}
         {hasLimit && remaining !== null && (
           <View style={styles.currentInfoItem}>
             <Text style={styles.currentInfoLabel}>
@@ -321,6 +328,7 @@ const PlanCard = ({
           ? `${plan.maxClassesPerWeek}x na semana`
           : "Ilimitado"}{" "}
         • {plan.durationDays} dias
+        {planTimeWindowLabel(plan.startTime, plan.endTime) ? ` • ${planTimeWindowLabel(plan.startTime, plan.endTime)}` : ""}
       </Text>
 
       <View style={styles.featuresList}>
@@ -338,6 +346,14 @@ const PlanCard = ({
             Duração de {plan.durationDays} dias
           </Text>
         </View>
+        {planTimeWindowLabel(plan.startTime, plan.endTime) && (
+          <View style={styles.featureItem}>
+            <Check size={16} color={COLORS.mainOrange} style={styles.featureIcon} />
+            <Text style={styles.featureText}>
+              Aulas das {planTimeWindowLabel(plan.startTime, plan.endTime)}
+            </Text>
+          </View>
+        )}
         <View style={styles.featureItem}>
           <Check size={16} color={COLORS.mainOrange} style={styles.featureIcon} />
           <Text style={styles.featureText}>

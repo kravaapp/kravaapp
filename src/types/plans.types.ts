@@ -11,6 +11,9 @@ export type PlanType = {
     allowsAllModalidades: boolean;
     isRecurring: boolean;
     isActive: boolean;
+    /** Faixa de horário "HH:MM"; null = qualquer horário (fim "00:00" = até a meia-noite). */
+    startTime?: string | null;
+    endTime?: string | null;
     modalidadeIds: string[] | null;
 }
 
@@ -26,6 +29,8 @@ export type AdminPlanType = {
     isRecurring: boolean;
     isActive: boolean;
     modalidadeIds?: string[] | null;
+    startTime?: string | null;
+    endTime?: string | null;
 }
 
 export type CreateAdminPlanType = {
@@ -37,6 +42,8 @@ export type CreateAdminPlanType = {
     maxClassesPerDay?: number | null;
     allowsAllModalidades: boolean;
     isRecurring: boolean;
+    startTime?: string | null;
+    endTime?: string | null;
 }
 
 export type UpdateAdminPlanType = CreateAdminPlanType & { isActive: boolean };
@@ -62,6 +69,8 @@ export type CurrentPlanType = {
     classesUsedThisWeek?: number;
     classesRemainingThisWeek?: number | null;
     maxClassesPerDay?: number | null;
+    startTime?: string | null;
+    endTime?: string | null;
 }
 
 export type PlanRequestItemType = {
