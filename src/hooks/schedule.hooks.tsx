@@ -401,3 +401,14 @@ export function useAttendance({ ocorrenciaId, status }: GetAttendanceRequestSche
         refetch: query.refetch,
     };
 }
+
+/** Origem (plano ou parceiro) e saldo que serão usados ao agendar a ocorrência. */
+export function useBookingSourcePreview(ocorrenciaId: string | null | undefined, enabled = true) {
+    const query = useQuery({
+        queryKey: ["booking-source", ocorrenciaId],
+        queryFn: () => new ScheduleRoutes().getBookingSource(ocorrenciaId!),
+        enabled: !!ocorrenciaId && enabled,
+        staleTime: 0,
+    });
+    return { preview: query.data ?? null, isLoading: query.isLoading };
+}

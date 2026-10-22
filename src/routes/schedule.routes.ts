@@ -1,5 +1,5 @@
 import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { AttendanceType, AulaType, CreateAulaType, MyMonthlyScheduleType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType, UpdateAulaType } from "@/types/schedules.types";
+import { AttendanceType, AulaType, BookingSourcePreviewType, CreateAulaType, MyMonthlyScheduleType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType, UpdateAulaType } from "@/types/schedules.types";
 import api from "./client";
 
 export class ScheduleRoutes {
@@ -52,6 +52,12 @@ export class ScheduleRoutes {
 
     async getSchedule(params: ScheduleRequestSchema) {
         return await api.get("/scheduling/ocorrencias", { searchParams: params }).json<PaginatedSchedule>();
+    }
+
+    async getBookingSource(ocorrenciaId: string): Promise<BookingSourcePreviewType | null> {
+        const preview = await api.get(`/scheduling/ocorrencias/${ocorrenciaId}/booking-source`).json<BookingSourcePreviewType>();
+        // A API antiga não tem a rota: sem um "kind" conhecido, o modal segue sem a informação.
+        return ["Plan", "Partner", "None"].includes(preview?.kind) ? preview : null;
     }
 
     async createSchedule(params: CreateScheduleRequestSchema) {

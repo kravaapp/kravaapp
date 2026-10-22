@@ -1,4 +1,4 @@
-import { X } from 'lucide-react-native';
+import { AlertCircle, Ticket, X } from 'lucide-react-native';
 import Modal from "@/components/AppModal";
 import {
   ActivityIndicator,
@@ -10,7 +10,18 @@ import {
 } from 'react-native';
 
 import { COLORS } from '@/components/ClientHeader';
-import { ScheduleOccurrenceType } from '@/types/schedules.types';
+import { useBookingSourcePreview } from '@/hooks/schedule.hooks';
+import { BookingSourcePreviewType, ScheduleOccurrenceType } from '@/types/schedules.types';
+
+/** "Será descontada do seu plano Mensal · 2 de 3 aulas nesta semana". */
+const sourceDescription = (preview: BookingSourcePreviewType) => {
+  const where = preview.kind === 'Plan'
+    ? `do seu plano ${preview.label ?? ''}`.trim()
+    : `do seu ${preview.label ?? 'parceiro'}`;
+  if (preview.limit == null || preview.used == null) return `Será descontada ${where}.`;
+  const unit = preview.kind === 'Plan' ? 'aulas nesta semana' : 'check-ins este mês';
+  return `Será descontada ${where} · ${preview.used + 1} de ${preview.limit} ${unit}.`;
+};
 
 type ConfirmBookingModalProps = {
   visible: boolean;
@@ -29,7 +40,11 @@ export const ConfirmBookingModal = ({
   onClose,
   onConfirm
 }: ConfirmBookingModalProps) => {
+  const { preview, isLoading: isLoadingPreview } = useBookingSourcePreview(selectedClass?.id, visible);
+
   if (!selectedClass) return null;
+
+  const sourceBlocked = preview?.kind === 'None';
 
   const isWaitlist =
     selectedClass.confirmedCount !== undefined &&
@@ -60,6 +75,23 @@ export const ConfirmBookingModal = ({
                 <Text style={{ fontWeight: 'bold' }}>{selectedClass.startTime.substring(0, 5)}</Text>?
               </Text>
 
+              {isLoadingPreview ? (
+                <View style={styles.sourceBox}>
+                  <ActivityIndicator size="small" color={COLORS.mainOrange} />
+                  <Text style={styles.sourceText}>Verificando seu saldo...</Text>
+                </View>
+              ) : preview && sourceBlocked ? (
+                <View style={[styles.sourceBox, styles.sourceBoxBlocked]}>
+                  <AlertCircle size={16} color={COLORS.destructive} />
+                  <Text style={[styles.sourceText, styles.sourceTextBlocked]}>{preview.message}</Text>
+                </View>
+              ) : preview ? (
+                <View style={styles.sourceBox}>
+                  <Ticket size={16} color={COLORS.mainOrange} />
+                  <Text style={styles.sourceText}>{sourceDescription(preview)}</Text>
+                </View>
+              ) : null}
+
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   accessibilityRole="button"
@@ -71,9 +103,9 @@ export const ConfirmBookingModal = ({
                 </TouchableOpacity>
                 <TouchableOpacity
                   accessibilityRole="button"
-                  style={[styles.modalButton, styles.modalButtonConfirm, isBookingBlocked && styles.modalButtonDisabled]}
+                  style={[styles.modalButton, styles.modalButtonConfirm, (isBookingBlocked || sourceBlocked) && styles.modalButtonDisabled]}
                   onPress={onConfirm}
-                  disabled={isCreatingSchedule}
+                  disabled={isCreatingSchedule || sourceBlocked}
                   accessibilityHint={isBookingBlocked ? "É necessário um plano ativo para agendar." : undefined}
                 >
                   {isCreatingSchedule ? (
@@ -125,6 +157,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.mutedForeground,
     lineHeight: 24,
+  },
+  sourceBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#FFF4EC',
+  },
+  sourceBoxBlocked: {
+    backgroundColor: '#FEF2F2',
+  },
+  sourceText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.foreground,
+    fontWeight: '600',
+  },
+  sourceTextBlocked: {
+    color: COLORS.destructive,
   },
   modalActions: {
     flexDirection: 'row',

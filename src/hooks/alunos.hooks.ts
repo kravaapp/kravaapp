@@ -58,7 +58,11 @@ export function useAlunoActions() {
     const client = useQueryClient();
     const refresh = (id?: string) => {
         client.invalidateQueries({ queryKey: ["alunos"] });
-        if (id) client.invalidateQueries({ queryKey: ["aluno", id] });
+        if (id) {
+            client.invalidateQueries({ queryKey: ["aluno", id] });
+            // Marcar ou desmarcar o chip do parceiro cria ou encerra o acesso via parceiro.
+            client.invalidateQueries({ queryKey: ["aluno-partner-access", id] });
+        }
     };
     const create = useMutation({ mutationFn: (data: CreateAlunoType) => new AlunosRoutes().createAluno(data), onSuccess: () => refresh() });
     const update = useMutation({ mutationFn: ({ id, data }: { id: string; data: UpdateAlunoType }) => new AlunosRoutes().updateAluno(id, data), onSuccess: (_, values) => refresh(values.id) });
@@ -73,4 +77,28 @@ export function useAlunoActions() {
         },
     });
     return { createAluno: create.mutateAsync, updateAluno: update.mutateAsync, updateLevel: level.mutateAsync, updateStatus: status.mutateAsync, updatePaymentMethods: payments.mutateAsync, deleteAluno: remove.mutateAsync, isDeleting: remove.isPending, isSaving: create.isPending || update.isPending || level.isPending || status.isPending || payments.isPending };
+}
+
+/** Acesso via parceiro do aluno, na visão do CT. */
+export function useAlunoPartnerAccess(id: string | null) {
+    const query = useQuery({
+        queryKey: ["aluno-partner-access", id],
+        queryFn: () => new AlunosRoutes().getPartnerAccess(id!),
+        enabled: !!id,
+    });
+    return { partnerAccess: query.data ?? null, isLoading: query.isLoading };
+}
+
+export function useEndAlunoPartnerAccess() {
+    const client = useQueryClient();
+    const mutation = useMutation({
+        mutationFn: ({ id, reason }: { id: string; reason?: string }) => new AlunosRoutes().endPartnerAccess(id, reason),
+        retry: false,
+        onSuccess: (_, { id }) => {
+            void client.invalidateQueries({ queryKey: ["aluno-partner-access", id] });
+            void client.invalidateQueries({ queryKey: ["aluno", id] });
+            void client.invalidateQueries({ queryKey: ["alunos"] });
+        },
+    });
+    return { endPartnerAccess: mutation.mutateAsync, isEnding: mutation.isPending };
 }

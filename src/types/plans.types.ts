@@ -57,6 +57,11 @@ export type CurrentPlanType = {
     classesRemainingThisMonth: number | null;
     modalitiesPermitted: string[];
     autoRenew: boolean;
+    /** Saldo semanal do plano (o limite aplicado no agendamento). */
+    maxClassesPerWeek?: number | null;
+    classesUsedThisWeek?: number;
+    classesRemainingThisWeek?: number | null;
+    maxClassesPerDay?: number | null;
 }
 
 export type PlanRequestItemType = {

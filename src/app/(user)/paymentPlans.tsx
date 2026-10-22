@@ -15,12 +15,19 @@ import RefreshableScrollView from "@/components/RefreshableScrollView";
 import { useToast } from "@/components/Toast";
 import { useAuth } from "@/hooks/auth.hooks";
 import { useCancelRecorrenciaAluno, useSubscribeContract } from "@/hooks/contracts.hooks";
-import { useCreatePartnerRequest, useMyPartnerRequest, useTenantPartners } from "@/hooks/partners.hooks";
+import {
+  useCreatePartnerRequest,
+  useEndMyPartnerAccess,
+  useMyPartnerAccess,
+  useMyPartnerRequest,
+  useTenantPartners,
+} from "@/hooks/partners.hooks";
 import { useCurrentPlan, usePlans, useMyPlanRequest, useCreatePlanRequest, useCancelMyPlanRequest } from "@/hooks/plans.hooks";
 import { useActivePaymentGateway } from "@/hooks/payments.hooks";
 import { useScreenRefresh } from "@/hooks/screenRefresh.hooks";
 import { usePayments } from "@/hooks/studentPayments.hooks";
 import { normalizeApiError } from "@/routes/apiError";
+import { PartnerAccessType } from "@/types/partners.types";
 import { CurrentPlanType, PlanType } from "@/types/plans.types";
 import { router } from "expo-router";
 import { ArrowRight, Check, ChevronDown, Clock, CreditCard, RefreshCw, ShieldAlert, Star, X } from "lucide-react-native";
@@ -76,14 +83,14 @@ const CurrentPlanCard = ({
   onRenew?: () => void;
   isRenewing?: boolean;
 }) => {
-  const hasLimit =
-    plan.maxClassesPerMonth !== null && plan.maxClassesPerMonth > 0;
-  const progress = hasLimit
-    ? Math.min(
-        Math.round((plan.classesUsedThisMonth / plan.maxClassesPerMonth!) * 100),
-        100
-      )
-    : 0;
+  // O limite aplicado no agendamento é semanal; os campos mensais ficam para APIs antigas.
+  const weekly = plan.maxClassesPerWeek != null;
+  const limit = weekly ? plan.maxClassesPerWeek ?? null : plan.maxClassesPerMonth;
+  const used = weekly ? plan.classesUsedThisWeek ?? 0 : plan.classesUsedThisMonth;
+  const remaining = weekly ? plan.classesRemainingThisWeek ?? null : plan.classesRemainingThisMonth;
+  const periodLabel = weekly ? "nesta semana" : "este mês";
+  const hasLimit = limit !== null && limit > 0;
+  const progress = hasLimit ? Math.min(Math.round((used / limit!) * 100), 100) : 0;
 
   return (
     <View style={styles.cardNavy}>
@@ -109,10 +116,8 @@ const CurrentPlanCard = ({
         <View style={styles.progressRow}>
           <Text style={styles.progressTextLeft}>
             {hasLimit
-              ? `${plan.classesUsedThisMonth} de ${plan.maxClassesPerMonth} aulas usadas`
-              : `${plan.classesUsedThisMonth} aula${
-                  plan.classesUsedThisMonth === 1 ? "" : "s"
-                } usada${plan.classesUsedThisMonth === 1 ? "" : "s"} este mês`}
+              ? `${used} de ${limit} aulas usadas ${periodLabel}`
+              : `${used} aula${used === 1 ? "" : "s"} usada${used === 1 ? "" : "s"} ${periodLabel}`}
           </Text>
           {hasLimit && (
             <Text style={styles.progressTextRight}>{progress}%</Text>
@@ -136,12 +141,12 @@ const CurrentPlanCard = ({
           <Text style={styles.currentInfoLabel}>Término</Text>
           <Text style={styles.currentInfoValue}>{formatDate(plan.endDate)}</Text>
         </View>
-        {hasLimit && plan.classesRemainingThisMonth !== null && (
+        {hasLimit && remaining !== null && (
           <View style={styles.currentInfoItem}>
-            <Text style={styles.currentInfoLabel}>Aulas restantes</Text>
-            <Text style={styles.currentInfoValue}>
-              {plan.classesRemainingThisMonth}
+            <Text style={styles.currentInfoLabel}>
+              {weekly ? "Restantes na semana" : "Aulas restantes"}
             </Text>
+            <Text style={styles.currentInfoValue}>{remaining}</Text>
           </View>
         )}
         <View style={styles.currentInfoItem}>
@@ -201,6 +206,60 @@ const CurrentPlanCard = ({
           )}
         </TouchableOpacity>
       )}
+    </View>
+  );
+};
+
+const PartnerAccessCard = ({
+  access,
+  onEnd,
+}: {
+  access: PartnerAccessType;
+  onEnd: () => void;
+}) => {
+  const hasLimit = access.monthlyLimit !== null && access.monthlyLimit > 0;
+  const progress = hasLimit
+    ? Math.min(Math.round((access.usedThisMonth / access.monthlyLimit!) * 100), 100)
+    : 0;
+
+  return (
+    <View style={styles.cardNavy}>
+      <View style={styles.currentHeaderRow}>
+        <View style={styles.currentHeaderTexts}>
+          <Text style={styles.navySubtitle}>SEU ACESSO ATUAL</Text>
+          <Text style={styles.navyTitle}>{access.partner}</Text>
+        </View>
+        <View style={styles.currentStatus}><Text style={styles.currentStatusText}>Ativo</Text></View>
+      </View>
+
+      <View style={styles.progressSection}>
+        <View style={styles.progressRow}>
+          <Text style={styles.progressTextLeft}>
+            {hasLimit
+              ? `${access.usedThisMonth} de ${access.monthlyLimit} check-ins este mês`
+              : `${access.usedThisMonth} check-in${access.usedThisMonth === 1 ? "" : "s"} este mês`}
+          </Text>
+          {hasLimit && <Text style={styles.progressTextRight}>{progress}%</Text>}
+        </View>
+        {hasLimit ? <ProgressBar progress={progress} /> : <Text style={styles.unlimitedTag}>Sem limite mensal</Text>}
+      </View>
+
+      <View style={styles.currentInfoGrid}>
+        {access.since && (
+          <View style={styles.currentInfoItem}>
+            <Text style={styles.currentInfoLabel}>Vinculado desde</Text>
+            <Text style={styles.currentInfoValue}>{formatDate(access.since)}</Text>
+          </View>
+        )}
+        <View style={styles.currentInfoItem}>
+          <Text style={styles.currentInfoLabel}>Forma de acesso</Text>
+          <Text style={styles.currentInfoValue}>Parceiro</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity accessibilityRole="button" style={styles.cancelRecorrenciaButton} onPress={onEnd}>
+        <Text style={styles.cancelRecorrenciaButtonText}>Desvincular {access.partner}</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -357,9 +416,12 @@ export default function PaymentPlans() {
   } = useMyPartnerRequest();
   const { partners: activePartners } = useTenantPartners(true);
   const { createPartnerRequest, isLoading: isSendingPartnerRequest } = useCreatePartnerRequest();
+  const { partnerAccess, refetch: refetchPartnerAccess } = useMyPartnerAccess();
+  const { endPartnerAccess, isEnding: isEndingPartnerAccess } = useEndMyPartnerAccess();
+  const [endPartnerModalVisible, setEndPartnerModalVisible] = useState(false);
   const refresh = useScreenRefresh(
     [["plans", "list"], ["plans", "current"], ["my-partner-request"], ["my-plan-request"]],
-    { refetch: [refetchPayments, refetchPartnerRequest, refetchPlanRequest] },
+    { refetch: [refetchPayments, refetchPartnerRequest, refetchPlanRequest, refetchPartnerAccess] },
   );
   const {
     currentPlan,
@@ -400,6 +462,23 @@ export default function PaymentPlans() {
   };
 
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
+
+  const handleConfirmEndPartnerAccess = async () => {
+    if (!partnerAccess || isEndingPartnerAccess) return;
+    try {
+      await endPartnerAccess();
+      setEndPartnerModalVisible(false);
+      toast({
+        title: `${partnerAccess.partner} desvinculado`,
+        description: "Você pode assinar um plano do CT ou solicitar um novo vínculo quando quiser.",
+      });
+    } catch (err) {
+      toast({
+        title: normalizeApiError(err, "Não foi possível desvincular. Tente novamente.").description,
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleSubscribe = async (plan: PlanType) => {
     if (subscriptionInFlight.current) return;
@@ -565,6 +644,8 @@ export default function PaymentPlans() {
             }
             isRenewing={!!renewablePlan && subscribingPlanId === renewablePlan.id}
           />
+        ) : partnerAccess ? (
+          <PartnerAccessCard access={partnerAccess} onEnd={() => setEndPartnerModalVisible(true)} />
         ) : (
           <View style={styles.cardNavy}>
             <Text style={styles.navySubtitle}>SEU PLANO ATUAL</Text>
@@ -731,13 +812,13 @@ export default function PaymentPlans() {
               ⓘ Assim que for aprovada, seus agendamentos serão liberados automaticamente.
             </Text>
           </View>
-        ) : partnerRequest?.status === "Approved" ? (
+        ) : partnerAccess && !currentPlan ? null : partnerAccess || partnerRequest?.status === "Approved" ? (
           <View style={[styles.cardLightBlue, styles.cardApproved]}>
             <View style={styles.partnerHeaderRow}>
               <View style={[styles.rowAlign, { marginBottom: 0 }]}>
                 <Check size={18} color="#16A34A" />
                 <Text style={[styles.lightBlueTitle, { color: "#166534" }]}>
-                  Vinculado ao {partnerRequest.partner}
+                  Vinculado ao {partnerAccess?.partner ?? partnerRequest?.partner}
                 </Text>
               </View>
               <View style={styles.badgeApproved}>
@@ -745,8 +826,22 @@ export default function PaymentPlans() {
               </View>
             </View>
             <Text style={[styles.lightBlueDesc, { color: "#14532D" }]}>
-              Sua conta está vinculada com sucesso ao {partnerRequest.partner}. Você pode realizar agendamentos de acordo com o limite de check-in definido pelo CT.
+              Usado quando o seu plano do CT esgotar as aulas da semana ou não estiver vigente.
+              {partnerAccess?.monthlyLimit
+                ? ` ${partnerAccess.usedThisMonth} de ${partnerAccess.monthlyLimit} check-ins usados este mês.`
+                : ""}
             </Text>
+            {partnerAccess && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                style={[styles.btnOutlineLight, styles.partnerEndButton]}
+                onPress={() => setEndPartnerModalVisible(true)}
+              >
+                <Text style={[styles.btnOutlineLightText, styles.partnerEndButtonText]}>
+                  Desvincular {partnerAccess.partner}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : partnerRequest?.status === "Rejected" ? (
           <View style={[styles.cardLightBlue, styles.cardRejected]}>
@@ -1004,6 +1099,57 @@ export default function PaymentPlans() {
         </View>
       </Modal>
 
+      {/* Modal de Confirmação do Desvínculo do Parceiro */}
+      <Modal
+        visible={endPartnerModalVisible && !!partnerAccess}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isEndingPartnerAccess && setEndPartnerModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.cancelWarningIconContainer}>
+              <ShieldAlert size={32} color={COLORS.destructive} />
+            </View>
+            <Text style={styles.cancelModalTitle}>Desvincular {partnerAccess?.partner}?</Text>
+            <Text style={styles.cancelModalDesc}>
+              Você deixará de agendar aulas pelo {partnerAccess?.partner} neste CT.
+              {partnerAccess && partnerAccess.futureBookings > 0 ? (
+                <Text style={{ fontWeight: "700", color: COLORS.foreground }}>
+                  {" "}
+                  {partnerAccess.futureBookings === 1
+                    ? "1 aula agendada pelo parceiro será cancelada."
+                    : `${partnerAccess.futureBookings} aulas agendadas pelo parceiro serão canceladas.`}
+                </Text>
+              ) : null}
+            </Text>
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isEndingPartnerAccess }}
+              style={[styles.btnDestructiveSolid, isEndingPartnerAccess && { opacity: 0.6 }]}
+              disabled={isEndingPartnerAccess}
+              onPress={handleConfirmEndPartnerAccess}
+            >
+              {isEndingPartnerAccess ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.btnDestructiveSolidText}>Desvincular</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              accessibilityRole="button"
+              disabled={isEndingPartnerAccess}
+              style={styles.modalCancel}
+              onPress={() => setEndPartnerModalVisible(false)}
+            >
+              <Text style={styles.modalCancelText}>Manter vínculo</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal de Confirmação de Cancelamento de Renovação Automática */}
       <Modal
         visible={cancelModalVisible}
@@ -1055,6 +1201,8 @@ export default function PaymentPlans() {
 }
 
 const styles = StyleSheet.create({
+  partnerEndButton: { borderColor: "#86EFAC", marginTop: 12 },
+  partnerEndButtonText: { color: "#166534", fontWeight: "700" },
   subscriptionNotice: { fontSize: 13, lineHeight: 19, color: COLORS.mutedForeground, marginBottom: 14 },
   screenTitle: { fontSize: 30, fontWeight: "800", letterSpacing: -1.2, color: COLORS.foreground, textTransform: "lowercase" },
   screenSubtitle: { fontSize: 14, lineHeight: 21, color: COLORS.mutedForeground, marginBottom: 22, marginTop: 4 },

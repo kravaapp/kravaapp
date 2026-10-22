@@ -15,7 +15,9 @@ import {
 import {
   useAlunoActions,
   useAlunoDetails,
+  useAlunoPartnerAccess,
   useAlunos,
+  useEndAlunoPartnerAccess,
 } from "@/hooks/alunos.hooks";
 import { useCreateInvitation } from "@/hooks/auth.hooks";
 import { useCreateContract } from "@/hooks/contracts.hooks";
@@ -54,6 +56,7 @@ import {
   isPaymentPaid,
   isPaymentRefunded,
 } from "@/utils/payments";
+import { EndPartnerAccessModal } from "@/components/admin/EndPartnerAccessModal";
 import {
   CancelInvoiceModal,
   ReceivePaymentModal,
@@ -61,6 +64,7 @@ import {
 } from "@/components/admin/StudentInvoiceModals";
 import { createInvitationSchema } from "@/schemas/auth.schemas";
 import { AlunoType } from "@/types/alunos.types";
+import { PartnerAccessType } from "@/types/partners.types";
 import { CtInvitationSummaryType } from "@/types/tenant.types";
 import {
   maskCpf,
@@ -80,12 +84,14 @@ import {
   Clock,
   CreditCard,
   Mail,
+  Handshake,
   Plus,
   Receipt,
   RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
+  Unlink,
   User,
   X,
 } from "lucide-react-native";
@@ -124,15 +130,19 @@ const paymentMethods: Option[] = [
   { label: "Cartão de Crédito", value: "CartaoCredito" },
   { label: "Boleto", value: "Boleto" },
   { label: "Gympass", value: "Gympass" },
-  { label: "Totalpass", value: "Totalpass" },
+  { label: "Totalpass", value: "TotalPass" },
   { label: "Dinheiro", value: "Dinheiro" },
-  { label: "Avulso", value: "Avulto" },
+  { label: "Avulso", value: "Avulso" },
   { label: "Patrocínio", value: "Partner" },
 ];
 const sexes: Option[] = [
   { label: "Masculino", value: "M" },
   { label: "Feminino", value: "F" },
 ];
+const PARTNER_METHODS = ["gympass", "totalpass"];
+const partnerOf = (methods?: string[] | null) =>
+  (methods ?? []).find((method) => PARTNER_METHODS.includes(method.toLowerCase())) ?? null;
+
 /* Opção "Todos": value vazio significa "sem filtro" na rota. */
 const ALL: Option = { label: "Todos", value: "" };
 const nullable = (value: string) => value.trim() || null;
@@ -860,18 +870,26 @@ export default function AdminStudents() {
                       />
                       {student.planoAtivo ? (
                         <Pill label={student.planoAtivo} tone="success" />
+                      ) : partnerOf(student.paymentMethods) ? (
+                        <Pill label={partnerOf(student.paymentMethods)!} tone="success" />
                       ) : (
                         <Pill label="Sem plano ativo" tone="neutral" />
                       )}
-                      {(student.paymentMethods ?? []).map((method) => (
-                        <Pill key={method} label={method} tone="info" />
-                      ))}
+                      {(student.paymentMethods ?? [])
+                        .filter((method) => student.planoAtivo || method !== partnerOf(student.paymentMethods))
+                        .map((method) => (
+                          <Pill key={method} label={method} tone="info" />
+                        ))}
                       {(student.modalities ?? []).map((modality) => (
                         <Pill key={modality} label={modality} tone="primary" />
                       ))}
                     </View>
                     <Text style={styles.secondary}>
-                      {student.planoAtivo || "Sem plano ativo"} ·{" "}
+                      {student.planoAtivo ||
+                        (partnerOf(student.paymentMethods)
+                          ? `Acesso via ${partnerOf(student.paymentMethods)}`
+                          : "Sem plano ativo")}{" "}
+                      ·{" "}
                       {student.checkinsThisMonth} check-in(s) no mês
                     </Text>
                   </View>
@@ -1191,6 +1209,28 @@ function StudentModal({
 
   const [activeTab, setActiveTab] = useState<StudentTab>("plan");
 
+  const { partnerAccess } = useAlunoPartnerAccess(id);
+  const { endPartnerAccess, isEnding: isEndingPartner } = useEndAlunoPartnerAccess();
+  const [endPartnerVisible, setEndPartnerVisible] = useState(false);
+
+  const handleEndPartnerAccess = async (reason?: string) => {
+    if (!id || !partnerAccess) return;
+    try {
+      await endPartnerAccess({ id, reason });
+      setMethods((current) =>
+        current.filter((method) => method.toLowerCase() !== partnerAccess.partner.toLowerCase()),
+      );
+      setEndPartnerVisible(false);
+      toast({ title: `${partnerAccess.partner} desvinculado`, description: "O aluno foi avisado no app." });
+    } catch (requestError) {
+      toast({
+        title: "Não foi possível desvincular",
+        description: normalizeApiError(requestError, "Não foi possível desvincular o parceiro.").description,
+        variant: "destructive",
+      });
+    }
+  };
+
   const {
     invoices,
     totalCount: invoicesTotal,
@@ -1367,6 +1407,7 @@ function StudentModal({
     formDirty.current = false;
     setShowChangePlan(false);
     setActiveTab("plan");
+    setEndPartnerVisible(false);
     setPayingInvoice(null);
     setCancellingInvoice(null);
     setRefundingInvoice(null);
@@ -1404,6 +1445,14 @@ function StudentModal({
 
   const handleTogglePaymentMethod = async (methodValue: string) => {
     if (!id) return;
+    if (
+      partnerAccess &&
+      methods.includes(methodValue) &&
+      methodValue.toLowerCase() === partnerAccess.partner.toLowerCase()
+    ) {
+      setEndPartnerVisible(true);
+      return;
+    }
     const prevMethods = methods;
     const nextMethods = methods.includes(methodValue)
       ? methods.filter((item) => item !== methodValue)
@@ -1736,7 +1785,7 @@ function StudentModal({
                           </Text>
                         </TouchableOpacity>
                       </View>
-                    ) : (
+                    ) : partnerAccess ? null : (
                       <View style={styles.noPlanCard}>
                         <View style={styles.noPlanHeader}>
                           <View style={styles.activePlanTitleGroup}>
@@ -1752,6 +1801,14 @@ function StudentModal({
                           vinculado.
                         </Text>
                       </View>
+                    )}
+
+                    {partnerAccess && (
+                      <PartnerAccessCard
+                        access={partnerAccess}
+                        alsoHasPlan={hasActivePlan}
+                        onEnd={() => setEndPartnerVisible(true)}
+                      />
                     )}
 
                     {(!hasActivePlan || showChangePlan) && (
@@ -2182,6 +2239,14 @@ function StudentModal({
         onConfirm={handleCancelInvoice}
         isCancelling={isCancelling}
       />
+      <EndPartnerAccessModal
+        access={partnerAccess}
+        studentName={aluno?.userName || "O aluno"}
+        visible={endPartnerVisible}
+        onClose={() => setEndPartnerVisible(false)}
+        onConfirm={handleEndPartnerAccess}
+        isEnding={isEndingPartner}
+      />
       <RefundInvoiceModal
         invoice={refundingInvoice}
         gatewayError={refundGatewayError}
@@ -2208,6 +2273,55 @@ const refundOutcomeMessage = (result: RefundInvoiceResult) => {
 
 const plural = (count: number, singular: string, pluralForm: string) =>
   `${count} ${count === 1 ? singular : pluralForm}`;
+
+/* Acesso via parceiro: ocupa o lugar do plano quando não há contrato; com plano, é a reserva para quando ele esgotar. */
+function PartnerAccessCard({
+  access,
+  alsoHasPlan,
+  onEnd,
+}: {
+  access: PartnerAccessType;
+  alsoHasPlan: boolean;
+  onEnd: () => void;
+}) {
+  const usage = access.monthlyLimit
+    ? `${access.usedThisMonth} de ${access.monthlyLimit} check-ins este mês`
+    : `${access.usedThisMonth} check-in(s) este mês`;
+
+  return (
+    <View style={styles.partnerAccessCard}>
+      <View style={styles.activePlanHeader}>
+        <View style={styles.activePlanTitleGroup}>
+          <Handshake size={15} color="#1D4ED8" />
+          <Text style={[styles.activePlanLabel, styles.partnerAccessLabel]}>
+            ACESSO VIA {access.partner.toUpperCase()}
+          </Text>
+        </View>
+        <Pill label="Ativo" tone="info" />
+      </View>
+      <Text style={styles.activePlanName}>{access.partner}</Text>
+      <Text style={styles.activePlanDatesText}>
+        {access.since ? `Desde ${formatPaymentDate(access.since)} · ` : ""}
+        {usage}
+        {access.futureBookings > 0 ? ` · ${access.futureBookings} aula(s) agendada(s)` : ""}
+      </Text>
+      {alsoHasPlan && (
+        <Text style={styles.secondary}>
+          Usado quando o plano do CT esgotar as aulas da semana ou não estiver vigente.
+        </Text>
+      )}
+      <TouchableOpacity
+        onPress={onEnd}
+        style={styles.partnerEndButton}
+        activeOpacity={0.75}
+        accessibilityRole="button"
+      >
+        <Unlink size={13} color={COLORS.destructive} />
+        <Text style={styles.partnerEndText}>Desvincular {access.partner}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 function ChargesSummaryCard({
   totalOpen,
@@ -3155,6 +3269,34 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 36,
     gap: 10,
+  },
+  partnerAccessCard: {
+    backgroundColor: "#F5F9FF",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    gap: 8,
+    marginBottom: 4,
+  },
+  partnerAccessLabel: {
+    color: "#1D4ED8",
+  },
+  partnerEndButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 4,
+    alignSelf: "flex-start",
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: "#FEF2F2",
+  },
+  partnerEndText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.destructive,
   },
   chargesSummaryCard: {
     borderRadius: 14,

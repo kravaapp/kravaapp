@@ -94,3 +94,34 @@ export function useCreatePartnerRequest() {
     isLoading: mutation.isPending,
   };
 }
+
+const myPartnerAccessKey = ["my-partner-access"];
+
+/** Acesso atual do aluno via parceiro (null quando não há vínculo ativo). */
+export function useMyPartnerAccess() {
+  const query = useQuery({
+    queryKey: myPartnerAccessKey,
+    queryFn: () => new TenantRoutes().getMyPartnerAccess(),
+  });
+
+  return {
+    partnerAccess: query.data ?? null,
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+  };
+}
+
+export function useEndMyPartnerAccess() {
+  const client = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: () => new TenantRoutes().endMyPartnerAccess(),
+    retry: false,
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: myPartnerAccessKey });
+      void client.invalidateQueries({ queryKey: myPartnerRequestKey });
+      void client.invalidateQueries({ queryKey: ["schedule"] });
+    },
+  });
+
+  return { endPartnerAccess: mutation.mutateAsync, isEnding: mutation.isPending };
+}

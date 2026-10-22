@@ -30,3 +30,18 @@ export type MyPartnerRequestType = {
   rejectionReason?: string | null;
   createdAtUtc?: string | null;
 };
+
+/** Acesso ativo via parceiro: limite do mês e check-ins feitos só pelo parceiro. */
+export type PartnerAccessType = {
+  partner: string;
+  since: string | null;
+  monthlyLimit: number | null;
+  usedThisMonth: number;
+  futureBookings: number;
+};
+
+/** A API responde corpo vazio ou "null" sem vínculo; qualquer outro formato também conta como sem vínculo. */
+export const parsePartnerAccess = (text: string): PartnerAccessType | null => {
+  const parsed = !text || text.trim() === "null" ? null : (JSON.parse(text) as PartnerAccessType);
+  return parsed?.partner ? parsed : null;
+};

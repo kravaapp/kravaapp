@@ -192,3 +192,13 @@ export type CreateAulaType = AulaFields & (
 
 /** A edição permanece individual por registro da grade. */
 export type UpdateAulaType = AulaFields & { dayOfWeek: number };
+
+/** De onde a aula será descontada antes de confirmar o agendamento. */
+export type BookingSourcePreviewType = {
+  kind: "Plan" | "Partner" | "None";
+  label: string | null;
+  used: number | null;
+  limit: number | null;
+  period: "week" | "month" | null;
+  message: string | null;
+};
