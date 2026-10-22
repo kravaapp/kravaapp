@@ -42,7 +42,18 @@ async function setup(page: Page, plan: CurrentPlanType | null, full = false,
   return state;
 }
 
-const screens = [{ name: "início", path: "/(user)" }, { name: "agenda", path: "/(user)/schedule" }];
+type Screen = { name: string; path: string; disabledOpacity: string; levelBlocked: string };
+
+const screens: Screen[] = [
+  { name: "início", path: "/(user)", disabledOpacity: "0.6", levelBlocked: "nível avançado" },
+  { name: "agenda", path: "/(user)/schedule", disabledOpacity: "0.5", levelBlocked: "Avançado" },
+];
+
+/** Botão de agendar da tela; na agenda, aula lotada mostra o botão da lista de espera. */
+function bookButton(page: Page, screen: Screen, full = false) {
+  if (screen.name === "início") return page.getByRole("button", { name: /^agendar/ });
+  return page.getByRole("button", { name: full ? /^Entrar na lista de espera/ : /^Reservar aula/ });
+}
 
 for (const screen of screens) {
   for (const scenario of [
@@ -58,13 +69,13 @@ for (const screen of screens) {
       if (screen.name === "início") {
         await expect(page.getByText(scenario.studentLevel, { exact: true })).toBeVisible();
       }
-      const booking = page.getByRole("button", { name: /^agendar/ });
+      const booking = bookButton(page, screen);
       if (scenario.allowed) {
         await expect(booking).toBeVisible();
         await booking.click();
         await expect(page.getByText("confirmar agendamento", { exact: true })).toBeVisible();
       } else {
-        await expect(page.getByText(screen.name === "agenda" ? "Requer nível Avançado" : "nível avançado", { exact: true })).toBeVisible();
+        await expect(page.getByText(screen.levelBlocked, { exact: true })).toBeVisible();
         await expect(booking).toHaveCount(0);
       }
     });
@@ -75,9 +86,9 @@ for (const screen of screens) {
       const state = await setup(page, status ? { ...activePlan, status } : null);
       await page.goto(screen.path);
       await page.waitForLoadState("networkidle");
-      const button = page.getByRole("button", { name: /^agendar/ }).first();
+      const button = bookButton(page, screen).first();
       await expect(button).toBeVisible();
-      await expect(button).toHaveCSS("opacity", "0.6");
+      await expect(button).toHaveCSS("opacity", screen.disabledOpacity);
       // O toque continua disponível para explicar o bloqueio pelo toast padrão.
       await button.click();
       await expect(page.getByText("Você não possui um plano ativo para agendar aulas.", { exact: true })).toBeVisible();
@@ -90,7 +101,7 @@ for (const screen of screens) {
     test(`${screen.name}: plano ativo permite ${full ? "fila de espera" : "agendamento"}`, async ({ page }) => {
       const state = await setup(page, activePlan, full);
       await page.goto(screen.path);
-      const button = page.getByRole("button", { name: /^agendar/ }).first();
+      const button = bookButton(page, screen, full).first();
       await expect(button).toHaveCSS("opacity", "1");
       await button.click();
       await expect(page.getByText("confirmar agendamento", { exact: true })).toBeVisible();
@@ -105,7 +116,7 @@ for (const screen of screens) {
     await setup(page, null);
     await page.goto(screen.path);
     await page.waitForLoadState("networkidle");
-    await page.getByRole("button", { name: /^agendar/ }).first().click();
+    await bookButton(page, screen).first().click();
     const toast = page.getByTestId("toast");
     await expect(toast).toBeVisible();
     const target = page.getByTestId(screen.name === "início" ? "tab-schedule" : "tab-index");
@@ -139,8 +150,8 @@ test("bloqueia enquanto verifica o plano e após falha de consulta", async ({ pa
     await route.fulfill({ status: 400, json: { detail: "Falha ao consultar plano" } });
   });
   await page.goto("/(user)/schedule");
-  const button = page.getByRole("button", { name: "agendar", exact: true });
-  await expect(button).toHaveCSS("opacity", "0.6");
+  const button = page.getByRole("button", { name: /^Reservar aula/ });
+  await expect(button).toHaveCSS("opacity", "0.5");
   await button.click();
   await expect(page.getByText("Aguarde a verificação do seu plano.", { exact: true })).toBeVisible();
   releasePlan();
@@ -153,8 +164,8 @@ test("bloqueia enquanto verifica o plano e após falha de consulta", async ({ pa
 test("atualizar a agenda libera ou bloqueia o botão conforme o plano atual", async ({ page }) => {
   const state = await setup(page, null);
   await page.goto("/(user)/schedule");
-  const button = page.getByRole("button", { name: "agendar", exact: true });
-  await expect(button).toHaveCSS("opacity", "0.6");
+  const button = page.getByRole("button", { name: /^Reservar aula/ });
+  await expect(button).toHaveCSS("opacity", "0.5");
   await page.waitForLoadState("networkidle");
 
   async function refresh() {
@@ -178,7 +189,7 @@ test("atualizar a agenda libera ou bloqueia o botão conforme o plano atual", as
   await expect(button).toHaveCSS("opacity", "1");
   state.plan = null;
   await refresh();
-  await expect(button).toHaveCSS("opacity", "0.6");
+  await expect(button).toHaveCSS("opacity", "0.5");
   await button.click();
   await expect(page.getByText("Você não possui um plano ativo para agendar aulas.", { exact: true })).toBeVisible();
   expect(state.bookings).toEqual([]);
