@@ -79,20 +79,21 @@ export function useAlunoActions() {
     return { createAluno: create.mutateAsync, updateAluno: update.mutateAsync, updateLevel: level.mutateAsync, updateStatus: status.mutateAsync, updatePaymentMethods: payments.mutateAsync, deleteAluno: remove.mutateAsync, isDeleting: remove.isPending, isSaving: create.isPending || update.isPending || level.isPending || status.isPending || payments.isPending };
 }
 
-/** Acesso via parceiro do aluno, na visão do CT. */
-export function useAlunoPartnerAccess(id: string | null) {
+/** Parceiros ativos do aluno (um por parceiro), na visão do CT. */
+export function useAlunoPartnerAccesses(id: string | null) {
     const query = useQuery({
         queryKey: ["aluno-partner-access", id],
-        queryFn: () => new AlunosRoutes().getPartnerAccess(id!),
+        queryFn: () => new AlunosRoutes().getPartnerAccesses(id!),
         enabled: !!id,
     });
-    return { partnerAccess: query.data ?? null, isLoading: query.isLoading };
+    return { partnerAccesses: query.data ?? [], isLoading: query.isLoading };
 }
 
 export function useEndAlunoPartnerAccess() {
     const client = useQueryClient();
     const mutation = useMutation({
-        mutationFn: ({ id, reason }: { id: string; reason?: string }) => new AlunosRoutes().endPartnerAccess(id, reason),
+        mutationFn: ({ id, partner, reason }: { id: string; partner: string; reason?: string }) =>
+            new AlunosRoutes().endPartnerAccess(id, partner, reason),
         retry: false,
         onSuccess: (_, { id }) => {
             void client.invalidateQueries({ queryKey: ["aluno-partner-access", id] });

@@ -338,7 +338,7 @@ export default function Schedule() {
     setIsModalVisible(true);
   };
 
-  const handleConfirmBooking = async () => {
+  const handleConfirmBooking = async (origin?: string) => {
     if (!selectedClass) return;
     if (!ensureCanBook()) {
       setIsModalVisible(false);
@@ -347,7 +347,7 @@ export default function Schedule() {
     }
 
     try {
-      await createSchedule({ ocorrenciaId: selectedClass.id });
+      await createSchedule({ ocorrenciaId: selectedClass.id, origin });
       setIsModalVisible(false);
       setSelectedClass(null);
     } catch (err) {

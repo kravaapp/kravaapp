@@ -18,7 +18,7 @@ import { useCancelRecorrenciaAluno, useSubscribeContract } from "@/hooks/contrac
 import {
   useCreatePartnerRequest,
   useEndMyPartnerAccess,
-  useMyPartnerAccess,
+  useMyPartnerAccesses,
   useMyPartnerRequest,
   useTenantPartners,
 } from "@/hooks/partners.hooks";
@@ -210,56 +210,58 @@ const CurrentPlanCard = ({
   );
 };
 
+const partnerUsage = (access: PartnerAccessType) =>
+  access.monthlyLimit
+    ? `${access.usedThisMonth} de ${access.monthlyLimit} check-ins este mês`
+    : `${access.usedThisMonth} check-in${access.usedThisMonth === 1 ? "" : "s"} este mês`;
+
+/** Sem plano do CT: os parceiros são o acesso do aluno, cada um com o próprio saldo e desvínculo. */
 const PartnerAccessCard = ({
-  access,
+  accesses,
   onEnd,
 }: {
-  access: PartnerAccessType;
-  onEnd: () => void;
+  accesses: PartnerAccessType[];
+  onEnd: (access: PartnerAccessType) => void;
 }) => {
-  const hasLimit = access.monthlyLimit !== null && access.monthlyLimit > 0;
-  const progress = hasLimit
-    ? Math.min(Math.round((access.usedThisMonth / access.monthlyLimit!) * 100), 100)
-    : 0;
+  const several = accesses.length > 1;
 
   return (
     <View style={styles.cardNavy}>
       <View style={styles.currentHeaderRow}>
         <View style={styles.currentHeaderTexts}>
           <Text style={styles.navySubtitle}>SEU ACESSO ATUAL</Text>
-          <Text style={styles.navyTitle}>{access.partner}</Text>
+          <Text style={styles.navyTitle}>{accesses.map((access) => access.partner).join(" · ")}</Text>
         </View>
         <View style={styles.currentStatus}><Text style={styles.currentStatusText}>Ativo</Text></View>
       </View>
 
-      <View style={styles.progressSection}>
-        <View style={styles.progressRow}>
-          <Text style={styles.progressTextLeft}>
-            {hasLimit
-              ? `${access.usedThisMonth} de ${access.monthlyLimit} check-ins este mês`
-              : `${access.usedThisMonth} check-in${access.usedThisMonth === 1 ? "" : "s"} este mês`}
-          </Text>
-          {hasLimit && <Text style={styles.progressTextRight}>{progress}%</Text>}
-        </View>
-        {hasLimit ? <ProgressBar progress={progress} /> : <Text style={styles.unlimitedTag}>Sem limite mensal</Text>}
-      </View>
+      {accesses.map((access, index) => {
+        const hasLimit = access.monthlyLimit !== null && access.monthlyLimit > 0;
+        const progress = hasLimit
+          ? Math.min(Math.round((access.usedThisMonth / access.monthlyLimit!) * 100), 100)
+          : 0;
 
-      <View style={styles.currentInfoGrid}>
-        {access.since && (
-          <View style={styles.currentInfoItem}>
-            <Text style={styles.currentInfoLabel}>Vinculado desde</Text>
-            <Text style={styles.currentInfoValue}>{formatDate(access.since)}</Text>
+        return (
+          <View key={access.partner} style={[styles.partnerAccessBlock, index > 0 && styles.partnerAccessBlockDivider]}>
+            {several && <Text style={styles.partnerAccessName}>{access.partner}</Text>}
+            <View style={styles.progressRow}>
+              <Text style={styles.progressTextLeft}>{partnerUsage(access)}</Text>
+              {hasLimit && <Text style={styles.progressTextRight}>{progress}%</Text>}
+            </View>
+            {hasLimit ? <ProgressBar progress={progress} /> : <Text style={styles.unlimitedTag}>Sem limite mensal</Text>}
+            {access.since && (
+              <Text style={styles.partnerAccessSince}>Vinculado desde {formatDate(access.since)}</Text>
+            )}
+            <TouchableOpacity accessibilityRole="button" style={styles.cancelRecorrenciaButton} onPress={() => onEnd(access)}>
+              <Text style={styles.cancelRecorrenciaButtonText}>Desvincular {access.partner}</Text>
+            </TouchableOpacity>
           </View>
-        )}
-        <View style={styles.currentInfoItem}>
-          <Text style={styles.currentInfoLabel}>Forma de acesso</Text>
-          <Text style={styles.currentInfoValue}>Parceiro</Text>
-        </View>
-      </View>
+        );
+      })}
 
-      <TouchableOpacity accessibilityRole="button" style={styles.cancelRecorrenciaButton} onPress={onEnd}>
-        <Text style={styles.cancelRecorrenciaButtonText}>Desvincular {access.partner}</Text>
-      </TouchableOpacity>
+      {several && (
+        <Text style={styles.partnerAccessHint}>Na hora de reservar, você escolhe de qual parceiro descontar a aula.</Text>
+      )}
     </View>
   );
 };
@@ -416,9 +418,12 @@ export default function PaymentPlans() {
   } = useMyPartnerRequest();
   const { partners: activePartners } = useTenantPartners(true);
   const { createPartnerRequest, isLoading: isSendingPartnerRequest } = useCreatePartnerRequest();
-  const { partnerAccess, refetch: refetchPartnerAccess } = useMyPartnerAccess();
+  const { partnerAccesses, refetch: refetchPartnerAccess } = useMyPartnerAccesses();
   const { endPartnerAccess, isEnding: isEndingPartnerAccess } = useEndMyPartnerAccess();
-  const [endPartnerModalVisible, setEndPartnerModalVisible] = useState(false);
+  const [endingPartner, setEndingPartner] = useState<PartnerAccessType | null>(null);
+  // Parceiros que o aluno ainda pode pedir: os ativos no CT menos os que ele já tem.
+  const requestablePartners = (activePartners.length > 0 ? activePartners.map((p) => p.name) : ["Gympass", "TotalPass"])
+    .filter((name) => !partnerAccesses.some((access) => access.partner.toLowerCase() === name.toLowerCase()));
   const refresh = useScreenRefresh(
     [["plans", "list"], ["plans", "current"], ["my-partner-request"], ["my-plan-request"]],
     { refetch: [refetchPayments, refetchPartnerRequest, refetchPlanRequest, refetchPartnerAccess] },
@@ -464,12 +469,12 @@ export default function PaymentPlans() {
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
   const handleConfirmEndPartnerAccess = async () => {
-    if (!partnerAccess || isEndingPartnerAccess) return;
+    if (!endingPartner || isEndingPartnerAccess) return;
     try {
-      await endPartnerAccess();
-      setEndPartnerModalVisible(false);
+      await endPartnerAccess(endingPartner.partner);
+      setEndingPartner(null);
       toast({
-        title: `${partnerAccess.partner} desvinculado`,
+        title: `${endingPartner.partner} desvinculado`,
         description: "Você pode assinar um plano do CT ou solicitar um novo vínculo quando quiser.",
       });
     } catch (err) {
@@ -564,12 +569,8 @@ export default function PaymentPlans() {
 
   const handleOpenPartnerModal = () => {
     setIsDropdownOpen(false);
-    if (activePartners.length > 0) {
-      if (!selectedPartner || !activePartners.some((p) => p.name === selectedPartner)) {
-        setSelectedPartner(activePartners[0].name);
-      }
-    } else if (!selectedPartner) {
-      setSelectedPartner("Gympass");
+    if (!selectedPartner || !requestablePartners.includes(selectedPartner)) {
+      setSelectedPartner(requestablePartners[0] ?? null);
     }
     setPartnerModal(true);
   };
@@ -644,8 +645,8 @@ export default function PaymentPlans() {
             }
             isRenewing={!!renewablePlan && subscribingPlanId === renewablePlan.id}
           />
-        ) : partnerAccess ? (
-          <PartnerAccessCard access={partnerAccess} onEnd={() => setEndPartnerModalVisible(true)} />
+        ) : partnerAccesses.length > 0 ? (
+          <PartnerAccessCard accesses={partnerAccesses} onEnd={setEndingPartner} />
         ) : (
           <View style={styles.cardNavy}>
             <Text style={styles.navySubtitle}>SEU PLANO ATUAL</Text>
@@ -812,13 +813,15 @@ export default function PaymentPlans() {
               ⓘ Assim que for aprovada, seus agendamentos serão liberados automaticamente.
             </Text>
           </View>
-        ) : partnerAccess && !currentPlan ? null : partnerAccess || partnerRequest?.status === "Approved" ? (
-          <View style={[styles.cardLightBlue, styles.cardApproved]}>
+        ) : null}
+
+        {currentPlan && partnerAccesses.map((access) => (
+          <View key={access.partner} style={[styles.cardLightBlue, styles.cardApproved]}>
             <View style={styles.partnerHeaderRow}>
               <View style={[styles.rowAlign, { marginBottom: 0 }]}>
                 <Check size={18} color="#16A34A" />
                 <Text style={[styles.lightBlueTitle, { color: "#166534" }]}>
-                  Vinculado ao {partnerAccess?.partner ?? partnerRequest?.partner}
+                  Vinculado ao {access.partner}
                 </Text>
               </View>
               <View style={styles.badgeApproved}>
@@ -826,24 +829,21 @@ export default function PaymentPlans() {
               </View>
             </View>
             <Text style={[styles.lightBlueDesc, { color: "#14532D" }]}>
-              Usado quando o seu plano do CT esgotar as aulas da semana ou não estiver vigente.
-              {partnerAccess?.monthlyLimit
-                ? ` ${partnerAccess.usedThisMonth} de ${partnerAccess.monthlyLimit} check-ins usados este mês.`
-                : ""}
+              Na hora de reservar, você escolhe se a aula sai do plano ou do {access.partner}. {partnerUsage(access)}.
             </Text>
-            {partnerAccess && (
-              <TouchableOpacity
-                accessibilityRole="button"
-                style={[styles.btnOutlineLight, styles.partnerEndButton]}
-                onPress={() => setEndPartnerModalVisible(true)}
-              >
-                <Text style={[styles.btnOutlineLightText, styles.partnerEndButtonText]}>
-                  Desvincular {partnerAccess.partner}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={[styles.btnOutlineLight, styles.partnerEndButton]}
+              onPress={() => setEndingPartner(access)}
+            >
+              <Text style={[styles.btnOutlineLightText, styles.partnerEndButtonText]}>
+                Desvincular {access.partner}
+              </Text>
+            </TouchableOpacity>
           </View>
-        ) : partnerRequest?.status === "Rejected" ? (
+        ))}
+
+        {partnerRequest?.status === "Pending" ? null : partnerRequest?.status === "Rejected" && partnerAccesses.length === 0 ? (
           <View style={[styles.cardLightBlue, styles.cardRejected]}>
             <View style={styles.partnerHeaderRow}>
               <View style={[styles.rowAlign, { marginBottom: 0, flex: 1 }]}>
@@ -863,6 +863,24 @@ export default function PaymentPlans() {
               onPress={handleOpenPartnerModal}
             >
               <Text style={styles.btnSolidText}>Solicitar novamente</Text>
+            </TouchableOpacity>
+          </View>
+        ) : requestablePartners.length === 0 ? null : partnerAccesses.length > 0 ? (
+          <View style={styles.cardLightBlue}>
+            <View style={styles.rowAlign}>
+              <CreditCard size={16} color={COLORS.mainOrange} />
+              <Text style={styles.lightBlueTitle}>Vincular outro parceiro</Text>
+            </View>
+            <Text style={styles.lightBlueDesc}>
+              Também usa {requestablePartners.join(" ou ")}? Solicite a vinculação. Na hora de reservar,
+              você escolhe de qual parceiro descontar a aula.
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              style={styles.btnSolid}
+              onPress={handleOpenPartnerModal}
+            >
+              <Text style={styles.btnSolidText}>Solicitar vinculação</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -1049,10 +1067,7 @@ export default function PaymentPlans() {
 
               {isDropdownOpen && (
                 <View style={styles.selectDropdown}>
-                  {(activePartners.length > 0
-                    ? activePartners.map((p) => p.name)
-                    : ["Gympass", "TotalPass"]
-                  ).map((partnerName) => (
+                  {requestablePartners.map((partnerName) => (
                     <TouchableOpacity
                       key={partnerName}
                       style={styles.selectOption}
@@ -1101,25 +1116,25 @@ export default function PaymentPlans() {
 
       {/* Modal de Confirmação do Desvínculo do Parceiro */}
       <Modal
-        visible={endPartnerModalVisible && !!partnerAccess}
+        visible={!!endingPartner}
         transparent
         animationType="fade"
-        onRequestClose={() => !isEndingPartnerAccess && setEndPartnerModalVisible(false)}
+        onRequestClose={() => !isEndingPartnerAccess && setEndingPartner(null)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.cancelWarningIconContainer}>
               <ShieldAlert size={32} color={COLORS.destructive} />
             </View>
-            <Text style={styles.cancelModalTitle}>Desvincular {partnerAccess?.partner}?</Text>
+            <Text style={styles.cancelModalTitle}>Desvincular {endingPartner?.partner}?</Text>
             <Text style={styles.cancelModalDesc}>
-              Você deixará de agendar aulas pelo {partnerAccess?.partner} neste CT.
-              {partnerAccess && partnerAccess.futureBookings > 0 ? (
+              Você deixará de agendar aulas pelo {endingPartner?.partner} neste CT.
+              {endingPartner && endingPartner.futureBookings > 0 ? (
                 <Text style={{ fontWeight: "700", color: COLORS.foreground }}>
                   {" "}
-                  {partnerAccess.futureBookings === 1
-                    ? "1 aula agendada pelo parceiro será cancelada."
-                    : `${partnerAccess.futureBookings} aulas agendadas pelo parceiro serão canceladas.`}
+                  {endingPartner.futureBookings === 1
+                    ? `1 aula agendada pelo ${endingPartner.partner} será cancelada.`
+                    : `${endingPartner.futureBookings} aulas agendadas pelo ${endingPartner.partner} serão canceladas.`}
                 </Text>
               ) : null}
             </Text>
@@ -1142,7 +1157,7 @@ export default function PaymentPlans() {
               accessibilityRole="button"
               disabled={isEndingPartnerAccess}
               style={styles.modalCancel}
-              onPress={() => setEndPartnerModalVisible(false)}
+              onPress={() => setEndingPartner(null)}
             >
               <Text style={styles.modalCancelText}>Manter vínculo</Text>
             </TouchableOpacity>
@@ -1202,6 +1217,11 @@ export default function PaymentPlans() {
 
 const styles = StyleSheet.create({
   partnerEndButton: { borderColor: "#86EFAC", marginTop: 12 },
+  partnerAccessBlock: { marginTop: 12 },
+  partnerAccessBlockDivider: { borderTopWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.2)", paddingTop: 12, marginTop: 14 },
+  partnerAccessName: { color: "#fff", fontSize: 15, fontWeight: "800", marginBottom: 6 },
+  partnerAccessSince: { color: "rgba(255, 255, 255, 0.6)", fontSize: 11, marginTop: 8 },
+  partnerAccessHint: { color: "rgba(255, 255, 255, 0.75)", fontSize: 12, lineHeight: 17, marginTop: 14 },
   partnerEndButtonText: { color: "#166534", fontWeight: "700" },
   subscriptionNotice: { fontSize: 13, lineHeight: 19, color: COLORS.mutedForeground, marginBottom: 14 },
   screenTitle: { fontSize: 30, fontWeight: "800", letterSpacing: -1.2, color: COLORS.foreground, textTransform: "lowercase" },

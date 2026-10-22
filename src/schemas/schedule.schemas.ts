@@ -28,6 +28,8 @@ export const scheduleRequestSchema = z.object({
 
 export const createScheduleRequestSchema = z.object({
     ocorrenciaId: z.uuid(),
+    /** "Plan" ou o nome do parceiro; vazio deixa a API usar a origem padrão. */
+    origin: z.string().optional(),
 });
 
 export const getBookingUserHistoryRequestSchema = z.object({

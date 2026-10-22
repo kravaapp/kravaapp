@@ -40,8 +40,6 @@ export type PartnerAccessType = {
   futureBookings: number;
 };
 
-/** A API responde corpo vazio ou "null" sem vínculo; qualquer outro formato também conta como sem vínculo. */
-export const parsePartnerAccess = (text: string): PartnerAccessType | null => {
-  const parsed = !text || text.trim() === "null" ? null : (JSON.parse(text) as PartnerAccessType);
-  return parsed?.partner ? parsed : null;
-};
+/** Lista de acessos via parceiro; qualquer formato diferente (API antiga, resposta vazia) conta como sem vínculo. */
+export const parsePartnerAccesses = (data: unknown): PartnerAccessType[] =>
+  Array.isArray(data) ? data.filter((item): item is PartnerAccessType => !!item?.partner) : [];

@@ -1,5 +1,5 @@
 import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { AttendanceType, AulaType, BookingSourcePreviewType, CreateAulaType, MyMonthlyScheduleType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType, UpdateAulaType } from "@/types/schedules.types";
+import { AttendanceType, AulaType, BookingOptionsType, CreateAulaType, MyMonthlyScheduleType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType, UpdateAulaType } from "@/types/schedules.types";
 import api from "./client";
 
 export class ScheduleRoutes {
@@ -54,18 +54,19 @@ export class ScheduleRoutes {
         return await api.get("/scheduling/ocorrencias", { searchParams: params }).json<PaginatedSchedule>();
     }
 
-    async getBookingSource(ocorrenciaId: string): Promise<BookingSourcePreviewType | null> {
-        const preview = await api.get(`/scheduling/ocorrencias/${ocorrenciaId}/booking-source`).json<BookingSourcePreviewType>();
-        // A API antiga não tem a rota: sem um "kind" conhecido, o modal segue sem a informação.
-        return ["Plan", "Partner", "None"].includes(preview?.kind) ? preview : null;
+    async getBookingOptions(ocorrenciaId: string): Promise<BookingOptionsType | null> {
+        const data = await api.get(`/scheduling/ocorrencias/${ocorrenciaId}/booking-options`).json<BookingOptionsType>();
+        // Sem a lista (API antiga), o modal segue sem a escolha e a API decide a origem.
+        return Array.isArray(data?.options) ? data : null;
     }
 
     async createSchedule(params: CreateScheduleRequestSchema) {
         return await api.post("/scheduling/bookings", {
             json: {
                 ocorrenciaId: params.ocorrenciaId,
-                source: 'str',
-                isTrial: false
+                source: 'App',
+                isTrial: false,
+                origin: params.origin ?? null,
             }
         }).json<ScheduleType>();
     }

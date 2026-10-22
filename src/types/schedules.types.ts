@@ -15,6 +15,8 @@ export type ScheduleType = {
   ctId: string;
   ctName: string;
   waitlistPosition: number | null;
+  /** Origem da reserva (App, Gympass, TotalPass...). */
+  bookingSource?: string | null;
   minLevel?: string;
   publicGender?: string;
   maxCapacity?: number;
@@ -193,12 +195,22 @@ export type CreateAulaType = AulaFields & (
 /** A edição permanece individual por registro da grade. */
 export type UpdateAulaType = AulaFields & { dayOfWeek: number };
 
-/** De onde a aula será descontada antes de confirmar o agendamento. */
-export type BookingSourcePreviewType = {
-  kind: "Plan" | "Partner" | "None";
-  label: string | null;
-  used: number | null;
+/** Uma forma de reservar a aula: o plano do CT ou um parceiro, com o saldo do período. */
+export type BookingOptionType = {
+  /** Valor enviado na reserva: "Plan" ou o nome do parceiro. */
+  origin: string;
+  kind: "Plan" | "Partner";
+  label: string;
+  used: number;
   limit: number | null;
-  period: "week" | "month" | null;
-  message: string | null;
+  period: "week" | "month";
+  available: boolean;
+  /** Por que a opção está indisponível (esgotada, modalidade fora do plano). */
+  reason: string | null;
+};
+
+export type BookingOptionsType = {
+  options: BookingOptionType[];
+  /** Origem já marcada; null quando o aluno precisa escolher entre os parceiros. */
+  defaultOrigin: string | null;
 };

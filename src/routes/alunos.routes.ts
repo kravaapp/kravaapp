@@ -1,6 +1,6 @@
 import { GetAlunosRequestSchema } from "@/schemas/alunos.schemas";
 import { AlunoHistoryType, AlunoType, CreateAlunoType, PaginatedAlunos, UpdateAlunoMeType, UpdateAlunoPaymentMethodsType, UpdateAlunoType } from "@/types/alunos.types";
-import { PartnerAccessType, parsePartnerAccess } from "@/types/partners.types";
+import { PartnerAccessType, parsePartnerAccesses } from "@/types/partners.types";
 import api from "./client";
 
 export class AlunosRoutes {
@@ -36,11 +36,14 @@ export class AlunosRoutes {
     async getHistory(id: string) {
         return api.get(`/membership/alunos/${id}/history`).json<AlunoHistoryType>();
     }
-    async getPartnerAccess(id: string): Promise<PartnerAccessType | null> {
-        return parsePartnerAccess(await api.get(`/membership/alunos/${id}/partner-access`).text());
+    async getPartnerAccesses(id: string): Promise<PartnerAccessType[]> {
+        return parsePartnerAccesses(await api.get(`/membership/alunos/${id}/partner-accesses`).json<unknown>());
     }
-    async endPartnerAccess(id: string, reason?: string) {
-        await api.post(`/membership/alunos/${id}/partner-access/end`, { json: { reason: reason?.trim() || null }, retry: 0 });
+    async endPartnerAccess(id: string, partner: string, reason?: string) {
+        await api.post(`/membership/alunos/${id}/partner-access/end`, {
+            json: { partner, reason: reason?.trim() || null },
+            retry: 0,
+        });
     }
     async deleteAluno(id: string) {
         await api.delete(`/membership/alunos/${id}`);

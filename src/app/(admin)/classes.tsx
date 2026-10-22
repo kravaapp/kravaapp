@@ -62,6 +62,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { partnerBookingLabel } from "@/utils/bookingSource";
 
 type AnyOccurrenceItem = TodayOccurrenceType | ScheduleOccurrenceType;
 
@@ -146,6 +147,18 @@ const LEVEL_ALIASES: Record<string, string> = {
   "intermediário": "intermediario",
   avancado: "avancado",
   "avançado": "avancado",
+};
+
+/** Nível do aluno e, quando a aula foi reservada por parceiro, o selo dele (a recepção valida o check-in no app do parceiro). */
+const StudentMeta = ({ level, paymentMethod }: { level?: string | null; paymentMethod?: string | null }) => {
+  const partner = partnerBookingLabel(paymentMethod);
+  if (!level && !partner) return null;
+  return (
+    <View style={styles.studentMetaRow}>
+      {level ? <Text style={styles.studentSubText}>{level}</Text> : null}
+      {partner ? <Pill label={partner} tone="info" /> : null}
+    </View>
+  );
 };
 
 const levelValue = (value?: string | null): string | null =>
@@ -1501,11 +1514,7 @@ function ClassModal({
                         <Text style={styles.studentName} numberOfLines={1}>
                           {student.studentName || "Aluno"}
                         </Text>
-                        {student.level ? (
-                          <Text style={styles.studentSubText}>
-                            {student.level}
-                          </Text>
-                        ) : null}
+                        <StudentMeta level={student.level} paymentMethod={student.paymentMethod} />
                       </View>
 
                       {/* Botão / Badge de Check-in (Print 2) */}
@@ -1561,11 +1570,7 @@ function ClassModal({
                     <Text style={styles.studentName} numberOfLines={1}>
                       {student.studentName || "Aluno"}
                     </Text>
-                    {student.level ? (
-                      <Text style={styles.studentSubText}>
-                        {student.level}
-                      </Text>
-                    ) : null}
+                    <StudentMeta level={student.level} paymentMethod={student.paymentMethod} />
                   </View>
                   <Text style={styles.waitlistStatusLabel}>
                     Aguardando vaga
@@ -2171,6 +2176,13 @@ const styles = StyleSheet.create({
   studentSubText: {
     fontSize: 11,
     color: COLORS.mutedForeground,
+  },
+  studentMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 2,
   },
   checkedInBadge: {
     flexDirection: "row",

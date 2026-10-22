@@ -25,6 +25,7 @@ import { getStudentLevelWeight, normalizeStudentLevel } from "@/utils/studentLev
 import { ArrowRight, CalendarDays, Clock3, Dumbbell } from "lucide-react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { partnerBookingLabel } from "@/utils/bookingSource";
 
 
 
@@ -250,6 +251,7 @@ const NextClassCard = () => {
                 <Text style={styles.nextClassTitle}>{userNextClass.aulaName || 'Aula'}</Text>
                 <Text style={styles.nextClassDetail}>
                     {getClassTime(userNextClass.ocorrenciaDate || '', userNextClass.startTime || '')} · prof. {userNextClass.professorName || 'Professor'}
+                    {partnerBookingLabel(userNextClass.bookingSource) ? ` · via ${partnerBookingLabel(userNextClass.bookingSource)}` : ''}
                 </Text>
                 <View style={styles.nextClassFooter}>
                     <View style={styles.nextClassMeta}>
@@ -329,7 +331,8 @@ const WeekCalendar = () => {
                 aula: firstClass ? {
                     modalidade: firstClass.modalityName || firstClass.aulaName,
                     horario: firstClass.startTime.substring(0, 5),
-                    status: firstClass.bookingStatus === 'Confirmado' ? 'confirmado' : 'espera'
+                    status: firstClass.bookingStatus === 'Confirmado' ? 'confirmado' : 'espera',
+                    parceiro: partnerBookingLabel(firstClass.bookingSource),
                 } : null
             };
         });
@@ -380,6 +383,7 @@ const WeekCalendar = () => {
                     </Text>
                     <Text style={styles.cardMeta}>
                         {selectedDayData.label}, {String(selectedDayData.day).padStart(2, '0')}/{selectedDayData.month}
+                        {selectedDayData.aula.parceiro ? ` · via ${selectedDayData.aula.parceiro}` : ''}
                     </Text>
                 </View>
             )}
@@ -471,7 +475,7 @@ export default function Home() {
         setIsModalVisible(true);
     };
 
-    const handleConfirmBooking = async () => {
+    const handleConfirmBooking = async (origin?: string) => {
         if (!selectedClass) return;
         if (!ensureCanBook()) {
             setIsModalVisible(false);
@@ -480,7 +484,7 @@ export default function Home() {
         }
 
         try {
-            await createSchedule({ ocorrenciaId: selectedClass.id });
+            await createSchedule({ ocorrenciaId: selectedClass.id, origin });
             setIsModalVisible(false);
             setSelectedClass(null);
         } catch (err) {

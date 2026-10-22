@@ -35,6 +35,7 @@ import {
     AttendanceStudentType,
 } from "@/types/schedules.types";
 import { Search, UserPlus } from "lucide-react-native";
+import { partnerBookingLabel } from "@/utils/bookingSource";
 import { formatHora, STATUS_BADGE } from "./index";
 
 type TabKey = "chamada" | "espera" | "adicionar";
@@ -473,6 +474,11 @@ export default function AulaAoVivo() {
                                                                     {levelLabel(c.level)}
                                                                 </Badge>
                                                             )}
+                                                            {!!partnerBookingLabel(c.paymentMethod) && (
+                                                                <Badge variant="info" compact>
+                                                                    {partnerBookingLabel(c.paymentMethod)}
+                                                                </Badge>
+                                                            )}
                                                             {c.isExperimental && (
                                                                 <Badge variant="manager" compact>
                                                                     Experimental
@@ -608,6 +614,11 @@ export default function AulaAoVivo() {
                                                     {!!item.level && (
                                                         <Badge variant={levelVariant(item.level)} compact>
                                                             {levelLabel(item.level)}
+                                                        </Badge>
+                                                    )}
+                                                    {!!partnerBookingLabel(item.paymentMethod) && (
+                                                        <Badge variant="info" compact>
+                                                            {partnerBookingLabel(item.paymentMethod)}
                                                         </Badge>
                                                     )}
                                                     {item.isExperimental && (

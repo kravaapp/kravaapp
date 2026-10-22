@@ -11,7 +11,7 @@ import {
   CreateTenantPartnerType,
   MyPartnerRequestType,
   PartnerAccessType,
-  parsePartnerAccess,
+  parsePartnerAccesses,
   TenantPartnerType,
   UpdateTenantPartnerType,
 } from "@/types/partners.types";
@@ -92,12 +92,12 @@ export class TenantRoutes {
     return api.get("/membership/partner-requests/my").json<MyPartnerRequestType | null>();
   }
 
-  async getMyPartnerAccess(): Promise<PartnerAccessType | null> {
-    return parsePartnerAccess(await api.get("/membership/partner-requests/my/access").text());
+  async getMyPartnerAccesses(): Promise<PartnerAccessType[]> {
+    return parsePartnerAccesses(await api.get("/membership/partner-requests/my/accesses").json<unknown>());
   }
 
-  async endMyPartnerAccess() {
-    await api.post("/membership/partner-requests/my/end", { retry: 0 });
+  async endMyPartnerAccess(partner: string) {
+    await api.post("/membership/partner-requests/my/end", { json: { partner }, retry: 0 });
   }
 
   async createPartnerRequest(partner: string) {

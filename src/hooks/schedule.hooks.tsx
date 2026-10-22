@@ -216,6 +216,12 @@ export function useCreateSchedule() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["schedule"] });
         },
+        // Com sucesso ou recusa (saldo mudou), o saldo do plano e dos parceiros precisa ser relido.
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["booking-options"] });
+            queryClient.invalidateQueries({ queryKey: ["my-partner-accesses"] });
+            queryClient.invalidateQueries({ queryKey: ["plans", "current"] });
+        },
     });
 
     useEffect(() => {
@@ -402,13 +408,13 @@ export function useAttendance({ ocorrenciaId, status }: GetAttendanceRequestSche
     };
 }
 
-/** Origem (plano ou parceiro) e saldo que serão usados ao agendar a ocorrência. */
-export function useBookingSourcePreview(ocorrenciaId: string | null | undefined, enabled = true) {
+/** Formas de reservar a ocorrência (plano e cada parceiro), com saldo e a origem já marcada. */
+export function useBookingOptions(ocorrenciaId: string | null | undefined, enabled = true) {
     const query = useQuery({
-        queryKey: ["booking-source", ocorrenciaId],
-        queryFn: () => new ScheduleRoutes().getBookingSource(ocorrenciaId!),
+        queryKey: ["booking-options", ocorrenciaId],
+        queryFn: () => new ScheduleRoutes().getBookingOptions(ocorrenciaId!),
         enabled: !!ocorrenciaId && enabled,
         staleTime: 0,
     });
-    return { preview: query.data ?? null, isLoading: query.isLoading };
+    return { bookingOptions: query.data ?? null, isLoading: query.isLoading };
 }

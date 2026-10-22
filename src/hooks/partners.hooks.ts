@@ -95,17 +95,18 @@ export function useCreatePartnerRequest() {
   };
 }
 
-const myPartnerAccessKey = ["my-partner-access"];
+export const myPartnerAccessesKey = ["my-partner-accesses"];
 
-/** Acesso atual do aluno via parceiro (null quando não há vínculo ativo). */
-export function useMyPartnerAccess() {
+/** Parceiros ativos do aluno (Gympass, TotalPass...), cada um com o uso do mês; vazio sem vínculo. */
+export function useMyPartnerAccesses(enabled = true) {
   const query = useQuery({
-    queryKey: myPartnerAccessKey,
-    queryFn: () => new TenantRoutes().getMyPartnerAccess(),
+    queryKey: myPartnerAccessesKey,
+    queryFn: () => new TenantRoutes().getMyPartnerAccesses(),
+    enabled,
   });
 
   return {
-    partnerAccess: query.data ?? null,
+    partnerAccesses: query.data ?? [],
     isLoading: query.isLoading,
     refetch: query.refetch,
   };
@@ -114,10 +115,10 @@ export function useMyPartnerAccess() {
 export function useEndMyPartnerAccess() {
   const client = useQueryClient();
   const mutation = useMutation({
-    mutationFn: () => new TenantRoutes().endMyPartnerAccess(),
+    mutationFn: (partner: string) => new TenantRoutes().endMyPartnerAccess(partner),
     retry: false,
     onSuccess: () => {
-      void client.invalidateQueries({ queryKey: myPartnerAccessKey });
+      void client.invalidateQueries({ queryKey: myPartnerAccessesKey });
       void client.invalidateQueries({ queryKey: myPartnerRequestKey });
       void client.invalidateQueries({ queryKey: ["schedule"] });
     },

@@ -15,7 +15,7 @@ import {
 import {
   useAlunoActions,
   useAlunoDetails,
-  useAlunoPartnerAccess,
+  useAlunoPartnerAccesses,
   useAlunos,
   useEndAlunoPartnerAccess,
 } from "@/hooks/alunos.hooks";
@@ -140,8 +140,8 @@ const sexes: Option[] = [
   { label: "Feminino", value: "F" },
 ];
 const PARTNER_METHODS = ["gympass", "totalpass"];
-const partnerOf = (methods?: string[] | null) =>
-  (methods ?? []).find((method) => PARTNER_METHODS.includes(method.toLowerCase())) ?? null;
+const partnersOf = (methods?: string[] | null) =>
+  (methods ?? []).filter((method) => PARTNER_METHODS.includes(method.toLowerCase()));
 
 /* Opção "Todos": value vazio significa "sem filtro" na rota. */
 const ALL: Option = { label: "Todos", value: "" };
@@ -870,13 +870,15 @@ export default function AdminStudents() {
                       />
                       {student.planoAtivo ? (
                         <Pill label={student.planoAtivo} tone="success" />
-                      ) : partnerOf(student.paymentMethods) ? (
-                        <Pill label={partnerOf(student.paymentMethods)!} tone="success" />
+                      ) : partnersOf(student.paymentMethods).length > 0 ? (
+                        partnersOf(student.paymentMethods).map((partner) => (
+                          <Pill key={partner} label={partner} tone="success" />
+                        ))
                       ) : (
                         <Pill label="Sem plano ativo" tone="neutral" />
                       )}
                       {(student.paymentMethods ?? [])
-                        .filter((method) => student.planoAtivo || method !== partnerOf(student.paymentMethods))
+                        .filter((method) => student.planoAtivo || !partnersOf(student.paymentMethods).includes(method))
                         .map((method) => (
                           <Pill key={method} label={method} tone="info" />
                         ))}
@@ -886,8 +888,8 @@ export default function AdminStudents() {
                     </View>
                     <Text style={styles.secondary}>
                       {student.planoAtivo ||
-                        (partnerOf(student.paymentMethods)
-                          ? `Acesso via ${partnerOf(student.paymentMethods)}`
+                        (partnersOf(student.paymentMethods).length > 0
+                          ? `Acesso via ${partnersOf(student.paymentMethods).join(" e ")}`
                           : "Sem plano ativo")}{" "}
                       ·{" "}
                       {student.checkinsThisMonth} check-in(s) no mês
@@ -1209,19 +1211,18 @@ function StudentModal({
 
   const [activeTab, setActiveTab] = useState<StudentTab>("plan");
 
-  const { partnerAccess } = useAlunoPartnerAccess(id);
+  const { partnerAccesses } = useAlunoPartnerAccesses(id);
   const { endPartnerAccess, isEnding: isEndingPartner } = useEndAlunoPartnerAccess();
-  const [endPartnerVisible, setEndPartnerVisible] = useState(false);
+  const [endingPartner, setEndingPartner] = useState<PartnerAccessType | null>(null);
 
   const handleEndPartnerAccess = async (reason?: string) => {
-    if (!id || !partnerAccess) return;
+    if (!id || !endingPartner) return;
+    const { partner } = endingPartner;
     try {
-      await endPartnerAccess({ id, reason });
-      setMethods((current) =>
-        current.filter((method) => method.toLowerCase() !== partnerAccess.partner.toLowerCase()),
-      );
-      setEndPartnerVisible(false);
-      toast({ title: `${partnerAccess.partner} desvinculado`, description: "O aluno foi avisado no app." });
+      await endPartnerAccess({ id, partner, reason });
+      setMethods((current) => current.filter((method) => method.toLowerCase() !== partner.toLowerCase()));
+      setEndingPartner(null);
+      toast({ title: `${partner} desvinculado`, description: "O aluno foi avisado no app." });
     } catch (requestError) {
       toast({
         title: "Não foi possível desvincular",
@@ -1407,7 +1408,7 @@ function StudentModal({
     formDirty.current = false;
     setShowChangePlan(false);
     setActiveTab("plan");
-    setEndPartnerVisible(false);
+    setEndingPartner(null);
     setPayingInvoice(null);
     setCancellingInvoice(null);
     setRefundingInvoice(null);
@@ -1445,12 +1446,12 @@ function StudentModal({
 
   const handleTogglePaymentMethod = async (methodValue: string) => {
     if (!id) return;
-    if (
-      partnerAccess &&
-      methods.includes(methodValue) &&
-      methodValue.toLowerCase() === partnerAccess.partner.toLowerCase()
-    ) {
-      setEndPartnerVisible(true);
+    // Desmarcar o chip de um parceiro ativo abre a mesma confirmação do botão "Desvincular".
+    const activeAccess = methods.includes(methodValue)
+      ? partnerAccesses.find((access) => access.partner.toLowerCase() === methodValue.toLowerCase())
+      : undefined;
+    if (activeAccess) {
+      setEndingPartner(activeAccess);
       return;
     }
     const prevMethods = methods;
@@ -1785,7 +1786,7 @@ function StudentModal({
                           </Text>
                         </TouchableOpacity>
                       </View>
-                    ) : partnerAccess ? null : (
+                    ) : partnerAccesses.length > 0 ? null : (
                       <View style={styles.noPlanCard}>
                         <View style={styles.noPlanHeader}>
                           <View style={styles.activePlanTitleGroup}>
@@ -1803,13 +1804,14 @@ function StudentModal({
                       </View>
                     )}
 
-                    {partnerAccess && (
+                    {partnerAccesses.map((access) => (
                       <PartnerAccessCard
-                        access={partnerAccess}
+                        key={access.partner}
+                        access={access}
                         alsoHasPlan={hasActivePlan}
-                        onEnd={() => setEndPartnerVisible(true)}
+                        onEnd={() => setEndingPartner(access)}
                       />
-                    )}
+                    ))}
 
                     {(!hasActivePlan || showChangePlan) && (
                       <View style={styles.planFormContainer}>
@@ -2240,10 +2242,10 @@ function StudentModal({
         isCancelling={isCancelling}
       />
       <EndPartnerAccessModal
-        access={partnerAccess}
+        access={endingPartner}
         studentName={aluno?.userName || "O aluno"}
-        visible={endPartnerVisible}
-        onClose={() => setEndPartnerVisible(false)}
+        visible={!!endingPartner}
+        onClose={() => setEndingPartner(null)}
         onConfirm={handleEndPartnerAccess}
         isEnding={isEndingPartner}
       />
@@ -2307,7 +2309,7 @@ function PartnerAccessCard({
       </Text>
       {alsoHasPlan && (
         <Text style={styles.secondary}>
-          Usado quando o plano do CT esgotar as aulas da semana ou não estiver vigente.
+          Ao reservar, o aluno escolhe se a aula sai do plano ou do {access.partner}.
         </Text>
       )}
       <TouchableOpacity

@@ -1,4 +1,5 @@
-import { AlertCircle, Ticket, X } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { AlertCircle, X } from 'lucide-react-native';
 import Modal from "@/components/AppModal";
 import {
   ActivityIndicator,
@@ -10,17 +11,17 @@ import {
 } from 'react-native';
 
 import { COLORS } from '@/components/ClientHeader';
-import { useBookingSourcePreview } from '@/hooks/schedule.hooks';
-import { BookingSourcePreviewType, ScheduleOccurrenceType } from '@/types/schedules.types';
+import { useBookingOptions } from '@/hooks/schedule.hooks';
+import { BookingOptionType, ScheduleOccurrenceType } from '@/types/schedules.types';
 
-/** "Será descontada do seu plano Mensal · 2 de 3 aulas nesta semana". */
-const sourceDescription = (preview: BookingSourcePreviewType) => {
-  const where = preview.kind === 'Plan'
-    ? `do seu plano ${preview.label ?? ''}`.trim()
-    : `do seu ${preview.label ?? 'parceiro'}`;
-  if (preview.limit == null || preview.used == null) return `Será descontada ${where}.`;
-  const unit = preview.kind === 'Plan' ? 'aulas nesta semana' : 'check-ins este mês';
-  return `Será descontada ${where} · ${preview.used + 1} de ${preview.limit} ${unit}.`;
+const optionTitle = (option: BookingOptionType) =>
+  option.kind === 'Plan' ? `Plano ${option.label}`.replace(/^Plano (plano\b)/i, '$1') : option.label;
+
+/** "2 de 3 nesta semana" (plano) ou "4 de 10 no mês" (parceiro); indisponível mostra o motivo. */
+const optionBalance = (option: BookingOptionType) => {
+  if (!option.available) return option.reason ?? 'Indisponível';
+  const period = option.period === 'week' ? 'nesta semana' : 'no mês';
+  return option.limit == null ? `Sem limite ${option.period === 'week' ? 'semanal' : 'mensal'}` : `${option.used} de ${option.limit} ${period}`;
 };
 
 type ConfirmBookingModalProps = {
@@ -29,7 +30,8 @@ type ConfirmBookingModalProps = {
   isCreatingSchedule: boolean;
   isBookingBlocked: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  /** origin: "Plan" ou o parceiro escolhido; undefined quando a API não oferece a escolha. */
+  onConfirm: (origin?: string) => void;
 };
 
 export const ConfirmBookingModal = ({
@@ -40,11 +42,22 @@ export const ConfirmBookingModal = ({
   onClose,
   onConfirm
 }: ConfirmBookingModalProps) => {
-  const { preview, isLoading: isLoadingPreview } = useBookingSourcePreview(selectedClass?.id, visible);
+  const { bookingOptions, isLoading: isLoadingOptions } = useBookingOptions(selectedClass?.id, visible);
+  const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
+
+  // Cada abertura começa da origem padrão: o plano, ou o único parceiro com saldo.
+  useEffect(() => {
+    setSelectedOrigin(bookingOptions?.defaultOrigin ?? null);
+  }, [bookingOptions, visible]);
 
   if (!selectedClass) return null;
 
-  const sourceBlocked = preview?.kind === 'None';
+  const options = bookingOptions?.options ?? [];
+  const selectedOption = options.find((option) => option.origin === selectedOrigin) ?? null;
+  const hasAvailable = options.some((option) => option.available);
+  // Sem a lista (API antiga), a API decide a origem; com ela, o aluno precisa de uma opção disponível.
+  // Enquanto as opções carregam, não dá para confirmar sem saber de onde a aula sai.
+  const sourceBlocked = isLoadingOptions || (options.length > 0 && !selectedOption?.available);
 
   const isWaitlist =
     selectedClass.confirmedCount !== undefined &&
@@ -75,20 +88,51 @@ export const ConfirmBookingModal = ({
                 <Text style={{ fontWeight: 'bold' }}>{selectedClass.startTime.substring(0, 5)}</Text>?
               </Text>
 
-              {isLoadingPreview ? (
-                <View style={styles.sourceBox}>
+              {isLoadingOptions ? (
+                <View style={styles.loadingRow}>
                   <ActivityIndicator size="small" color={COLORS.mainOrange} />
-                  <Text style={styles.sourceText}>Verificando seu saldo...</Text>
+                  <Text style={styles.loadingText}>Verificando seu saldo...</Text>
                 </View>
-              ) : preview && sourceBlocked ? (
-                <View style={[styles.sourceBox, styles.sourceBoxBlocked]}>
-                  <AlertCircle size={16} color={COLORS.destructive} />
-                  <Text style={[styles.sourceText, styles.sourceTextBlocked]}>{preview.message}</Text>
-                </View>
-              ) : preview ? (
-                <View style={styles.sourceBox}>
-                  <Ticket size={16} color={COLORS.mainOrange} />
-                  <Text style={styles.sourceText}>{sourceDescription(preview)}</Text>
+              ) : options.length > 0 ? (
+                <View style={styles.originSection} accessibilityRole="radiogroup">
+                  <Text style={styles.originTitle}>Descontar de</Text>
+                  {options.map((option) => {
+                    const selected = option.origin === selectedOrigin;
+                    return (
+                      <TouchableOpacity
+                        key={option.origin}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: selected, disabled: !option.available }}
+                        aria-checked={selected}
+                        accessibilityLabel={`${optionTitle(option)}, ${optionBalance(option)}`}
+                        disabled={!option.available || isCreatingSchedule}
+                        onPress={() => setSelectedOrigin(option.origin)}
+                        style={[
+                          styles.originOption,
+                          selected && styles.originOptionSelected,
+                          !option.available && styles.originOptionDisabled,
+                        ]}
+                      >
+                        <View style={[styles.radio, selected && styles.radioSelected]}>
+                          {selected ? <View style={styles.radioDot} /> : null}
+                        </View>
+                        <View style={styles.originTexts}>
+                          <Text style={styles.originLabel} numberOfLines={1}>{optionTitle(option)}</Text>
+                          <Text style={[styles.originBalance, !option.available && styles.originBalanceBlocked]}>
+                            {optionBalance(option)}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {!hasAvailable ? (
+                    <View style={styles.blockedRow}>
+                      <AlertCircle size={15} color={COLORS.destructive} />
+                      <Text style={styles.blockedText}>Nenhuma forma de reserva disponível para esta aula.</Text>
+                    </View>
+                  ) : !selectedOption ? (
+                    <Text style={styles.originHint}>Escolha por onde reservar esta aula.</Text>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -104,7 +148,7 @@ export const ConfirmBookingModal = ({
                 <TouchableOpacity
                   accessibilityRole="button"
                   style={[styles.modalButton, styles.modalButtonConfirm, (isBookingBlocked || sourceBlocked) && styles.modalButtonDisabled]}
-                  onPress={onConfirm}
+                  onPress={() => onConfirm(selectedOption?.origin)}
                   disabled={isCreatingSchedule || sourceBlocked}
                   accessibilityHint={isBookingBlocked ? "É necessário um plano ativo para agendar." : undefined}
                 >
@@ -158,25 +202,91 @@ const styles = StyleSheet.create({
     color: COLORS.mutedForeground,
     lineHeight: 24,
   },
-  sourceBox: {
+  loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    padding: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: COLORS.mutedForeground,
+  },
+  originSection: {
+    gap: 8,
+  },
+  originTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: COLORS.mutedForeground,
+  },
+  originOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: '#fff',
+  },
+  originOptionSelected: {
+    borderColor: COLORS.mainOrange,
     backgroundColor: '#FFF4EC',
   },
-  sourceBoxBlocked: {
-    backgroundColor: '#FEF2F2',
+  originOptionDisabled: {
+    opacity: 0.5,
   },
-  sourceText: {
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#D4D4D8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioSelected: {
+    borderColor: COLORS.mainOrange,
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.mainOrange,
+  },
+  originTexts: {
     flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
+    gap: 2,
+  },
+  originLabel: {
+    fontSize: 15,
+    fontWeight: '700',
     color: COLORS.foreground,
+  },
+  originBalance: {
+    fontSize: 12,
+    color: COLORS.mutedForeground,
+  },
+  originBalanceBlocked: {
+    color: COLORS.destructive,
     fontWeight: '600',
   },
-  sourceTextBlocked: {
+  originHint: {
+    fontSize: 12,
+    color: COLORS.mutedForeground,
+  },
+  blockedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  blockedText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
     color: COLORS.destructive,
   },
   modalActions: {
