@@ -249,7 +249,7 @@ export default function AdminClasses() {
     endDate: selectedDateStr,
     page: 1,
     pageSize: 100,
-  });
+  }, { live: true });
 
   const { aulas, isLoading: loadingAulas, error: aulasError } = useAulas();
   const aulasById = useMemo(

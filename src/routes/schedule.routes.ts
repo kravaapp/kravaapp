@@ -71,6 +71,11 @@ export class ScheduleRoutes {
         }).json<ScheduleType>();
     }
 
+    /** Check-in do aluno pelo app (quando o CT exige check-in). */
+    async checkIn(bookingId: string) {
+        await api.post(`/scheduling/bookings/${bookingId}/check-in`, { retry: 0 });
+    }
+
     async deleteSchedule(bookingId: string) {
         await api.delete(`/scheduling/bookings/${bookingId}`);
     }

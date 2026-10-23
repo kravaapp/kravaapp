@@ -109,6 +109,7 @@ const statusConfig = {
     Confirmado: { label: 'Confirmado — aguardando aula', variant: 'warning', icon: AlertTriangle, color: COLORS.mainOrange, bg: '#FFF2E9' },
     CheckedIn: { label: 'Presente ✓', variant: 'success', icon: Check, color: '#16a34a', bg: '#dcfce7' },
     Faltou: { label: 'Falta não cancelada ⚠', variant: 'destructive', icon: X, color: '#ef4444', bg: '#fee2e2' },
+    Cancelado: { label: 'Cancelada', variant: 'muted', icon: X, color: '#6b7280', bg: '#f3f4f6' },
     default: { label: 'Status Desconhecido', variant: 'warning', icon: AlertTriangle, color: '#6b7280', bg: '#f3f4f6' }
 };
 
@@ -152,7 +153,9 @@ const HistoryCard = ({
                     <View style={[styles.badge, { backgroundColor: config.bg }]}>
                         <Icon size={10} color={config.color} />
                         <Text style={[styles.badgeText, { color: config.color }]}>
-                            {config.label.split(' ')[0]}
+                            {item.bookingStatus === 'Cancelado' && item.cancelReason === 'SemCheckIn'
+                                ? 'Sem check-in'
+                                : config.label.split(' ')[0]}
                         </Text>
                     </View>
                 </View>

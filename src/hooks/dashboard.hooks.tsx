@@ -1,3 +1,4 @@
+import { LIVE_QUERY } from "@/hooks/live";
 import { DashboardRoutes } from "@/routes/dashboard.routes";
 import { StudentAtRiskType } from "@/types/dashboard.types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +12,7 @@ export function useTeacherDashboard() {
       const dashboardRoutes = new DashboardRoutes();
       return await dashboardRoutes.getTeacherDashboard();
     },
+    ...LIVE_QUERY,
   });
 
   return {

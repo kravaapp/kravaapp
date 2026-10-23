@@ -17,6 +17,9 @@ export type ScheduleType = {
   waitlistPosition: number | null;
   /** Origem da reserva (App, Gympass, TotalPass...). */
   bookingSource?: string | null;
+  /** Quando o CT exige check-in: abertura e prazo (sem check-in até o prazo, a vaga vai para a fila). */
+  checkInOpensAt?: string | null;
+  checkInDeadlineAt?: string | null;
   minLevel?: string;
   publicGender?: string;
   maxCapacity?: number;
@@ -57,6 +60,10 @@ export type ScheduleOccurrenceType = {
   subscriptionStatus: SubscriptionStatusType | null;
   /** Quando a primeira forma de reserva do aluno abre; null quando já há uma aberta. */
   bookingOpensAt?: string | null;
+  /** Reserva do aluno nesta aula e, quando o CT exige check-in, abertura e prazo. */
+  myBookingId?: string | null;
+  checkInOpensAt?: string | null;
+  checkInDeadlineAt?: string | null;
 }
 
 export type TodayOccurrenceType = {
@@ -119,6 +126,8 @@ export type BookingUserHistoryType = {
   modalityName: string;
   professorName: string;
   checkedInAtUtc: string | null;
+  /** "SemCheckIn" quando a vaga foi para a fila por falta de check-in. */
+  cancelReason?: string | null;
 }
 
 export type PaginatedBookingUserHistory = PaginatedType & {

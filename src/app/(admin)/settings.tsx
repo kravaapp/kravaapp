@@ -127,27 +127,30 @@ export default function AdminSettings() {
     noShowPenaltyFee: "",
     memberBookingWindowMinutes: "",
     partnerBookingWindowMinutes: "",
+    checkInOpensMinutes: "",
+    checkInDeadlineMinutes: "",
+  });
+  const tenantValuesFrom = (settings: NonNullable<typeof tenantSettings>) => ({
+    cancellationTimeoutMinutes:
+      settings.cancellationTimeoutMinutes !== undefined ? String(settings.cancellationTimeoutMinutes) : "",
+    noShowPenaltyFee: settings.noShowPenaltyFee !== undefined ? toCurrencyInput(settings.noShowPenaltyFee) : "",
+    memberBookingWindowMinutes: toDurationInput(settings.memberBookingWindowMinutes),
+    partnerBookingWindowMinutes: toDurationInput(settings.partnerBookingWindowMinutes),
+    checkInOpensMinutes: String(settings.checkInOpensMinutes ?? 120),
+    checkInDeadlineMinutes: String(settings.checkInDeadlineMinutes ?? 15),
   });
 
   useEffect(() => {
     if (tenantSettings && !tenantEditing) {
-      setTenantValues({
-        cancellationTimeoutMinutes:
-          tenantSettings.cancellationTimeoutMinutes !== undefined
-            ? String(tenantSettings.cancellationTimeoutMinutes)
-            : "",
-        noShowPenaltyFee:
-          tenantSettings.noShowPenaltyFee !== undefined
-            ? toCurrencyInput(tenantSettings.noShowPenaltyFee)
-            : "",
-        memberBookingWindowMinutes: toDurationInput(tenantSettings.memberBookingWindowMinutes),
-        partnerBookingWindowMinutes: toDurationInput(tenantSettings.partnerBookingWindowMinutes),
-      });
+      setTenantValues(tenantValuesFrom(tenantSettings));
     }
   }, [tenantSettings]);
 
-  const saveTenant = async () => {
+  /** `requireStudentCheckIn` vem da chave liga/desliga, que salva na hora. */
+  const saveTenant = async ({ requireStudentCheckIn }: { requireStudentCheckIn?: boolean } = {}) => {
     if (!tenantSettings) return;
+    const checkInOpensMinutes = Number(tenantValues.checkInOpensMinutes);
+    const checkInDeadlineMinutes = Number(tenantValues.checkInDeadlineMinutes);
     const cancellationTimeoutMinutes = Number(
       tenantValues.cancellationTimeoutMinutes,
     );
@@ -167,7 +170,10 @@ export default function AdminSettings() {
       !Number.isFinite(noShowPenaltyFee) ||
       noShowPenaltyFee < 0 ||
       (memberBookingWindowMinutes !== null && (!Number.isInteger(memberBookingWindowMinutes) || memberBookingWindowMinutes < 0)) ||
-      (partnerBookingWindowMinutes !== null && (!Number.isInteger(partnerBookingWindowMinutes) || partnerBookingWindowMinutes < 0))
+      (partnerBookingWindowMinutes !== null && (!Number.isInteger(partnerBookingWindowMinutes) || partnerBookingWindowMinutes < 0)) ||
+      !Number.isInteger(checkInOpensMinutes) || checkInOpensMinutes < 1 || checkInOpensMinutes > 1440 ||
+      !Number.isInteger(checkInDeadlineMinutes) || checkInDeadlineMinutes < 1 || checkInDeadlineMinutes > 120 ||
+      checkInOpensMinutes <= checkInDeadlineMinutes
     ) {
       toast({
         title: "Informe valores válidos para a configuração.",
@@ -191,6 +197,9 @@ export default function AdminSettings() {
         churnReengageMessage: tenantSettings.churnReengageMessage,
         memberBookingWindowMinutes,
         partnerBookingWindowMinutes,
+        requireStudentCheckIn: requireStudentCheckIn ?? tenantSettings.requireStudentCheckIn ?? false,
+        checkInOpensMinutes,
+        checkInDeadlineMinutes,
       });
       setTenantEditing(null);
       toast({ title: "Políticas do CT atualizadas!" });
@@ -294,6 +303,56 @@ export default function AdminSettings() {
             )}
             <Text style={styles.info}>
               ⓘ Defina a antecedência em horas e minutos (HH:MM) para realizar o check-in/reserva da aula. Deixe em branco ou 00:00 para liberar a qualquer momento da agenda aberta.
+            </Text>
+          </SettingsCard>
+
+          {/* Check-in do aluno antes da aula */}
+          <SettingsCard
+            icon={<Clock color={COLORS.mainOrange} size={20} />}
+            title="Check-in do aluno"
+          >
+            {loading.tenant ? (
+              <AdminSkeleton width="100%" height={130} radius={12} />
+            ) : tenantSettings ? (
+              <>
+                <View style={styles.switchRow}>
+                  <View style={styles.grow}>
+                    <Text style={styles.itemTitle}>Exigir check-in do aluno</Text>
+                    <Text style={styles.muted}>
+                      Sem o check-in até o prazo, a reserva é cancelada e a vaga vai para a fila de espera.
+                    </Text>
+                  </View>
+                  <Switch
+                    accessibilityLabel="Exigir check-in do aluno"
+                    value={!!tenantSettings.requireStudentCheckIn}
+                    disabled={isUpdatingTenant}
+                    onValueChange={(value) => saveTenant({ requireStudentCheckIn: value })}
+                    trackColor={{ false: COLORS.border, true: COLORS.mainOrange }}
+                  />
+                </View>
+                {tenantSettings.requireStudentCheckIn ? (
+                  <>
+                    <EditableRow
+                      label="Check-in abre"
+                      value={tenantValues.checkInOpensMinutes}
+                      suffix="min antes da aula"
+                      onPress={() => setTenantEditing("checkInOpensMinutes")}
+                    />
+                    <EditableRow
+                      label="Prazo do check-in"
+                      value={tenantValues.checkInDeadlineMinutes}
+                      suffix="min antes do início"
+                      onPress={() => setTenantEditing("checkInDeadlineMinutes")}
+                    />
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <Text style={styles.empty}>Configurações indisponíveis.</Text>
+            )}
+            <Text style={styles.info}>
+              ⓘ O aluno faz o check-in pelo app e aparece como presente na chamada. Ele recebe um aviso quando o
+              check-in abre e outro 10 minutos antes do prazo. O professor ainda pode marcar presença ou falta.
             </Text>
           </SettingsCard>
 
@@ -458,6 +517,10 @@ export default function AdminSettings() {
             ? "Multa por falta (No-Show)"
             : tenantEditing === "memberBookingWindowMinutes"
             ? "Antecedência para Mensalistas"
+            : tenantEditing === "checkInOpensMinutes"
+            ? "Check-in abre"
+            : tenantEditing === "checkInDeadlineMinutes"
+            ? "Prazo do check-in"
             : "Antecedência para Parceiros (Gympass/TotalPass)"
         }
         subtitle={isBookingWindow ? "Informe a antecedência em horas e minutos (HH:MM)" : "Defina o novo valor da política"}
@@ -468,6 +531,10 @@ export default function AdminSettings() {
             ? tenantValues.noShowPenaltyFee
             : tenantEditing === "memberBookingWindowMinutes"
             ? tenantValues.memberBookingWindowMinutes
+            : tenantEditing === "checkInOpensMinutes"
+            ? tenantValues.checkInOpensMinutes
+            : tenantEditing === "checkInDeadlineMinutes"
+            ? tenantValues.checkInDeadlineMinutes
             : tenantValues.partnerBookingWindowMinutes
         }
         suffix={
@@ -475,6 +542,8 @@ export default function AdminSettings() {
             ? "reais"
             : isBookingWindow
             ? "horas (HH:MM) antes da aula"
+            : tenantEditing === "checkInDeadlineMinutes"
+            ? "minuto(s) antes do início (de 1 a 120)"
             : "minuto(s) antes da aula"
         }
         placeholder={isBookingWindow ? "00:00" : "0"}
@@ -486,20 +555,11 @@ export default function AdminSettings() {
         }}
         onClose={() => {
           if (tenantSettings) {
-            setTenantValues({
-              cancellationTimeoutMinutes: String(
-                tenantSettings.cancellationTimeoutMinutes ?? 0,
-              ),
-              noShowPenaltyFee: toCurrencyInput(
-                tenantSettings.noShowPenaltyFee ?? 0,
-              ),
-              memberBookingWindowMinutes: toDurationInput(tenantSettings.memberBookingWindowMinutes),
-              partnerBookingWindowMinutes: toDurationInput(tenantSettings.partnerBookingWindowMinutes),
-            });
+            setTenantValues(tenantValuesFrom(tenantSettings));
           }
           setTenantEditing(null);
         }}
-        onSave={saveTenant}
+        onSave={() => saveTenant()}
         saving={isUpdatingTenant}
       />
 

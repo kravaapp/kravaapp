@@ -1,3 +1,4 @@
+import { LIVE_QUERY } from "@/hooks/live";
 import { ScheduleRoutes } from "@/routes/schedule.routes";
 import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -55,6 +56,7 @@ export function useTodayOccurrences() {
             const scheduleRoutes = new ScheduleRoutes();
             return await scheduleRoutes.getTodayOccurrences();
         },
+        ...LIVE_QUERY,
     });
 
     return {
@@ -184,13 +186,15 @@ export function useDeleteAula() {
     return { deleteAula: mutation.mutateAsync, isLoading: mutation.isPending };
 }
 
-export function useSchedule(params: ScheduleRequestSchema) {
+/** `live`: o painel acompanha as confirmações sem recarregar (o app do aluno não precisa). */
+export function useSchedule(params: ScheduleRequestSchema, { live = false }: { live?: boolean } = {}) {
     const query = useQuery({
         queryKey: ["schedule", params],
         queryFn: async () => {
             const scheduleRoutes = new ScheduleRoutes();
             return await scheduleRoutes.getSchedule(params);
         },
+        ...(live ? LIVE_QUERY : {}),
     });
 
     return {
@@ -203,6 +207,19 @@ export function useSchedule(params: ScheduleRequestSchema) {
             : null,
         refetch: query.refetch,
     };
+}
+
+export function useStudentCheckIn() {
+    const queryClient = useQueryClient();
+    const mutation = useMutation({
+        mutationFn: (bookingId: string) => new ScheduleRoutes().checkIn(bookingId),
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["user-next-class"] });
+            queryClient.invalidateQueries({ queryKey: ["user-week-classes"] });
+            queryClient.invalidateQueries({ queryKey: ["schedule"] });
+        },
+    });
+    return { checkIn: mutation.mutateAsync, isCheckingIn: mutation.isPending };
 }
 
 export function useCreateSchedule() {
@@ -394,6 +411,7 @@ export function useAttendance({ ocorrenciaId, status }: GetAttendanceRequestSche
             return await scheduleRoutes.getAttendance({ ocorrenciaId, status });
         },
         enabled: !!ocorrenciaId,
+        ...LIVE_QUERY,
     });
 
     return {

@@ -18,6 +18,7 @@ import { getStudentLevelWeight } from '@/utils/studentLevel';
 import { Clock } from 'lucide-react-native';
 import { getTimeUntilClass } from '.';
 import { formatWait, useNow } from '@/utils/bookingCountdown';
+import { StudentCheckIn } from '@/components/StudentCheckIn';
 
 // Types
 type DayType = {
@@ -251,6 +252,15 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
           <View style={styles.slimBadgeCancelled}>
             <Text style={styles.slimBadgeCancelledText}>Cancelada</Text>
           </View>
+        ) : item.subscriptionStatus === 'Confirmado' && item.myBookingId && item.checkInOpensAt
+            && Date.parse(item.checkInOpensAt) <= now ? (
+          <StudentCheckIn
+            variant="compact"
+            bookingId={item.myBookingId}
+            bookingStatus={item.subscriptionStatus}
+            opensAt={item.checkInOpensAt}
+            deadlineAt={item.checkInDeadlineAt}
+          />
         ) : item.subscriptionStatus ? (
           <View style={[
             styles.slimStatusBadge,
@@ -407,7 +417,7 @@ export default function Schedule() {
     modalityId: selectedCategory
   });
   // A contagem até a reserva abrir atualiza a cada 30s (o selo mostra minutos), só se alguma aula ainda não abriu.
-  const now = useNow(30_000, !!schedule?.items?.some((item) => item.bookingOpensAt));
+  const now = useNow(30_000, !!schedule?.items?.some((item) => item.bookingOpensAt || item.checkInOpensAt));
 
   useEffect(() => {
     if (categories?.length && !categories.some((category) => category.id === selectedCategory)) {

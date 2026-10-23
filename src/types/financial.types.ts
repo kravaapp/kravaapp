@@ -35,6 +35,10 @@ export type TenantSettingsType = {
   email?: string | null;
   memberBookingWindowMinutes?: number | null;
   partnerBookingWindowMinutes?: number | null;
+  /** Check-in do aluno: abre X min antes da aula, prazo até Y min antes do início. */
+  requireStudentCheckIn?: boolean;
+  checkInOpensMinutes?: number;
+  checkInDeadlineMinutes?: number;
 };
 export type UpdateTenantSettingsType = Pick<TenantSettingsType,
   "name" | "slug" | "logoUrl" | "address" | "contact" | "gympassRepasse" |
@@ -46,4 +50,7 @@ export type UpdateTenantSettingsType = Pick<TenantSettingsType,
     email?: string | null;
     memberBookingWindowMinutes?: number | null;
     partnerBookingWindowMinutes?: number | null;
+    requireStudentCheckIn?: boolean;
+    checkInOpensMinutes?: number;
+    checkInDeadlineMinutes?: number;
   };

@@ -26,6 +26,7 @@ import { ArrowRight, CalendarDays, Clock3, Dumbbell } from "lucide-react-native"
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { partnerBookingLabel } from "@/utils/bookingSource";
+import { StudentCheckIn } from "@/components/StudentCheckIn";
 import { formatWait, useNow } from "@/utils/bookingCountdown";
 
 
@@ -94,8 +95,13 @@ export function getClassStatus(status: string) {
     switch (status) {
         case "Confirmado":
             return "Confirmado ✓";
+        case "CheckedIn":
+            return "Check-in feito ✓";
         case "FilaEspera":
+        case "ListaEspera":
             return "Na Fila";
+        case "WaitlistPending":
+            return "Vaga liberada — confirme";
         default:
             return status;
     }
@@ -254,6 +260,15 @@ const NextClassCard = () => {
                     {getClassTime(userNextClass.ocorrenciaDate || '', userNextClass.startTime || '')} · prof. {userNextClass.professorName || 'Professor'}
                     {partnerBookingLabel(userNextClass.bookingSource) ? ` · via ${partnerBookingLabel(userNextClass.bookingSource)}` : ''}
                 </Text>
+                {userNextClass.bookingId ? (
+                    <StudentCheckIn
+                        variant="card"
+                        bookingId={userNextClass.bookingId}
+                        bookingStatus={userNextClass.bookingStatus}
+                        opensAt={userNextClass.checkInOpensAt}
+                        deadlineAt={userNextClass.checkInDeadlineAt}
+                    />
+                ) : null}
                 <View style={styles.nextClassFooter}>
                     <View style={styles.nextClassMeta}>
                         <Text style={styles.nextClassStatus}>{getClassStatus(userNextClass.bookingStatus || '')}</Text>

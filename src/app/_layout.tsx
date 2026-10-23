@@ -4,6 +4,7 @@ import { ToastProvider } from "@/components/Toast";
 import { AuthProvider } from "@/contexts/authContext";
 import { useAuth } from "@/hooks/auth.hooks";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { syncQueryFocusWithAppState } from "@/hooks/live";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
@@ -67,6 +68,9 @@ function PushNotificationManager() {
 }
 
 export default function Layout() {
+  // Atualização automática das telas do professor pausa com o app em segundo plano.
+  useEffect(() => syncQueryFocusWithAppState(), []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
