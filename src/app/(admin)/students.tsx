@@ -1093,23 +1093,24 @@ export default function AdminStudents() {
             </View>
           </View>
         </View>
+        {/* Dentro da folha do convite: no app nativo um segundo Modal irmão não abre por cima. */}
+        <ConfirmModal
+          visible={!!invitationToCancel}
+          title="Cancelar convite"
+          message={`Deseja realmente cancelar o convite enviado para "${invitationToCancel?.email ?? ""}"?`}
+          confirmText="Sim, cancelar"
+          cancelText="Não"
+          variant="destructive"
+          isLoading={!!invitationToCancel && cancellingInvitationId === invitationToCancel.id}
+          onClose={() => setInvitationToCancel(null)}
+          onConfirm={async () => {
+            if (!invitationToCancel) return;
+            const cancelled = await handleCancelInvitation(invitationToCancel.id);
+            setInvitationToCancel(null);
+            if (cancelled) setSelectedInvitation(null);
+          }}
+        />
       </Modal>
-      <ConfirmModal
-        visible={!!invitationToCancel}
-        title="Cancelar convite"
-        message={`Deseja realmente cancelar o convite enviado para "${invitationToCancel?.email ?? ""}"?`}
-        confirmText="Sim, cancelar"
-        cancelText="Não"
-        variant="destructive"
-        isLoading={!!invitationToCancel && cancellingInvitationId === invitationToCancel.id}
-        onClose={() => setInvitationToCancel(null)}
-        onConfirm={async () => {
-          if (!invitationToCancel) return;
-          const cancelled = await handleCancelInvitation(invitationToCancel.id);
-          setInvitationToCancel(null);
-          if (cancelled) setSelectedInvitation(null);
-        }}
-      />
       <ConfirmModal
         visible={!!teacherToRemove}
         title="Desvincular professor"
