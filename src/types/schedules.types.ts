@@ -54,7 +54,9 @@ export type ScheduleOccurrenceType = {
   minLevel: string;
   publicGender: string;
   waitlistTimeoutMinutes: number;
-  subscriptionStatus: SubscriptionStatusType | null
+  subscriptionStatus: SubscriptionStatusType | null;
+  /** Quando a primeira forma de reserva do aluno abre; null quando já há uma aberta. */
+  bookingOpensAt?: string | null;
 }
 
 export type TodayOccurrenceType = {
@@ -207,10 +209,14 @@ export type BookingOptionType = {
   available: boolean;
   /** Por que a opção está indisponível (esgotada, modalidade fora do plano). */
   reason: string | null;
+  /** Quando a reserva por esta origem abre (janela do CT); null quando já está aberta. */
+  opensAt?: string | null;
 };
 
 export type BookingOptionsType = {
   options: BookingOptionType[];
   /** Origem já marcada; null quando o aluno precisa escolher entre os parceiros. */
   defaultOrigin: string | null;
+  /** Hora do servidor, para corrigir o relógio do aparelho na contagem. */
+  serverNowUtc?: string | null;
 };

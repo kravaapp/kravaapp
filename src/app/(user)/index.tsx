@@ -26,6 +26,7 @@ import { ArrowRight, CalendarDays, Clock3, Dumbbell } from "lucide-react-native"
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { partnerBookingLabel } from "@/utils/bookingSource";
+import { formatWait, useNow } from "@/utils/bookingCountdown";
 
 
 
@@ -391,7 +392,7 @@ const WeekCalendar = () => {
     );
 };
 
-const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', canBook, onBookPress }: { aula: ScheduleOccurrenceType; userGender?: string; userLevel?: string; canBook: boolean; onBookPress: (item: ScheduleOccurrenceType) => void }) => {
+const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', canBook, onBookPress, now }: { aula: ScheduleOccurrenceType; userGender?: string; userLevel?: string; canBook: boolean; onBookPress: (item: ScheduleOccurrenceType) => void; now: number }) => {
     const level = aula.minLevel || "iniciante";
     const gender = aula.publicGender || "Mixed";
 
@@ -409,6 +410,8 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', c
     const isLevelAllowed = getStudentLevelWeight(userLevel) >= getStudentLevelWeight(level);
     const isBlocked = aula.status?.toLowerCase() === "bloqueada";
     const isCancelled = aula.status?.toLowerCase() === "cancelada";
+    // Janela do CT (mensalista/parceiro): até a primeira forma de reserva do aluno abrir.
+    const bookingOpensIn = aula.bookingOpensAt ? Date.parse(aula.bookingOpensAt) - now : 0;
 
     return (
         <View style={styles.classCard}>
@@ -442,6 +445,10 @@ const AvailableClassItem = ({ aula, userGender = 'M', userLevel = 'iniciante', c
                     <Text style={styles.classWarning}>apenas {getGenderLabel(gender).substring(2).toLowerCase()}</Text>
                 ) : !isLevelAllowed ? (
                     <Text style={styles.classWarning}>nível {capitalizeText(level).toLowerCase()}</Text>
+                ) : bookingOpensIn > 0 ? (
+                    <Text style={styles.classNotice} accessibilityLabel={`Reserva abre em ${formatWait(bookingOpensIn)}`}>
+                        abre em {formatWait(bookingOpensIn)}
+                    </Text>
                 ) : (
                     <TouchableOpacity
                         style={[styles.bookButton, !canBook && styles.disabledButton]}
@@ -521,6 +528,8 @@ export default function Home() {
         endDate: dateParams.endDate,
         openForEnrollment: true
     });
+    // A contagem até a reserva abrir atualiza a cada 30s, só se alguma aula ainda não abriu.
+    const now = useNow(30_000, !!schedule?.items?.some((item) => item.bookingOpensAt));
 
     return (
         <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
@@ -530,7 +539,7 @@ export default function Home() {
                 contentContainerStyle={styles.listContent}
                 data={scheduleLoading ? [] : (schedule?.items || []).slice(0, 3)}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => <AvailableClassItem aula={item} userGender={user?.gender} userLevel={user?.studentLevel} canBook={canBook} onBookPress={handleBookPress} />}
+                renderItem={({ item }) => <AvailableClassItem aula={item} userGender={user?.gender} userLevel={user?.studentLevel} canBook={canBook} onBookPress={handleBookPress} now={now} />}
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={
                     <View>

@@ -17,6 +17,7 @@ import { ScheduleOccurrenceType } from '@/types/schedules.types';
 import { getStudentLevelWeight } from '@/utils/studentLevel';
 import { Clock } from 'lucide-react-native';
 import { getTimeUntilClass } from '.';
+import { formatWait, useNow } from '@/utils/bookingCountdown';
 
 // Types
 type DayType = {
@@ -126,9 +127,11 @@ type ClassCardProps = {
   userLevel?: string;
   canBook: boolean;
   onBookPress: (item: ScheduleOccurrenceType) => void;
+  /** Relógio da agenda, para a contagem até a reserva abrir. */
+  now: number;
 };
 
-const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, onBookPress }: ClassCardProps) => {
+const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, onBookPress, now }: ClassCardProps) => {
   const level = item.minLevel || "iniciante";
   const gender = item.publicGender || "Mixed";
 
@@ -140,6 +143,8 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
   const timeUntilRelease = !isReleased && item.releaseAt ? getTimeUntilClass(item.releaseAt.split('T')[0], item.releaseAt.split('T')[1]) : null;
 
   const isCancelled = item.status === 'Cancelada';
+  // Janela do CT (mensalista/parceiro): até a primeira forma de reserva do aluno abrir.
+  const bookingOpensIn = item.bookingOpensAt ? Date.parse(item.bookingOpensAt) - now : 0;
 
   const isClassPast = useMemo(() => {
     if (!item.date || !startTime) return false;
@@ -287,6 +292,15 @@ const ClassCard = ({ item, userGender = 'M', userLevel = 'iniciante', canBook, o
             <Clock size={12} color="#6B7280" />
             <Text style={styles.slimBadgeReleaseText}>{timeUntilRelease}</Text>
           </View>
+        ) : bookingOpensIn > 0 ? (
+          <View
+            style={styles.slimBadgeRelease}
+            accessible
+            accessibilityLabel={`Reserva abre em ${formatWait(bookingOpensIn)}`}
+          >
+            <Clock size={12} color="#6B7280" />
+            <Text style={styles.slimBadgeReleaseText}>{formatWait(bookingOpensIn)}</Text>
+          </View>
         ) : isFull ? (
           <TouchableOpacity
             style={[styles.slimWaitlistButton, !canBook && styles.bookButtonDisabled]}
@@ -392,6 +406,8 @@ export default function Schedule() {
     endDate: selectedDay,
     modalityId: selectedCategory
   });
+  // A contagem até a reserva abrir atualiza a cada 30s (o selo mostra minutos), só se alguma aula ainda não abriu.
+  const now = useNow(30_000, !!schedule?.items?.some((item) => item.bookingOpensAt));
 
   useEffect(() => {
     if (categories?.length && !categories.some((category) => category.id === selectedCategory)) {
@@ -425,7 +441,7 @@ export default function Schedule() {
           style={styles.scheduleList}
           data={scheduleLoading || scheduleError ? [] : schedule?.items || []}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ClassCard item={item} userGender={user?.gender} userLevel={user?.studentLevel} canBook={canBook} onBookPress={handleBookPress} key={item.id} />}
+          renderItem={({ item }) => <ClassCard item={item} userGender={user?.gender} userLevel={user?.studentLevel} canBook={canBook} onBookPress={handleBookPress} now={now} key={item.id} />}
           contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={

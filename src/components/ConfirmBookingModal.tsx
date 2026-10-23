@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react-native';
 import Modal from "@/components/AppModal";
 import {
@@ -13,13 +13,31 @@ import {
 import { COLORS } from '@/components/ClientHeader';
 import { useBookingOptions } from '@/hooks/schedule.hooks';
 import { BookingOptionType, ScheduleOccurrenceType } from '@/types/schedules.types';
+import { clockTime, formatWait, useNow } from '@/utils/bookingCountdown';
 
 const optionTitle = (option: BookingOptionType) =>
   option.kind === 'Plan' ? `Plano ${option.label}`.replace(/^Plano (plano\b)/i, '$1') : option.label;
 
-/** "2 de 3 nesta semana" (plano) ou "4 de 10 no mês" (parceiro); indisponível mostra o motivo. */
-const optionBalance = (option: BookingOptionType) => {
+/** Quanto falta para a origem abrir (janela de mensalista/parceiro); 0 quando já está aberta. */
+const msUntilOpen = (option: BookingOptionType, now: number) =>
+  option.opensAt ? Math.max(0, Date.parse(option.opensAt) - now) : 0;
+
+/** Tem saldo e a janela já abriu. */
+const isUsable = (option: BookingOptionType, now: number) => option.available && msUntilOpen(option, now) === 0;
+
+/** Mesma regra da API, considerando a abertura: o plano, ou o único parceiro já liberado. */
+const pickDefault = (options: BookingOptionType[], now: number) => {
+  const usable = options.filter((option) => isUsable(option, now));
+  if (usable.some((option) => option.kind === 'Plan')) return 'Plan';
+  const partners = usable.filter((option) => option.kind === 'Partner');
+  return partners.length === 1 ? partners[0].origin : null;
+};
+
+/** "2 de 3 nesta semana", "Abre às 11:00 · em 1h32min" ou o motivo da indisponibilidade. */
+const optionStatus = (option: BookingOptionType, now: number) => {
   if (!option.available) return option.reason ?? 'Indisponível';
+  const wait = msUntilOpen(option, now);
+  if (wait > 0) return `Abre às ${clockTime(option.opensAt!)} · em ${formatWait(wait, true)}`;
   const period = option.period === 'week' ? 'nesta semana' : 'no mês';
   return option.limit == null ? `Sem limite ${option.period === 'week' ? 'semanal' : 'mensal'}` : `${option.used} de ${option.limit} ${period}`;
 };
@@ -44,20 +62,38 @@ export const ConfirmBookingModal = ({
 }: ConfirmBookingModalProps) => {
   const { bookingOptions, isLoading: isLoadingOptions } = useBookingOptions(selectedClass?.id, visible);
   const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
+  const options = useMemo(() => bookingOptions?.options ?? [], [bookingOptions]);
 
-  // Cada abertura começa da origem padrão: o plano, ou o único parceiro com saldo.
+  // Contagem pelo relógio do servidor (o do celular pode estar adiantado ou atrasado).
+  const serverOffset = useMemo(
+    () => (bookingOptions?.serverNowUtc ? Date.parse(bookingOptions.serverNowUtc) - Date.now() : 0),
+    [bookingOptions],
+  );
+  const now = useNow(1000, visible && options.some((option) => option.opensAt), serverOffset);
+  const usableKey = options.filter((option) => isUsable(option, now)).map((option) => option.origin).join('|');
+
+  // Cada abertura do modal começa da origem padrão.
   useEffect(() => {
-    setSelectedOrigin(bookingOptions?.defaultOrigin ?? null);
-  }, [bookingOptions, visible]);
+    setSelectedOrigin(pickDefault(options, Date.now() + serverOffset));
+  }, [options, visible, serverOffset]);
+
+  // Quando uma origem abre (ou deixa de valer), mantém a escolha do aluno se ela ainda serve.
+  useEffect(() => {
+    const at = Date.now() + serverOffset;
+    setSelectedOrigin((current) =>
+      current && options.some((option) => option.origin === current && isUsable(option, at))
+        ? current
+        : pickDefault(options, at));
+  }, [usableKey, options, serverOffset]);
 
   if (!selectedClass) return null;
 
-  const options = bookingOptions?.options ?? [];
   const selectedOption = options.find((option) => option.origin === selectedOrigin) ?? null;
-  const hasAvailable = options.some((option) => option.available);
-  // Sem a lista (API antiga), a API decide a origem; com ela, o aluno precisa de uma opção disponível.
+  const hasUsable = usableKey.length > 0;
+  const isWaitingOpening = options.some((option) => option.available && msUntilOpen(option, now) > 0);
+  // Sem a lista (API antiga), a API decide a origem; com ela, o aluno precisa de uma opção liberada.
   // Enquanto as opções carregam, não dá para confirmar sem saber de onde a aula sai.
-  const sourceBlocked = isLoadingOptions || (options.length > 0 && !selectedOption?.available);
+  const sourceBlocked = isLoadingOptions || (options.length > 0 && !(selectedOption && isUsable(selectedOption, now)));
 
   const isWaitlist =
     selectedClass.confirmedCount !== undefined &&
@@ -98,19 +134,20 @@ export const ConfirmBookingModal = ({
                   <Text style={styles.originTitle}>Descontar de</Text>
                   {options.map((option) => {
                     const selected = option.origin === selectedOrigin;
+                    const usable = isUsable(option, now);
                     return (
                       <TouchableOpacity
                         key={option.origin}
                         accessibilityRole="radio"
-                        accessibilityState={{ checked: selected, disabled: !option.available }}
+                        accessibilityState={{ checked: selected, disabled: !usable }}
                         aria-checked={selected}
-                        accessibilityLabel={`${optionTitle(option)}, ${optionBalance(option)}`}
-                        disabled={!option.available || isCreatingSchedule}
+                        accessibilityLabel={`${optionTitle(option)}, ${optionStatus(option, now)}`}
+                        disabled={!usable || isCreatingSchedule}
                         onPress={() => setSelectedOrigin(option.origin)}
                         style={[
                           styles.originOption,
                           selected && styles.originOptionSelected,
-                          !option.available && styles.originOptionDisabled,
+                          !usable && styles.originOptionDisabled,
                         ]}
                       >
                         <View style={[styles.radio, selected && styles.radioSelected]}>
@@ -119,13 +156,15 @@ export const ConfirmBookingModal = ({
                         <View style={styles.originTexts}>
                           <Text style={styles.originLabel} numberOfLines={1}>{optionTitle(option)}</Text>
                           <Text style={[styles.originBalance, !option.available && styles.originBalanceBlocked]}>
-                            {optionBalance(option)}
+                            {optionStatus(option, now)}
                           </Text>
                         </View>
                       </TouchableOpacity>
                     );
                   })}
-                  {!hasAvailable ? (
+                  {!hasUsable && isWaitingOpening ? (
+                    <Text style={styles.originHint}>A reserva libera sozinha quando abrir. Pode deixar esta tela aberta.</Text>
+                  ) : !hasUsable ? (
                     <View style={styles.blockedRow}>
                       <AlertCircle size={15} color={COLORS.destructive} />
                       <Text style={styles.blockedText}>Nenhuma forma de reserva disponível para esta aula.</Text>
