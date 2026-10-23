@@ -203,7 +203,10 @@ type AulaFields = {
 }
 
 /** Criação em lote ou formato legado, sempre com pelo menos um dia. */
-export type CreateAulaType = AulaFields & (
+export type CreateAulaType = AulaFields & {
+  /** Avisa os alunos que podem reservar (sino e push). A API liga quando não vem. */
+  notifyStudents?: boolean;
+} & (
   | { daysOfWeek: number[]; dayOfWeek?: never }
   | { dayOfWeek: number; daysOfWeek?: never }
 );

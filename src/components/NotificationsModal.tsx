@@ -173,6 +173,8 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
           item.message?.toLowerCase().includes("inadimpl")
         ) {
           router.push("/(admin)/students");
+        } else if (payloadData?.type === "class_assigned") {
+          router.push("/(admin)/classes");
         }
       }
       return;
@@ -186,6 +188,9 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
         item.type === "ClassCancelled"
       ) {
         router.push("/(teacher)/classes");
+      } else if (payloadData?.type === "class_assigned") {
+        // Aula nova (ou que passou a ser dele): a home mostra as aulas do professor.
+        router.push("/(teacher)");
       }
       return;
     }
@@ -210,6 +215,7 @@ export const NotificationsModal = ({ visible, onClose }: NotificationsModalProps
       item.type === "BookingConfirmed" ||
       item.type === "ClassCancelled" ||
       item.type === "Reengagement" ||
+      payloadData?.type === "class_created" ||
       item.title?.toLowerCase().includes("aula cancelada")
     ) {
       router.push("/schedule");

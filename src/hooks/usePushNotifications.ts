@@ -86,6 +86,9 @@ export function handleNotificationNavigation(
       });
     } else if (type === "aluno_delinquent_booked") {
       router.push("/(admin)/students");
+    } else if (type === "class_assigned") {
+      // Admin que também dá aula e recebeu uma aula de outro admin.
+      router.push("/(admin)/classes");
     } else {
       router.push("/(admin)");
     }
@@ -129,6 +132,7 @@ export function handleNotificationNavigation(
     type === "BookingConfirmed" ||
     type === "ClassCancelled" ||
     type === "class_cancelled" ||
+    type === "class_created" ||
     type === "Reengagement"
   ) {
     router.push("/schedule");

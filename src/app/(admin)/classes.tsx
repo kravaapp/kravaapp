@@ -785,6 +785,7 @@ function NewClassModal({
   const [publicGender, setPublicGender] = useState<Audience | null>(null);
   const [minLevel, setMinLevel] = useState<string | null>(null);
   const [allowTrial, setAllowTrial] = useState(true);
+  const [notifyStudents, setNotifyStudents] = useState(true);
   const [validationMessage, setValidationMessage] = useState("");
   const submitting = useRef(false);
 
@@ -800,6 +801,7 @@ function NewClassModal({
     setPublicGender(null);
     setMinLevel(null);
     setAllowTrial(true);
+    setNotifyStudents(true);
     setValidationMessage("");
   }, [visible, professors]);
 
@@ -839,6 +841,7 @@ function NewClassModal({
         minLevel,
         publicGender: publicGenderValue(publicGender),
         waitlistTimeoutMinutes: null,
+        notifyStudents,
       });
       onSuccess(daysOfWeek.length);
     } catch (requestError) {
@@ -986,6 +989,19 @@ function NewClassModal({
                   <View style={styles.rowBetween}>
                     <Text style={styles.label}>Permitir aula experimental</Text>
                     <Switch value={allowTrial} onValueChange={setAllowTrial} />
+                  </View>
+                  <View style={styles.rowBetween}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.label}>Avisar alunos sobre a aula nova</Text>
+                      <Text style={styles.muted}>
+                        Quem pode reservar recebe no sino e no celular. Desligue ao montar a grade do CT.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={notifyStudents}
+                      onValueChange={setNotifyStudents}
+                      accessibilityLabel="Avisar alunos sobre a aula nova"
+                    />
                   </View>
                   <ActionButton
                     label={isCreating ? "Criando..." : daysOfWeek.length > 1 ? `Criar ${daysOfWeek.length} aulas` : "Criar aula"}
