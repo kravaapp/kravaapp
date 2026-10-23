@@ -207,7 +207,10 @@ export default function AulaAoVivo() {
     const capacidade = ocorrencia?.maxCapacity ?? 0;
     const confirmados = ocorrencia?.confirmedCount ?? 0;
     const totalEspera = ocorrencia?.waitlistCount ?? 0;
-    const vagasDisponiveis = ausentes;
+    const aulaAberta = !!ocorrencia
+        && ocorrencia.status !== "Concluida" && ocorrencia.status !== "Encerrada" && ocorrencia.status !== "Cancelada";
+    // Vaga livre com gente na fila só dura até o job chamar o próximo; com a aula encerrada não há o que chamar.
+    const vagasDisponiveis = aulaAberta ? Math.max(0, capacidade - confirmados) : 0;
 
     const chamadaLista = useMemo(
         () => (tab === "chamada" ? [...lista, ...extras] : extras),
@@ -237,7 +240,7 @@ export default function AulaAoVivo() {
 
     const marcarPresenca = async (aluno: AttendanceStudentType, present: boolean) => {
         const { bookingId, studentName } = aluno;
-        if (salvandoPresenca[bookingId]) return;
+        if (salvandoPresenca[bookingId] || !aulaAberta) return;
 
         const novoStatus: AttendanceStudentStatusType = present ? "Present" : "Absent";
         const anterior = presencaOverrides[bookingId];
@@ -250,12 +253,14 @@ export default function AulaAoVivo() {
         setSalvandoPresenca((prev) => ({ ...prev, [bookingId]: true }));
 
         try {
-            await markAttendance({ bookingId, present });
+            const result = await markAttendance({ bookingId, present });
 
             if (!present) {
+                // Na falta, o próximo da fila entra direto na chamada; a API diz quem entrou.
+                const promoted = result?.promotedStudentName;
                 toast({
                     title: `${studentName} marcado como ausente`,
-                    description: "A vaga será preenchida automaticamente pela lista de espera.",
+                    description: promoted ? `${promoted} saiu da lista de espera e entrou na chamada.` : undefined,
                 });
             }
         } catch (err) {
@@ -359,7 +364,7 @@ export default function AulaAoVivo() {
             : [];
 
     const nomesNaChamada = new Set(chamadaLista.map((c) => c.studentName));
-    const expDisabled = !expNome.trim() || !expTel.trim();
+    const expDisabled = !expNome.trim() || !expTel.trim() || !aulaAberta;
 
     const renderListState = (emptyMessage: string) => {
         if (isLoading) return <ChamadaSkeleton />;
@@ -430,7 +435,9 @@ export default function AulaAoVivo() {
                             </View>
 
                             <Text style={styles.hint}>
-                                Marque a presença ou a falta de cada aluno
+                                {aulaAberta
+                                    ? "Marque a presença ou a falta de cada aluno"
+                                    : "Chamada encerrada — apenas para consulta"}
                             </Text>
 
                             {renderListState("Nenhum aluno confirmado nesta aula") ?? (
@@ -498,8 +505,10 @@ export default function AulaAoVivo() {
                                                             salvando && styles.buttonDisabled,
                                                         ]}
                                                         onPress={() => marcarPresenca(c, true)}
-                                                        disabled={salvando}
+                                                        disabled={salvando || !aulaAberta}
                                                         activeOpacity={0.7}
+                                                        accessibilityRole="button"
+                                                        accessibilityLabel={`Marcar presença de ${c.studentName}`}
                                                     >
                                                         <Text
                                                             style={[
@@ -525,8 +534,10 @@ export default function AulaAoVivo() {
                                                             salvando && styles.buttonDisabled,
                                                         ]}
                                                         onPress={() => marcarPresenca(c, false)}
-                                                        disabled={salvando}
+                                                        disabled={salvando || !aulaAberta}
                                                         activeOpacity={0.7}
+                                                        accessibilityRole="button"
+                                                        accessibilityLabel={`Marcar falta de ${c.studentName}`}
                                                     >
                                                         <Text
                                                             style={[
@@ -554,6 +565,11 @@ export default function AulaAoVivo() {
                             {ocorrencia.status === "Cancelada" ? (
                                 <View style={styles.cancelledBanner}>
                                     <Text style={styles.cancelledBannerText}>Esta aula está cancelada</Text>
+                                </View>
+                            ) : !aulaAberta ? (
+                                // Aula concluída: a chamada já foi salva e a API recusa encerrar ou cancelar de novo.
+                                <View style={styles.closedBanner}>
+                                    <Text style={styles.closedBannerText}>Chamada encerrada</Text>
                                 </View>
                             ) : (
                                 <>
@@ -591,7 +607,7 @@ export default function AulaAoVivo() {
                             {lista.length} pessoa{lista.length !== 1 ? "s" : ""} aguardando vaga
                         </Text>
 
-                        {vagasDisponiveis > 0 && (
+                        {vagasDisponiveis > 0 && lista.length > 0 && (
                             <View style={styles.vagaBanner}>
                                 <Text style={styles.vagaBannerText}>
                                     {vagasDisponiveis} vaga{vagasDisponiveis > 1 ? "s" : ""}{" "}
@@ -681,8 +697,9 @@ export default function AulaAoVivo() {
                                                 <Text style={styles.mutedSmall}>(já confirmado)</Text>
                                             ) : (
                                                 <TouchableOpacity
-                                                    style={[styles.smallButton, styles.solidButton]}
+                                                    style={[styles.smallButton, styles.solidButton, !aulaAberta && styles.buttonDisabled]}
                                                     activeOpacity={0.8}
+                                                    disabled={!aulaAberta}
                                                     onPress={() => {
                                                         setExtras((prev) => [
                                                             ...prev,
@@ -1137,6 +1154,18 @@ const styles = StyleSheet.create({
     },
     cancelledBannerText: {
         color: COLORS.destructive,
+        fontSize: 14,
+        fontWeight: "600",
+    },
+    closedBanner: {
+        flex: 1,
+        backgroundColor: "#dcfce7",
+        borderRadius: 8,
+        paddingVertical: 12,
+        alignItems: "center",
+    },
+    closedBannerText: {
+        color: "#16a34a",
         fontSize: 14,
         fontWeight: "600",
     },

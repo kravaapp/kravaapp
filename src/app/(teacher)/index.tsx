@@ -20,6 +20,12 @@ import { router } from "expo-router";
 import { AlertTriangle, Calendar, Clock, Users } from "lucide-react-native";
 import { getTimeUntilClass } from "../(user)";
 
+/** "Faltam 25min" antes do início; depois que começa, "Aula em andamento" (e não "Faltam Aula iniciada"). */
+function classTiming(date: string, time: string) {
+    const remaining = getTimeUntilClass(date, time);
+    return remaining === "Aula iniciada" ? "Aula em andamento" : `Faltam ${remaining}`;
+}
+
 export const STATUS_BADGE: Record<OccurrenceStatusType, BadgeStatus> = {
     "Agendada": "agendada",
     "Em andamento": "em andamento",
@@ -188,11 +194,7 @@ export default function TeacherHome() {
                                 <View style={styles.nextClassRow}>
                                     <Clock size={16} color="rgba(255,255,255,0.7)" />
                                     <Text style={styles.nextClassMuted}>
-                                        Faltam{" "}
-                                        {getTimeUntilClass(
-                                            proximaAula.date?.split("T")[0] || "",
-                                            proximaAula.startTime || ""
-                                        )}
+                                        {classTiming(proximaAula.date?.split("T")[0] || "", proximaAula.startTime || "")}
                                     </Text>
                                 </View>
                                 <Text style={styles.nextClassMuted}>

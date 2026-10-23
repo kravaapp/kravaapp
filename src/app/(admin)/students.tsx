@@ -97,9 +97,9 @@ import {
 } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Modal from "@/components/AppModal";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Switch,
@@ -237,37 +237,33 @@ export default function AdminStudents() {
   const { removeProfessor } = useRemoveProfessor();
   const [removingTeacherId, setRemovingTeacherId] = useState<string | null>(null);
 
-  const handleDeleteTeacher = (teacher: (typeof professors)[number]) => {
-    Alert.alert(
-      "Desvincular professor",
-      `Deseja desvincular o professor "${teacher.name || teacher.email}" deste Centro de Treinamento?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Sim, desvincular",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setRemovingTeacherId(teacher.userId);
-              await removeProfessor(teacher.userId);
-              toast({ title: "Professor desvinculado com sucesso!" });
-            } catch (err) {
-              const errInfo = normalizeApiError(
-                err,
-                "Não foi possível desvincular o professor.",
-              );
-              toast({
-                title: "Não foi possível desvincular o professor",
-                description: errInfo.description,
-                variant: "destructive",
-              });
-            } finally {
-              setRemovingTeacherId(null);
-            }
-          },
-        },
-      ]
-    );
+  // Confirmações em modal: o Alert.alert com botões não funciona no app web.
+  const [teacherToRemove, setTeacherToRemove] = useState<(typeof professors)[number] | null>(null);
+  const [invitationToCancel, setInvitationToCancel] = useState<CtInvitationSummaryType | null>(null);
+
+  const handleDeleteTeacher = (teacher: (typeof professors)[number]) => setTeacherToRemove(teacher);
+
+  const confirmRemoveTeacher = async () => {
+    if (!teacherToRemove) return;
+    const teacher = teacherToRemove;
+    try {
+      setRemovingTeacherId(teacher.userId);
+      await removeProfessor(teacher.userId);
+      toast({ title: "Professor desvinculado com sucesso!" });
+      setTeacherToRemove(null);
+    } catch (err) {
+      const errInfo = normalizeApiError(
+        err,
+        "Não foi possível desvincular o professor.",
+      );
+      toast({
+        title: "Não foi possível desvincular o professor",
+        description: errInfo.description,
+        variant: "destructive",
+      });
+    } finally {
+      setRemovingTeacherId(null);
+    }
   };
   const {
     requests: joinRequests,
@@ -332,13 +328,14 @@ export default function AdminStudents() {
     );
   }, [studentInvitations, search]);
 
-  const handleCancelInvitation = async (id: string) => {
+  const handleCancelInvitation = async (id: string): Promise<boolean> => {
     setCancellingInvitationId(id);
     try {
       await cancelInvitation(id);
       toast({ title: "Convite cancelado com sucesso." });
       refetchTeacherInvitations();
       refetchStudentInvitations();
+      return true;
     } catch (err) {
       const info = normalizeApiError(err, "Não foi possível cancelar o convite.");
       toast({
@@ -346,6 +343,7 @@ export default function AdminStudents() {
         description: info.description,
         variant: "destructive",
       });
+      return false;
     } finally {
       setCancellingInvitationId(null);
     }
@@ -1074,23 +1072,7 @@ export default function AdminStudents() {
                   cancellingInvitationId === selectedInvitation?.id && styles.disabled,
                 ]}
                 onPress={() => {
-                  if (!selectedInvitation) return;
-                  const inv = selectedInvitation;
-                  Alert.alert(
-                    "Cancelar Convite",
-                    `Deseja realmente cancelar o convite enviado para "${inv.email}"?`,
-                    [
-                      { text: "Não", style: "cancel" },
-                      {
-                        text: "Sim, cancelar",
-                        style: "destructive",
-                        onPress: async () => {
-                          await handleCancelInvitation(inv.id);
-                          setSelectedInvitation(null);
-                        },
-                      },
-                    ],
-                  );
+                  if (selectedInvitation) setInvitationToCancel(selectedInvitation);
                 }}
                 disabled={
                   resendingInvitationId === selectedInvitation?.id ||
@@ -1112,6 +1094,32 @@ export default function AdminStudents() {
           </View>
         </View>
       </Modal>
+      <ConfirmModal
+        visible={!!invitationToCancel}
+        title="Cancelar convite"
+        message={`Deseja realmente cancelar o convite enviado para "${invitationToCancel?.email ?? ""}"?`}
+        confirmText="Sim, cancelar"
+        cancelText="Não"
+        variant="destructive"
+        isLoading={!!invitationToCancel && cancellingInvitationId === invitationToCancel.id}
+        onClose={() => setInvitationToCancel(null)}
+        onConfirm={async () => {
+          if (!invitationToCancel) return;
+          const cancelled = await handleCancelInvitation(invitationToCancel.id);
+          setInvitationToCancel(null);
+          if (cancelled) setSelectedInvitation(null);
+        }}
+      />
+      <ConfirmModal
+        visible={!!teacherToRemove}
+        title="Desvincular professor"
+        message={`Deseja desvincular o professor "${teacherToRemove?.name || teacherToRemove?.email || ""}" deste Centro de Treinamento?`}
+        confirmText="Sim, desvincular"
+        variant="destructive"
+        isLoading={!!teacherToRemove && removingTeacherId === teacherToRemove.userId}
+        onClose={() => setTeacherToRemove(null)}
+        onConfirm={confirmRemoveTeacher}
+      />
     </SafeAreaView>
   );
 }
@@ -1564,36 +1572,32 @@ function StudentModal({
     }
   };
 
+  // Confirmação em modal: o Alert.alert com botões não funciona no app web.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
   const handleDeleteAluno = () => {
     if (!id || !aluno) return;
-    Alert.alert(
-      "Desvincular aluno do CT",
-      `Tem certeza que deseja desvincular ${aluno.userName || "este aluno"} do CT?\n\nIsso cancelará o contrato ativo e assinaturas recorrentes associadas, além de liberar reservas futuras.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Sim, desvincular",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteAluno(id);
-              toast({ title: "Aluno desvinculado com sucesso." });
-              onClose();
-            } catch (error) {
-              const errInfo = normalizeApiError(
-                error,
-                "Não foi possível desvincular o aluno.",
-              );
-              toast({
-                title: "Não foi possível desvincular o aluno",
-                description: errInfo.description,
-                variant: "destructive",
-              });
-            }
-          },
-        },
-      ],
-    );
+    setConfirmingDelete(true);
+  };
+
+  const confirmDeleteAluno = async () => {
+    if (!id) return;
+    try {
+      await deleteAluno(id);
+      toast({ title: "Aluno desvinculado com sucesso." });
+      setConfirmingDelete(false);
+      onClose();
+    } catch (error) {
+      const errInfo = normalizeApiError(
+        error,
+        "Não foi possível desvincular o aluno.",
+      );
+      toast({
+        title: "Não foi possível desvincular o aluno",
+        description: errInfo.description,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -2255,6 +2259,16 @@ function StudentModal({
         onClose={() => openRefund(null)}
         onConfirm={handleRefundInvoice}
         isRefunding={isRefunding}
+      />
+      <ConfirmModal
+        visible={confirmingDelete}
+        title="Desvincular aluno do CT"
+        message={`Tem certeza que deseja desvincular ${aluno?.userName || "este aluno"} do CT?\n\nIsso cancelará o contrato ativo e assinaturas recorrentes associadas, além de liberar reservas futuras.`}
+        confirmText="Sim, desvincular"
+        variant="destructive"
+        isLoading={isDeleting}
+        onClose={() => setConfirmingDelete(false)}
+        onConfirm={confirmDeleteAluno}
       />
     </Modal>
   );

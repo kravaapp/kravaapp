@@ -108,6 +108,11 @@ export type AttendanceStudentType = {
   avulsoPending: boolean;
 }
 
+/** Resposta da falta: quem da lista de espera entrou na vaga (null quando ninguém entrou). */
+export type MarkAbsentResultType = {
+  promotedStudentName: string | null;
+};
+
 export type AttendanceType = {
   presentCount: number;
   absentCount: number;

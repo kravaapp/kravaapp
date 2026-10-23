@@ -1,5 +1,5 @@
 import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { AttendanceType, AulaType, BookingOptionsType, CreateAulaType, MyMonthlyScheduleType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType, UpdateAulaType } from "@/types/schedules.types";
+import { AttendanceType, AulaType, BookingOptionsType, CreateAulaType, MarkAbsentResultType, MyMonthlyScheduleType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType, UpdateAulaType } from "@/types/schedules.types";
 import api from "./client";
 
 export class ScheduleRoutes {
@@ -94,13 +94,16 @@ export class ScheduleRoutes {
         }).json<AttendanceType>();
     }
 
-    /** Endpoints sem corpo de resposta — a Response não é parseada. */
+    /** Sem corpo de resposta — a Response não é parseada. */
     async markPresent(bookingId: string) {
         await api.patch(`/scheduling/bookings/${bookingId}/mark-present`);
     }
 
-    async markAbsent(bookingId: string) {
-        await api.patch(`/scheduling/bookings/${bookingId}/mark-absent`);
+    /** Devolve quem da lista de espera entrou na vaga (a API antiga respondia sem corpo). */
+    async markAbsent(bookingId: string): Promise<MarkAbsentResultType> {
+        const response = await api.patch(`/scheduling/bookings/${bookingId}/mark-absent`);
+        const body = await response.text();
+        return body ? (JSON.parse(body) as MarkAbsentResultType) : { promotedStudentName: null };
     }
 
     async closeOcorrencia(ocorrenciaId: string) {
