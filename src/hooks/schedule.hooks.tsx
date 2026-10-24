@@ -368,6 +368,32 @@ export function useAddStudentToOcorrencia() {
 }
 
 /** Encerra a aula (marca faltas dos pendentes no servidor). */
+export function useOcorrenciaTeacher(ocorrenciaId?: string) {
+    const query = useQuery({
+        queryKey: ["ocorrencia-teacher", ocorrenciaId],
+        queryFn: () => new ScheduleRoutes().getOcorrenciaTeacher(ocorrenciaId!),
+        enabled: !!ocorrenciaId,
+    });
+
+    return { teacher: query.data ?? null, isLoading: query.isLoading };
+}
+
+export function useSetOcorrenciaSubstitute() {
+    const queryClient = useQueryClient();
+
+    const mutation = useMutation({
+        mutationFn: ({ ocorrenciaId, professorId }: { ocorrenciaId: string; professorId: string | null }) =>
+            new ScheduleRoutes().setOcorrenciaSubstitute(ocorrenciaId, professorId),
+        onSuccess: (teacher, { ocorrenciaId }) => {
+            queryClient.setQueryData(["ocorrencia-teacher", ocorrenciaId], teacher);
+            queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+            queryClient.invalidateQueries({ queryKey: ["schedule"] });
+        },
+    });
+
+    return { setSubstitute: mutation.mutateAsync, isLoading: mutation.isPending };
+}
+
 export function useCloseOcorrencia() {
     const queryClient = useQueryClient();
 

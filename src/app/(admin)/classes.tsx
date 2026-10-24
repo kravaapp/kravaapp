@@ -24,7 +24,10 @@ import {
   useCreateAula,
   useDeleteAula,
   useMarkAttendance,
+  useOcorrenciaTeacher,
+  useProfessors,
   useSchedule,
+  useSetOcorrenciaSubstitute,
   useTodayOccurrences,
   useUpdateAula,
 } from "@/hooks/schedule.hooks";
@@ -1326,6 +1329,21 @@ function ClassModal({
   const [savingBookingId, setSavingBookingId] = useState<string | null>(null);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const { teacher } = useOcorrenciaTeacher(item?.id);
+  const { professors } = useProfessors();
+  const { setSubstitute, isLoading: isSavingSubstitute } = useSetOcorrenciaSubstitute();
+
+  // Titular primeiro, marcado; quem não está mais na lista de professores continua aparecendo.
+  const teacherOptions = useMemo(() => {
+    if (!teacher) return [];
+    const others = professors
+      .filter((p) => p.userId !== teacher.professorId)
+      .map((p) => ({ id: p.userId, label: p.name || p.email || "Professor" }));
+    if (teacher.substituteId && !others.some((o) => o.id === teacher.substituteId)) {
+      others.push({ id: teacher.substituteId, label: teacher.substituteName || "Substituto" });
+    }
+    return [{ id: teacher.professorId, label: `${teacher.professorName} (titular)` }, ...others];
+  }, [teacher, professors]);
 
   const rawConfirmed = confirmedData?.lista ?? [];
   const confirmedStudents = useMemo(() => {
@@ -1401,6 +1419,29 @@ function ClassModal({
     }
   };
 
+  const handleChooseTeacher = async (professorId: string) => {
+    if (!teacher || isSavingSubstitute) return;
+    if (professorId === (teacher.substituteId ?? teacher.professorId)) return;
+    const backToTitular = professorId === teacher.professorId;
+    try {
+      const updated = await setSubstitute({
+        ocorrenciaId: item.id,
+        professorId: backToTitular ? null : professorId,
+      });
+      toast({
+        title: backToTitular
+          ? `A aula voltou para ${updated.professorName}.`
+          : `${updated.substituteName} vai cobrir esta aula.`,
+        description: backToTitular ? undefined : "Avisamos no app; a chamada fica com quem cobre.",
+      });
+    } catch (err: any) {
+      toast({
+        title: err?.data?.detail || err?.message || "Não foi possível trocar o professor.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleCancelAction = async () => {
     try {
       await cancelOcorrencia({ ocorrenciaId: item.id, reason: cancelReason });
@@ -1437,7 +1478,7 @@ function ClassModal({
             <View style={styles.grow}>
               <Text style={styles.modalHeaderTitle}>{modTitle}</Text>
               <Text style={styles.modalHeaderSubtitle}>
-                {item.professorName} · {item.startTime?.slice(0, 5)} -{" "}
+                {teacher?.substituteName ?? teacher?.professorName ?? item.professorName} · {item.startTime?.slice(0, 5)} -{" "}
                 {item.endTime?.slice(0, 5)}
               </Text>
             </View>
@@ -1465,6 +1506,23 @@ function ClassModal({
               <Text style={styles.kpiBoxValue}>{item.waitlistCount}</Text>
             </View>
           </View>
+
+          {/* Professor do dia: troca só esta aula (substituto), sem mexer na grade */}
+          {!isClassClosed && teacherOptions.length > 0 && teacher && (
+            <View style={styles.substituteSection}>
+              <OptionField
+                label="Professor do dia"
+                options={teacherOptions}
+                value={teacher.substituteId ?? teacher.professorId}
+                onChange={handleChooseTeacher}
+              />
+              <Text style={styles.muted}>
+                {isSavingSubstitute
+                  ? "Salvando..."
+                  : "Vale só para esta aula. Quem cobrir recebe o aviso e faz a chamada."}
+              </Text>
+            </View>
+          )}
 
           {/* Tabs: Confirmados / Espera */}
           <View style={styles.segment}>
@@ -1972,6 +2030,10 @@ const styles = StyleSheet.create({
     color: "#D97706",
     fontSize: 10,
     fontWeight: "800",
+  },
+  substituteSection: {
+    gap: 6,
+    marginBottom: 16,
   },
   occurrenceProfessor: {
     fontSize: 12,

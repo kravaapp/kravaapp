@@ -1,5 +1,5 @@
 import { CreateScheduleRequestSchema, GetAttendanceRequestSchema, GetBookingUserHistoryRequestSchema, GetMyMonthlyScheduleRequestSchema, ScheduleRequestSchema } from "@/schemas/schedule.schemas";
-import { AttendanceType, AulaType, BookingOptionsType, CreateAulaType, MarkAbsentResultType, MyMonthlyScheduleType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType, UpdateAulaType } from "@/types/schedules.types";
+import { AttendanceType, AulaType, BookingOptionsType, CreateAulaType, MarkAbsentResultType, MyMonthlyScheduleType, OcorrenciaTeacherType, PaginatedAulas, PaginatedBookingUserHistory, PaginatedModalidades, PaginatedSchedule, ProfessorType, ScheduleType, TodayOccurrenceType, UpdateAulaType } from "@/types/schedules.types";
 import api from "./client";
 
 export class ScheduleRoutes {
@@ -111,6 +111,17 @@ export class ScheduleRoutes {
         return await api.post(`/scheduling/ocorrencias/${ocorrenciaId}/students`, {
             json: { alunoId: alunoUserId },
         }).json<string>();
+    }
+
+    async getOcorrenciaTeacher(ocorrenciaId: string) {
+        return await api.get(`/scheduling/ocorrencias/${ocorrenciaId}/teacher`).json<OcorrenciaTeacherType>();
+    }
+
+    /** Admin escolhe quem cobre a aula só neste dia; null devolve a aula ao titular. */
+    async setOcorrenciaSubstitute(ocorrenciaId: string, professorId: string | null) {
+        return await api.put(`/scheduling/ocorrencias/${ocorrenciaId}/substitute`, {
+            json: { professorId },
+        }).json<OcorrenciaTeacherType>();
     }
 
     async closeOcorrencia(ocorrenciaId: string) {

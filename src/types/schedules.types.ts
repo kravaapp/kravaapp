@@ -109,6 +109,14 @@ export type AttendanceStudentType = {
 }
 
 /** Resposta da falta: quem da lista de espera entrou na vaga (null quando ninguém entrou). */
+/** Quem dá a aula no dia: o titular e, se houver, quem cobre só esta aula. */
+export type OcorrenciaTeacherType = {
+  professorId: string;
+  professorName: string;
+  substituteId: string | null;
+  substituteName: string | null;
+};
+
 export type MarkAbsentResultType = {
   promotedStudentName: string | null;
 };
