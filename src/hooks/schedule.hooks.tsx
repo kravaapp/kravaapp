@@ -346,6 +346,27 @@ export function useMarkAttendance() {
     };
 }
 
+/** Professor coloca na aula um aluno do CT que chegou sem reserva (entra na chamada como pendente). */
+export function useAddStudentToOcorrencia() {
+    const queryClient = useQueryClient();
+
+    const mutation = useMutation({
+        mutationFn: async ({ ocorrenciaId, alunoUserId }: { ocorrenciaId: string; alunoUserId: string }) => {
+            const scheduleRoutes = new ScheduleRoutes();
+            return await scheduleRoutes.addStudentToOcorrencia(ocorrenciaId, alunoUserId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["attendance"] });
+            queryClient.invalidateQueries({ queryKey: ["today-occurrences"] });
+        },
+    });
+
+    return {
+        addStudent: mutation.mutateAsync,
+        isLoading: mutation.isPending,
+    };
+}
+
 /** Encerra a aula (marca faltas dos pendentes no servidor). */
 export function useCloseOcorrencia() {
     const queryClient = useQueryClient();

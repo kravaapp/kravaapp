@@ -18,11 +18,12 @@ import ClientHeader, { COLORS, getInitials } from "@/components/ClientHeader";
 import { Progress } from "@/components/Progress";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useToast } from "@/components/Toast";
-import { alunos } from "@/data/mockData";
+import { useAlunos } from "@/hooks/alunos.hooks";
 import { maskPhone } from "@/utils/masks";
 import { consumePendingOcorrenciaId } from "@/hooks/attendanceSelection";
 import { useFocusEffect } from "expo-router";
 import {
+    useAddStudentToOcorrencia,
     useAttendance,
     useCancelOcorrencia,
     useCloseOcorrencia,
@@ -48,11 +49,10 @@ const TAB_STATUS: Record<TabKey, AttendanceFilterStatusType> = {
 };
 
 /**
- * Alunos adicionados pela aba "Adicionar" ainda não têm booking no servidor,
+ * Visitantes experimentais adicionados pela aba "Adicionar" ainda não têm registro no servidor,
  * então a presença deles fica só no estado local.
  */
-const isLocalBooking = (bookingId: string) =>
-    bookingId.startsWith("exp-") || bookingId.startsWith("local-");
+const isLocalBooking = (bookingId: string) => bookingId.startsWith("exp-");
 
 const LEVEL_VARIANT: Record<string, BadgeVariant> = {
     iniciante: "success",
@@ -184,6 +184,8 @@ export default function AulaAoVivo() {
     const { markAttendance } = useMarkAttendance();
     const { closeOcorrencia, isLoading: isEncerrando } = useCloseOcorrencia();
     const { cancelOcorrencia, isLoading: isCancelando } = useCancelOcorrencia();
+    const { addStudent } = useAddStudentToOcorrencia();
+    const [adicionandoAluno, setAdicionandoAluno] = useState<string | null>(null);
 
     const [presencaOverrides, setPresencaOverrides] = useState<
         Record<string, AttendanceStudentStatusType>
@@ -358,12 +360,34 @@ export default function AulaAoVivo() {
         setExpTel("");
     };
 
-    const searchResults =
-        searchAdd.length >= 2
-            ? alunos.filter((a) => a.nome.toLowerCase().includes(searchAdd.toLowerCase()))
-            : [];
+    // Alunos do CT com plano ativo, buscados no servidor a partir de 2 letras.
+    const buscaAluno = searchAdd.trim();
+    const { alunos: alunosEncontrados } = useAlunos(
+        { search: buscaAluno, page: 1, pageSize: 20 },
+        { enabled: buscaAluno.length >= 2 },
+    );
+    const searchResults = buscaAluno.length >= 2 ? alunosEncontrados?.items ?? [] : [];
 
-    const nomesNaChamada = new Set(chamadaLista.map((c) => c.studentName));
+    // studentId da chamada é o id do usuário, o mesmo userId da lista de alunos.
+    const alunosNaAula = new Set(lista.map((c) => c.studentId));
+
+    const adicionarAluno = async (alunoUserId: string, nome: string) => {
+        if (!ocorrenciaId || adicionandoAluno) return;
+        setAdicionandoAluno(alunoUserId);
+        try {
+            await addStudent({ ocorrenciaId, alunoUserId });
+            setSearchAdd("");
+            toast({ title: `${nome} adicionado à aula ✓`, description: "Marque a presença na chamada." });
+        } catch (err) {
+            toast({
+                title: `Não foi possível adicionar ${nome}`,
+                description: (err as any)?.data?.detail || (err as Error)?.message || "Tente novamente.",
+                variant: "destructive",
+            });
+        } finally {
+            setAdicionandoAluno(null);
+        }
+    };
     const expDisabled = !expNome.trim() || !expTel.trim() || !aulaAberta;
 
     const renderListState = (emptyMessage: string) => {
@@ -685,42 +709,33 @@ export default function AulaAoVivo() {
                         {searchResults.length > 0 && (
                             <View style={{ gap: 4, marginBottom: 16 }}>
                                 {searchResults.map((a) => {
-                                    const jaNaAula = nomesNaChamada.has(a.nome);
+                                    const nome = a.userName || a.userEmail || "Aluno";
+                                    const jaNaAula = alunosNaAula.has(a.userId);
+                                    const adicionando = adicionandoAluno === a.userId;
 
                                     return (
                                         <View key={a.id} style={styles.card}>
                                             <View style={styles.alunoInfo}>
-                                                <Avatar nome={a.nome} size={32} />
-                                                <Text style={styles.searchName}>{a.nome}</Text>
+                                                <Avatar nome={nome} size={32} />
+                                                <Text style={styles.searchName}>{nome}</Text>
                                             </View>
                                             {jaNaAula ? (
                                                 <Text style={styles.mutedSmall}>(já confirmado)</Text>
                                             ) : (
                                                 <TouchableOpacity
-                                                    style={[styles.smallButton, styles.solidButton, !aulaAberta && styles.buttonDisabled]}
+                                                    style={[
+                                                        styles.smallButton,
+                                                        styles.solidButton,
+                                                        (!aulaAberta || !!adicionandoAluno) && styles.buttonDisabled,
+                                                    ]}
                                                     activeOpacity={0.8}
-                                                    disabled={!aulaAberta}
-                                                    onPress={() => {
-                                                        setExtras((prev) => [
-                                                            ...prev,
-                                                            {
-                                                                bookingId: `local-${a.id}`,
-                                                                studentId: a.id,
-                                                                studentName: a.nome,
-                                                                photoUrl: null,
-                                                                isExperimental: false,
-                                                                status: "Pending",
-                                                                level: a.nivel,
-                                                                paymentMethod: a.tipo,
-                                                                avulsoPending: false,
-                                                            },
-                                                        ]);
-                                                        setSearchAdd("");
-                                                        toast({ title: `${a.nome} adicionado à aula ✓` });
-                                                    }}
+                                                    disabled={!aulaAberta || !!adicionandoAluno}
+                                                    onPress={() => adicionarAluno(a.userId, nome)}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Adicionar ${nome} à aula`}
                                                 >
                                                     <Text style={styles.solidButtonText}>
-                                                        Adicionar à aula
+                                                        {adicionando ? "Adicionando..." : "Adicionar à aula"}
                                                     </Text>
                                                 </TouchableOpacity>
                                             )}

@@ -3,13 +3,14 @@ import { GetAlunosRequestSchema } from "@/schemas/alunos.schemas";
 import { CreateAlunoType, UpdateAlunoMeType, UpdateAlunoPaymentMethodsType, UpdateAlunoType } from "@/types/alunos.types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-export function useAlunos(params: GetAlunosRequestSchema) {
+export function useAlunos(params: GetAlunosRequestSchema, { enabled = true }: { enabled?: boolean } = {}) {
     const query = useQuery({
         queryKey: ["alunos", params],
         queryFn: async () => {
             const alunosRoutes = new AlunosRoutes();
             return await alunosRoutes.getAlunos(params);
         },
+        enabled,
     });
 
     return {

@@ -106,6 +106,13 @@ export class ScheduleRoutes {
         return body ? (JSON.parse(body) as MarkAbsentResultType) : { promotedStudentName: null };
     }
 
+    /** Professor coloca na aula um aluno do CT que chegou sem reserva; devolve o id da reserva. */
+    async addStudentToOcorrencia(ocorrenciaId: string, alunoUserId: string): Promise<string> {
+        return await api.post(`/scheduling/ocorrencias/${ocorrenciaId}/students`, {
+            json: { alunoId: alunoUserId },
+        }).json<string>();
+    }
+
     async closeOcorrencia(ocorrenciaId: string) {
         await api.post(`/scheduling/ocorrencias/${ocorrenciaId}/close`);
     }
