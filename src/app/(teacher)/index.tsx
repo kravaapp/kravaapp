@@ -67,17 +67,15 @@ const SummaryCard = ({
 
 const AulaItem = ({
     aula,
-    isMinhaAula,
     onOpenAttendance,
 }: {
     aula: TodayOccurrenceType;
-    isMinhaAula: boolean;
     onOpenAttendance: () => void;
 }) => (
-    <View style={[styles.card, styles.aulaCard, !isMinhaAula && styles.aulaCardMuted]}>
+    <View style={[styles.card, styles.aulaCard]}>
         <View style={styles.aulaInfo}>
             <View style={styles.aulaTimeColumn}>
-                <Text style={[styles.aulaTime, !isMinhaAula && styles.mutedText]}>
+                <Text style={styles.aulaTime}>
                     {aula.startTime.substring(0, 5)}
                 </Text>
                 <Text style={styles.aulaSigla}>{getModalidadeSigla(aula.modalidadeName)}</Text>
@@ -87,17 +85,14 @@ const AulaItem = ({
                     {aula.aulaName || aula.modalidadeName}
                 </Text>
                 <Text style={styles.aulaSubtitle} numberOfLines={1}>
-                    {isMinhaAula
-                        ? `${aula.confirmedCount}/${aula.maxCapacity} confirmados`
-                        : `Prof. ${aula.professorName}`}
+                    {`${aula.confirmedCount}/${aula.maxCapacity} confirmados`}
                 </Text>
             </View>
         </View>
 
         <View style={styles.aulaActions}>
             <StatusBadge status={STATUS_BADGE[aula.status]} />
-            {isMinhaAula &&
-                (aula.status === "Agendada" || aula.status === "Em andamento") && (
+            {(aula.status === "Agendada" || aula.status === "Em andamento") && (
                 <TouchableOpacity
                     style={[
                         styles.smallButton,
@@ -144,8 +139,8 @@ export default function TeacherHome() {
 
     const isLoading = isLoadingOccurrences || isLoadingDashboard;
 
+    // A API já devolve só as aulas do professor (titular ou substituto do dia).
     const ocorrencias = todayOccurrences || [];
-    const isMinhaAula = (aula: TodayOccurrenceType) => aula.professorName === user?.userName;
 
     const totalAulasHoje = teacherDashboard?.todayClassesCount ?? 0;
     const totalAlunosHoje = teacherDashboard?.todayStudentsCount ?? 0;
@@ -269,7 +264,6 @@ export default function TeacherHome() {
                                         <AulaItem
                                             key={aula.id}
                                             aula={aula}
-                                            isMinhaAula={isMinhaAula(aula)}
                                             onOpenAttendance={() => handleOpenAttendance(aula.id)}
                                         />
                                     ))}
@@ -432,9 +426,6 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-    },
-    aulaCardMuted: {
-        opacity: 0.5,
     },
     aulaInfo: {
         flexDirection: "row",
