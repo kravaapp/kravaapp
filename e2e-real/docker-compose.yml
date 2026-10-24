@@ -1,0 +1,66 @@
+# Stack descartável do E2E de ponta a ponta. Nada aqui fala com produção.
+# O banco roda em memória (tmpfs): cada `up` começa vazio e o run-e2e aplica as migrations do Krava.
+name: krava-e2e
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: krava-e2e-postgres
+    environment:
+      POSTGRES_USER: krava
+      POSTGRES_PASSWORD: krava_e2e
+      POSTGRES_DB: krava
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U krava -d krava"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    container_name: krava-e2e-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  rabbitmq:
+    image: rabbitmq:3.13-alpine
+    container_name: krava-e2e-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    # rabbitmq-diagnostics roda como root e cria o .erlang.cookie antes do servidor, que então não o lê.
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 5672"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  api:
+    build:
+      context: ../../Krava
+      dockerfile: Dockerfile
+    container_name: krava-e2e-api
+    ports:
+      - "8090:8080"
+    environment:
+      # Production, como na VPS: em Development as minimal APIs lançam exceção (500) onde prod responde 400.
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__Krava=Host=postgres;Port=5432;Database=krava;Username=krava;Password=krava_e2e;Include Error Detail=true
+      - ConnectionStrings__Redis=redis:6379
+      - ConnectionStrings__RabbitMq=amqp://guest:guest@rabbitmq:5672
+    # O Program.cs carrega appsettings.prod.local.json por cima das variáveis de ambiente, e o build copia
+    # esse arquivo (com o banco de produção) para a imagem. Aqui ele é trocado por um JSON vazio.
+    volumes:
+      - ./appsettings.neutral.json:/app/appsettings.prod.local.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
